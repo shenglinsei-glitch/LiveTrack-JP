@@ -7,7 +7,7 @@ export default defineConfig(({ mode }) => {
     
     return {
         // 1. 设置基础路径：替换为你的新 GitHub 仓库名，例如 '/livetrack-jp/'
-        base: '/livetrack-jp/', 
+        base: '/LiveTrack-JP/', 
 
         server: {
             port: 3000,
