@@ -329,12 +329,10 @@ const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url
   const handleConfirmConcert = (artistId: string) => {
     const artist = artists.find(a => String(a.id) === String(artistId));
     if (!artist) return;
-
     const newConcert: Concert = {
       id: Date.now().toString(),
       name: '',
-      // 核心修改：这里必须用 imageUrl，并设为空字符串，防止系统调用默认大图
-      imageUrl: '', 
+      imageUrl: '', // 👈 这里一定要叫 imageUrl
       performances: [{
         id: (Date.now() + 1).toString(),
         date: '',
@@ -343,14 +341,12 @@ const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url
         venue: ''
       }]
     };
-
     const updatedArtist: Artist = {
       ...artist,
       stage: MonitoringStage.MONITORING_TICKETS,
       hasUpdate: false,
       concerts: [...artist.concerts, newConcert]
     };
-
     setArtists(artists.map(a => String(a.id) === String(artistId) ? updatedArtist : a));
     setSelectedArtistId(String(artistId));
     startEditing(updatedArtist);
@@ -360,8 +356,7 @@ const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url
     const newArtist: Artist = {
       id: Date.now().toString(),
       name: '新規アーティスト',
-      // 核心修改：使用正确的字段名 avatar，并设为空字符串
-      avatar: '', 
+      avatar: '', // 👈 这里一定要叫 avatar，手机才不会爆满
       websiteUrls: [{ name: '', url: '' }],
       isAutoMonitoring: false,
       monitoringInterval: 7,
