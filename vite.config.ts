@@ -1,11 +1,11 @@
 import path from 'path';
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig, loadEnv } from 'vite'; // 👈 报错就是因为缺了这里的 defineConfig
 import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
-      // 1. 确保相对路径，防止 GitHub Pages 路径错误
+      // 使用相对路径，这样无论你的 GitHub 仓库叫什么名字都能跑通
       base: './', 
 
       server: {
@@ -13,7 +13,6 @@ export default defineConfig(({ mode }) => {
         host: '0.0.0.0',
       },
 
-      // 2. 关键：强制输出到 docs 文件夹
       build: {
         outDir: 'docs',
         emptyOutDir: true,
