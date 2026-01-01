@@ -88,9 +88,7 @@ export const getArtistStatus = (artist: Artist, now: Date) => {
 };
 
 const App: React.FC = () => {
-  window.alert("当前运行的是 Main 分支新代码");
-  
-  const [artists, setArtists] = useState<Artist[]>(() => {
+    const [artists, setArtists] = useState<Artist[]>(() => {
     const saved = localStorage.getItem('live-track-jp-artists');
     if (!saved) return [];
     try {

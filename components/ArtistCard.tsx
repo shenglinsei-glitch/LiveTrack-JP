@@ -2,7 +2,12 @@ import React from 'react';
 import { Artist, ConcertStatus, Performance, HomeViewMode } from '../types';
 import { getArtistStatus, isAutoSkipped } from '../App';
 
-const isValidDate = (d?: string) => !!d && !isNaN(new Date(d).getTime());
+// 优化日期校验，增加对空值的判断
+const isValidDate = (d?: string) => {
+  if (!d) return false;
+  const time = new Date(d).getTime();
+  return !isNaN(time);
+};
 
 interface ArtistCardProps {
   artist: Artist;
@@ -13,14 +18,18 @@ interface ArtistCardProps {
 }
 
 export const ArtistCard: React.FC<ArtistCardProps> = ({ artist, now, onClick, onConcertClick, viewMode }) => {
+  // 增加安全防护：如果 artist 不存在，直接返回空
+  if (!artist) return null;
+
   const statusInfo = getArtistStatus(artist, now);
 
-  const allPerformancesWithConcert = artist.concerts.flatMap(c => 
-    c.performances.map(p => ({ ...p, concertId: c.id, concertName: c.name }))
+  // 增加安全防护：确保 concerts 存在
+  const allPerformancesWithConcert = (artist.concerts || []).flatMap(c => 
+    (c.performances || []).map(p => ({ ...p, concertId: c.id, concertName: c.name }))
   );
   
   const relevantPerformances = allPerformancesWithConcert.filter(p => {
-    const isPast = !p.isUndetermined && isValidDate(p.date) && new Date(p.date) < now;
+    const isPast = !p.isUndetermined && isValidDate(p.date) && new Date(p.date!) < now;
     
     if (viewMode === HomeViewMode.REGULAR) return false;
 
@@ -52,7 +61,6 @@ export const ArtistCard: React.FC<ArtistCardProps> = ({ artist, now, onClick, on
                 }}
                 className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md"
               />
-              {/* 这里修复了之前的结构错误 */}
               {isHighlighted && (
                 <span className="absolute -top-1 -right-1 flex h-4 w-4">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#53BEE8]/50 opacity-75"></span>
@@ -61,11 +69,11 @@ export const ArtistCard: React.FC<ArtistCardProps> = ({ artist, now, onClick, on
               )}
             </div>
             <div className="min-w-0">
-              <h3 className={`text-xl font-black text-gray-900 transition-colors truncate ${isHighlighted ? 'text-[#53BEE8]' : 'group-hover:text-[#53BEE8]'}`}>{artist.name}</h3>
+              <h3 className={`text-xl font-black text-gray-900 transition-colors truncate ${isHighlighted ? 'text-[#53BEE8]' : 'group-hover:text-[#53BEE8]'}`}>{artist.name || 'Unknown'}</h3>
               <div className="flex flex-col mt-1 space-y-0.5">
                 <div className="flex items-center space-x-2">
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${statusInfo.color}`} />
-                  <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-widest font-black truncate">{statusInfo.label}</p>
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${statusInfo?.color || 'bg-gray-200'}`} />
+                  <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-widest font-black truncate">{statusInfo?.label || 'UNKNOWN'}</p>
                 </div>
               </div>
             </div>
@@ -85,7 +93,7 @@ export const ArtistCard: React.FC<ArtistCardProps> = ({ artist, now, onClick, on
           </div>
           <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
             {relevantPerformances.map((perf) => {
-              const isPast = !perf.isUndetermined && isValidDate(perf.date) && new Date(perf.date) < now;
+              const isPast = !perf.isUndetermined && isValidDate(perf.date) && new Date(perf.date!) < now;
               const isJoined = perf.status === ConcertStatus.JOINED;
               
               return (
@@ -98,15 +106,10 @@ export const ArtistCard: React.FC<ArtistCardProps> = ({ artist, now, onClick, on
                     <span className="text-xs font-black text-gray-900 truncate">{perf.concertName}</span>
                     <div className="flex flex-col gap-0.5 mt-0.5">
                       <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                        {perf.isUndetermined ? '日程未定' : new Date(perf.date).toLocaleDateString()}
+                        {perf.isUndetermined || !isValidDate(perf.date) ? '日程未定' : new Date(perf.date!).toLocaleDateString()}
                       </span>
                       {perf.venue && (
                         <span className="text-[9px] text-[#53BEE8] font-bold truncate">@ {perf.venue}</span>
-                      )}
-                      {perf.status === ConcertStatus.PENDING && perf.lotteryResultDate && (
-                        <span className="text-[9px] text-amber-600 font-bold mt-0.5">
-                          発表: {new Date(perf.lotteryResultDate).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        </span>
                       )}
                     </div>
                   </div>
