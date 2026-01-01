@@ -1,0 +1,7 @@
+{
+  "name": "LiveTrack JP",
+  "description": "A personal concert tracker for Japanese artists with smart status monitoring and ticket lifecycle management.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
