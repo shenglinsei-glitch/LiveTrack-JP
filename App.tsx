@@ -11,9 +11,37 @@ const CURRENT_SCHEMA_VERSION = 1;
 
 const isValidDate = (d?: string) => !!d && !isNaN(new Date(d).getTime());
 
+const compressImage = (base64Str: string, maxWidth: number, quality = 0.7): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(base64Str);
+        return;
+      }
+
+      let width = img.width;
+      let height = img.height;
+
+      if (width > maxWidth) {
+        height = (maxWidth / width) * height;
+        width = maxWidth;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+      // 关键修复：补全了 quality 参数和闭合括号
+      resolve(canvas.toDataURL('image/jpeg', quality)); 
+    };
+    img.onerror = () => resolve(base64Str);
+  });
+};
 /**
  * Helper to determine if a performance is effectively "Skipped" 
- * because its date has passed and it was still in "Pending" status.
  */
 export const isAutoSkipped = (perf: Performance, now: Date) => {
   if (perf.status !== ConcertStatus.PENDING) return false;
@@ -134,21 +162,20 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+  try {
     localStorage.setItem('live-track-jp-artists', JSON.stringify(artists));
     localStorage.setItem('live-track-jp-settings', JSON.stringify(settings));
-  }, [artists, settings]);
-
-  const sortedArtists = useMemo(() => {
-    if (settings.sortMode === SortMode.ALPHABETICAL) {
-      return [...artists].sort((a, b) => a.name.localeCompare(b.name, 'ja-JP'));
+  } catch (e: any) {
+    if (e.name === 'QuotaExceededError') {
+      // 这样用户在屏幕上就能直接看到红色报错，而不是只在控制台
+      alert("本地存储空间已满！请尝试更换较小的图片或删除部分不需要的数据。");
     }
-    return artists;
-  }, [artists, settings.sortMode]);
+  }
+}, [artists, settings]);
 
-  const selectedArtist = useMemo(() => 
-    artists.find(a => String(a.id) === String(selectedArtistId)), 
-    [artists, selectedArtistId]
-  );
+  const selectedArtist = useMemo(() => {
+    return artists.find(a => String(a.id) === String(selectedArtistId)) || null;
+  }, [artists, selectedArtistId]);
 
   const selectedConcert = useMemo(() => {
     if (!selectedArtist || !selectedConcertId) return null;
@@ -196,14 +223,19 @@ const App: React.FC = () => {
     setCurrentPage('CONCERT_SUMMARY');
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => callback(event.target?.result as string);
-      reader.readAsDataURL(file);
-    }
-  };
+const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void, maxWidth: number) => {
+  const file = e.target.files?.[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const base64 = event.target?.result as string;
+      // 修复：在这里调用压缩
+      const compressed = await compressImage(base64, maxWidth);
+      callback(compressed);
+    };
+    reader.readAsDataURL(file);
+  }
+};
 
   const imageUrlToBase64 = async (url: string): Promise<string> => {
     const img = new Image();
@@ -225,24 +257,22 @@ const App: React.FC = () => {
     return canvas.toDataURL('image/png');
   };
 
-  const handleUrlAvatarLoad = async () => {
-    if (!avatarUrlInput.trim()) return;
-    setIsUrlLoading(true);
-    try {
-      const dataUrl = await imageUrlToBase64(avatarUrlInput);
-      if (editArtist) {
-        setEditArtist({ ...editArtist, avatar: dataUrl });
-        setAvatarUrlInput('');
-      }
-    } catch (err) {
-      console.warn("CORS or loading error. Storing direct URL as fallback.", err);
-      if (editArtist) {
-        setEditArtist({ ...editArtist, avatar: avatarUrlInput });
-      }
-    } finally {
-      setIsUrlLoading(false);
+ const handleUrlAvatarLoad = async () => {
+  if (!avatarUrlInput.trim()) return;
+  setIsUrlLoading(true);
+  try {
+    const dataUrl = await imageUrlToBase64(avatarUrlInput);
+    const compressed = await compressImage(dataUrl, 200); // 头像限制200px
+    if (editArtist) {
+      setEditArtist({ ...editArtist, avatar: compressed });
+      setAvatarUrlInput('');
     }
-  };
+  } catch (err) {
+    if (editArtist) setEditArtist({ ...editArtist, avatar: avatarUrlInput });
+  } finally {
+    setIsUrlLoading(false);
+  }
+};
 
   const handleConcertUrlLoad = async (concertId: string) => {
     const url = concertUrlInputs[concertId];
@@ -592,7 +622,15 @@ const App: React.FC = () => {
     setShowConflictModal(false);
   };
 
-  const renderHome = () => (
+  const renderHome = () => {
+    const sortedArtists = useMemo(() => {
+      if (settings.sortMode === SortMode.ALPHABETICAL) {
+        return [...artists].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+      }
+      return artists;
+    }, [artists, settings.sortMode]);
+
+    return (
     <div className="max-w-6xl mx-auto min-h-screen pb-36">
       <header className="px-6 pt-10 md:pt-16 flex justify-between items-end mb-10">
         <div>
@@ -690,7 +728,13 @@ const App: React.FC = () => {
             </div>
           )}
           <div className="flex flex-col items-center mb-8">
-            <img src={selectedArtist.avatar || `https://picsum.photos/seed/${selectedArtist.id}/200`} className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white shadow-lg object-cover mb-4" />
+            <img 
+  src={selectedArtist.avatar || `https://picsum.photos/seed/${selectedArtist.id}/200`} 
+  onError={(e) => { 
+    (e.target as HTMLImageElement).src = 'https://via.placeholder.com/200?text=No+Image'; 
+  }}
+  className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white shadow-lg object-cover mb-4" 
+/>
             <h3 className="text-2xl font-bold text-gray-900">{selectedArtist.name}</h3>
             <div className="mt-2 flex items-center gap-2 bg-white px-4 py-1.5 rounded-full border border-slate-100 shadow-sm">
               <span className={`w-2 h-2 rounded-full ${status.color}`} />
@@ -722,6 +766,7 @@ const App: React.FC = () => {
         </div>
       </div>
     );
+    };
   };
 
   const renderConcertSummary = () => {
@@ -958,30 +1003,31 @@ const App: React.FC = () => {
         <div className="p-6 sm:p-10 space-y-12">
           <section className="flex flex-col items-center">
             <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-              <img src={editArtist.avatar || `https://picsum.photos/seed/${editArtist.id}/200`} className="w-28 h-28 md:w-36 md:h-36 rounded-full object-cover border-4 border-white shadow-md transition-all group-hover:brightness-75" />
-              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, (url) => setEditArtist({ ...editArtist, avatar: url }))} />
-              <div className="absolute inset-0 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                 <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812-1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-              </div>
-            </div>
-            
-            <div className="mt-6 w-full max-w-xs">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block text-center mb-2">画像URLから読み込む</label>
-              <div className="flex gap-2 p-1 bg-white rounded-xl border border-slate-100 shadow-sm">
-                <input 
-                  type="text" 
-                  value={avatarUrlInput} 
-                  onChange={(e) => setAvatarUrlInput(e.target.value)}
-                  placeholder="https://..." 
-                  className="flex-grow bg-transparent px-3 py-2 text-xs outline-none"
-                />
-                <button 
-                  onClick={handleUrlAvatarLoad} 
-                  disabled={isUrlLoading || !avatarUrlInput.trim()}
-                  className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all ${isUrlLoading || !avatarUrlInput.trim() ? 'bg-gray-100 text-gray-400' : 'bg-[#53BEE8] text-white hover:bg-[#42adc9]'}`}
-                >
-                  {isUrlLoading ? '読み込み中...' : '読込'}
-                </button>
+              <img 
+                src={editArtist?.avatar || 'https://via.placeholder.com/200?text=No+Image'} 
+                onError={(e) => { 
+                  (e.target as HTMLImageElement).src = 'https://via.placeholder.com/200?text=Invalid+Image'; 
+                }}
+                className="w-20 h-20 rounded-full object-cover border-2 border-[#53BEE8]/20 group-hover:border-[#53BEE8] transition-colors" 
+              />
+              
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="image/*" 
+                onChange={(e) => handleFileUpload(e, (url) => {
+                  if (editArtist) {
+                    setEditArtist({ ...editArtist, avatar: url });
+                  }
+                }, 200)} 
+              />
+
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812-1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
               </div>
             </div>
           </section>
@@ -1083,156 +1129,132 @@ const App: React.FC = () => {
                 <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">公演情報なし</p>
               </div>
             )}
-            {editArtist.concerts.map((concert, cIdx) => (
-              <div key={concert.id} className="p-6 bg-white border border-slate-100 rounded-[2.5rem] shadow-sm space-y-6">
-                <div className="flex flex-col sm:flex-row gap-6">
-                  <div className="flex-shrink-0 flex flex-col items-center space-y-3">
-                    <div className="relative group cursor-pointer w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden bg-gray-100 border-2 border-slate-50 shadow-inner" onClick={() => concertFileInputRefs.current[concert.id]?.click()}>
-                      <img 
-                        src={concert.imageUrl || `https://picsum.photos/seed/${concert.id}/300`} 
-                        className="w-full h-full object-cover transition-all group-hover:brightness-75" 
-                      />
-                      <input 
-                        type="file" 
-                        ref={el => { concertFileInputRefs.current[concert.id] = el; }} 
-                        className="hidden" 
-                        accept="image/*" 
-                        onChange={(e) => handleFileUpload(e, (url) => {
-                          const newC = [...editArtist.concerts];
-                          newC[cIdx].imageUrl = url;
-                          setEditArtist({ ...editArtist, concerts: newC });
-                        })} 
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                         <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812-1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                      </div>
-                    </div>
-                    {/* 公演图片URL导入功能 */}
-                    <div className="mt-2 w-full max-w-[120px]">
-                      <div className="flex flex-col gap-1.5">
-                        <input 
-                          type="text" 
-                          value={concertUrlInputs[concert.id] || ''} 
-                          onChange={(e) => setConcertUrlInputs(prev => ({ ...prev, [concert.id]: e.target.value }))}
-                          placeholder="画像URL..." 
-                          className="w-full px-2 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-[9px] font-bold outline-none focus:ring-1 ring-[#53BEE8] shadow-inner"
+            {editArtist.concerts.map((concert, cIdx) => {
+              const now = new Date();
+              return (
+                <div key={concert.id} className="p-6 bg-white border border-slate-100 rounded-[2.5rem] shadow-sm space-y-6">
+                  <div className="flex flex-col sm:flex-row gap-6">
+                    <div className="flex-shrink-0 flex flex-col items-center space-y-3">
+                      <div 
+                        className="relative group cursor-pointer w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden bg-gray-100 border-2 border-slate-50 shadow-inner" 
+                        onClick={() => concertFileInputRefs.current[concert.id]?.click()}
+                      >
+                        <img 
+                          src={concert.imageUrl || `https://picsum.photos/seed/${concert.id}/300`} 
+                          className="w-full h-full object-cover transition-all group-hover:brightness-75" 
                         />
-                        <button 
-                          onClick={() => handleConcertUrlLoad(concert.id)} 
-                          disabled={concertUrlLoading[concert.id] || !concertUrlInputs[concert.id]?.trim()}
-                          className={`w-full py-1.5 rounded-lg text-[9px] font-black transition-all shadow-sm ${concertUrlLoading[concert.id] || !concertUrlInputs[concert.id]?.trim() ? 'bg-gray-100 text-gray-300' : 'bg-[#53BEE8] text-white hover:bg-[#42adc9]'}`}
-                        >
-                          {concertUrlLoading[concert.id] ? '...' : '読込'}
-                        </button>
+                        <input 
+                          type="file" 
+                          ref={el => { concertFileInputRefs.current[concert.id] = el; }} 
+                          className="hidden" 
+                          accept="image/*" 
+                          onChange={(e) => handleFileUpload(e, (url) => {
+                            const newC = [...editArtist.concerts];
+                            newC[cIdx].imageUrl = url;
+                            setEditArtist({ ...editArtist, concerts: newC });
+                          }, 600)} // 这里已修改为 600px 压缩
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812-1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                        </div>
+                      </div>
+                      
+                      {/* 公演图片URL导入功能 */}
+                      <div className="mt-2 w-full max-w-[120px]">
+                        <div className="flex flex-col gap-1.5">
+                          <input 
+                            type="text" 
+                            value={concertUrlInputs[concert.id] || ''} 
+                            onChange={(e) => setConcertUrlInputs(prev => ({ ...prev, [concert.id]: e.target.value }))}
+                            placeholder="画像URL..." 
+                            className="w-full px-2 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-[9px] font-bold outline-none focus:ring-1 ring-[#53BEE8] shadow-inner"
+                          />
+                          <button 
+                            onClick={() => handleConcertUrlLoad(concert.id)} 
+                            disabled={concertUrlLoading[concert.id] || !concertUrlInputs[concert.id]?.trim()}
+                            className={`w-full py-1.5 rounded-lg text-[9px] font-black transition-all shadow-sm ${concertUrlLoading[concert.id] || !concertUrlInputs[concert.id]?.trim() ? 'bg-gray-100 text-gray-300' : 'bg-[#53BEE8] text-white hover:bg-[#42adc9]'}`}
+                          >
+                            {concertUrlLoading[concert.id] ? '...' : '読込'}
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex-grow space-y-6">
-                    <div className="flex items-center gap-2">
-                      <div className="flex-grow flex flex-col gap-2">
-                        <input value={concert.name} onChange={(e) => { const newC = [...editArtist.concerts]; newC[cIdx].name = e.target.value; setEditArtist({ ...editArtist, concerts: newC }); }} placeholder="公演名" className="w-full text-lg font-black border-b border-slate-100 outline-none p-1" />
-                        <input value={concert.websiteUrl || ''} onChange={(e) => { const newC = [...editArtist.concerts]; newC[cIdx].websiteUrl = e.target.value; setEditArtist({ ...editArtist, concerts: newC }); }} placeholder="公演公式サイトURL" className="w-full text-xs font-bold border-b border-slate-50 outline-none p-1 text-gray-400" />
+                    <div className="flex-grow space-y-6">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-grow flex flex-col gap-2">
+                          <input value={concert.name} onChange={(e) => { const newC = [...editArtist.concerts]; newC[cIdx].name = e.target.value; setEditArtist({ ...editArtist, concerts: newC }); }} placeholder="公演名" className="w-full text-lg font-black border-b border-slate-100 outline-none p-1" />
+                          <input value={concert.websiteUrl || ''} onChange={(e) => { const newC = [...editArtist.concerts]; newC[cIdx].websiteUrl = e.target.value; setEditArtist({ ...editArtist, concerts: newC }); }} placeholder="公演公式サイトURL" className="w-full text-xs font-bold border-b border-slate-50 outline-none p-1 text-gray-400" />
+                        </div>
+                        <button onClick={() => { const newC = editArtist.concerts.filter((_, idx) => idx !== cIdx); setEditArtist({...editArtist, concerts: newC}); }} className="text-red-300 hover:text-red-500 self-start mt-2">✕</button>
                       </div>
-                      <button onClick={() => { const newC = editArtist.concerts.filter((_, idx) => idx !== cIdx); setEditArtist({...editArtist, concerts: newC}); }} className="text-red-300 hover:text-red-500 self-start mt-2">✕</button>
-                    </div>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center text-[10px] font-black text-gray-300">
-                        <span>日程 & 状態 / 会場・チケット情報</span>
-                        <button onClick={() => { const newC = [...editArtist.concerts]; newC[cIdx].performances.push({ id: Date.now().toString(), date: '', isUndetermined: false, status: ConcertStatus.PENDING, venue: '' }); setEditArtist({ ...editArtist, concerts: newC }); }} className="text-[#53BEE8]">+ 日程追加</button>
-                      </div>
-                      {concert.performances.map((perf, pIdx) => {
-                        const isPastDate = !perf.isUndetermined && isValidDate(perf.date) && (new Date(perf.date) < new Date(now.getFullYear(), now.getMonth(), now.getDate()));
 
-                        return (
-                          <div key={perf.id} className="p-4 bg-slate-50 rounded-2xl space-y-3 border border-slate-100">
-                            <div className="flex items-center gap-3">
-                              <DatePicker 
-                                placeholder="公演日"
-                                className="flex-grow !rounded-[12px] h-10"
-                                disabled={perf.isUndetermined}
-                                value={perf.date ? dayjs(perf.date) : null}
-                                onChange={(date) => {
-                                  const newC = [...editArtist.concerts];
-                                  const dateStr = date ? date.format('YYYY-MM-DD') : '';
-                                  newC[cIdx].performances[pIdx].date = dateStr;
-                                  const isNewDatePast = isValidDate(dateStr) && (new Date(dateStr) < new Date(now.getFullYear(), now.getMonth(), now.getDate()));
-                                  if (isNewDatePast && newC[cIdx].performances[pIdx].status === ConcertStatus.PENDING) {
-                                    newC[cIdx].performances[pIdx].status = ConcertStatus.SKIPPED;
-                                  }
-                                  setEditArtist({ ...editArtist, concerts: newC });
-                                }}
-                              />
-                              <label className="flex items-center gap-1 cursor-pointer">
-                                <input type="checkbox" checked={perf.isUndetermined} onChange={(e) => { const newC = [...editArtist.concerts]; newC[cIdx].performances[pIdx].isUndetermined = e.target.checked; if(e.target.checked) newC[cIdx].performances[pIdx].date = ''; setEditArtist({ ...editArtist, concerts: newC }); }} />
-                                <span className="text-[10px] font-black text-gray-400">未定</span>
-                              </label>
-                              <button onClick={() => { const newC = [...editArtist.concerts]; newC[cIdx].performances = newC[cIdx].performances.filter(p => String(p.id) !== String(perf.id)); setEditArtist({ ...editArtist, concerts: newC }); }} className="text-gray-300 hover:text-red-400">✕</button>
-                            </div>
-
-                            <div className="space-y-2">
-                              <input 
-                                value={perf.venue || ''} 
-                                onChange={(e) => { const newC = [...editArtist.concerts]; newC[cIdx].performances[pIdx].venue = e.target.value; setEditArtist({ ...editArtist, concerts: newC }); }} 
-                                placeholder="会場名 (例: ぴあアリーナMM)" 
-                                className="w-full p-2 rounded-lg text-[10px] font-bold bg-white border border-slate-100 shadow-sm" 
-                              />
-                              <div className="grid grid-cols-2 gap-2">
-                                <input value={perf.price || ''} onChange={(e) => { const newC = [...editArtist.concerts]; newC[cIdx].performances[pIdx].price = e.target.value; setEditArtist({ ...editArtist, concerts: newC }); }} placeholder="价格 (例: ¥10,000)" className="p-2 rounded-lg text-[10px] font-bold bg-white border border-slate-100 shadow-sm" />
-                                <input value={perf.ticketUrl || ''} onChange={(e) => { const newC = [...editArtist.concerts]; newC[cIdx].performances[pIdx].ticketUrl = e.target.value; setEditArtist({ ...editArtist, concerts: newC }); }} placeholder="チケットURL" className="p-2 rounded-lg text-[10px] font-bold bg-white border border-slate-100 shadow-sm" />
-                              </div>
-                              <div className="space-y-1">
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">抽選結果発表日時</span>
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center text-[10px] font-black text-gray-300">
+                          <span>日程 & 状态 / 会场・チケット情報</span>
+                          <button onClick={() => { const newC = [...editArtist.concerts]; newC[cIdx].performances.push({ id: Date.now().toString(), date: '', isUndetermined: false, status: ConcertStatus.PENDING, venue: '' }); setEditArtist({ ...editArtist, concerts: newC }); }} className="text-[#53BEE8]">+ 日程追加</button>
+                        </div>
+                        {concert.performances.map((perf, pIdx) => {
+                          const isPastDate = !perf.isUndetermined && isValidDate(perf.date) && (new Date(perf.date) < new Date(now.getFullYear(), now.getMonth(), now.getDate()));
+                          return (
+                            <div key={perf.id} className="p-4 bg-slate-50 rounded-2xl space-y-3 border border-slate-100">
+                              <div className="flex items-center gap-3">
                                 <DatePicker 
-                                  showTime
-                                  placeholder="発表日時を選択"
-                                  className="w-full !rounded-[12px] h-10"
-                                  value={perf.lotteryResultDate ? dayjs(perf.lotteryResultDate) : null}
+                                  placeholder="公演日"
+                                  className="flex-grow !rounded-[12px] h-10"
+                                  disabled={perf.isUndetermined}
+                                  value={perf.date ? dayjs(perf.date) : null}
                                   onChange={(date) => {
                                     const newC = [...editArtist.concerts];
-                                    newC[cIdx].performances[pIdx].lotteryResultDate = date ? date.toISOString() : '';
+                                    const dateStr = date ? date.format('YYYY-MM-DD') : '';
+                                    newC[cIdx].performances[pIdx].date = dateStr;
+                                    const isNewDatePast = isValidDate(dateStr) && (new Date(dateStr) < new Date(now.getFullYear(), now.getMonth(), now.getDate()));
+                                    if (isNewDatePast && newC[cIdx].performances[pIdx].status === ConcertStatus.PENDING) {
+                                      newC[cIdx].performances[pIdx].status = ConcertStatus.SKIPPED;
+                                    }
                                     setEditArtist({ ...editArtist, concerts: newC });
                                   }}
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer">
+                                  <input type="checkbox" checked={perf.isUndetermined} onChange={(e) => { const newC = [...editArtist.concerts]; newC[cIdx].performances[pIdx].isUndetermined = e.target.checked; if(e.target.checked) newC[cIdx].performances[pIdx].date = ''; setEditArtist({ ...editArtist, concerts: newC }); }} />
+                                  <span className="text-[10px] font-black text-gray-400">未定</span>
+                                </label>
+                                <button onClick={() => { const newC = [...editArtist.concerts]; newC[cIdx].performances = newC[cIdx].performances.filter(p => String(p.id) !== String(perf.id)); setEditArtist({ ...editArtist, concerts: newC }); }} className="text-gray-300 hover:text-red-400">✕</button>
+                              </div>
+                              <div className="space-y-2">
+                                <input value={perf.venue || ''} onChange={(e) => { const newC = [...editArtist.concerts]; newC[cIdx].performances[pIdx].venue = e.target.value; setEditArtist({ ...editArtist, concerts: newC }); }} placeholder="会場名" className="w-full p-2 rounded-lg text-[10px] font-bold bg-white border border-slate-100" />
+                                <div className="grid grid-cols-2 gap-2">
+                                  <input value={perf.price || ''} onChange={(e) => { const newC = [...editArtist.concerts]; newC[cIdx].performances[pIdx].price = e.target.value; setEditArtist({ ...editArtist, concerts: newC }); }} placeholder="价格" className="p-2 rounded-lg text-[10px] font-bold bg-white border border-slate-100" />
+                                  <input value={perf.ticketUrl || ''} onChange={(e) => { const newC = [...editArtist.concerts]; newC[cIdx].performances[pIdx].ticketUrl = e.target.value; setEditArtist({ ...editArtist, concerts: newC }); }} placeholder="チケットURL" className="p-2 rounded-lg text-[10px] font-bold bg-white border border-slate-100" />
+                                </div>
+                              </div>
+                              <div className="flex gap-1">
+                                {[ConcertStatus.PENDING, ConcertStatus.SKIPPED, ConcertStatus.LOST, ConcertStatus.JOINED].map(s => {
+                                  const isDisabled = s === ConcertStatus.PENDING && isPastDate;
+                                  return (
+                                    <button 
+                                      key={s} 
+                                      disabled={isDisabled}
+                                      onClick={() => { const newC = [...editArtist.concerts]; newC[cIdx].performances[pIdx].status = s; setEditArtist({ ...editArtist, concerts: newC }); }} 
+                                      className={`flex-1 py-1.5 text-[9px] font-black rounded-lg border transition-all ${perf.status === s ? 'bg-[#53BEE8] text-white border-[#53BEE8]' : 'bg-white text-gray-400 border-slate-100'} ${isDisabled ? 'opacity-20 cursor-not-allowed bg-gray-100' : ''}`}
+                                    >
+                                      {s === 'PENDING' ? '検討' : s === 'SKIPPED' ? '見送り' : s === 'LOST' ? '落選' : '参戦'}
+                                    </button>
+                                  );
+                                })}
                               </div>
                             </div>
-
-                            <div className="flex gap-1">
-                              {[ConcertStatus.PENDING, ConcertStatus.SKIPPED, ConcertStatus.LOST, ConcertStatus.JOINED].map(s => {
-                                const isPending = s === ConcertStatus.PENDING;
-                                const isDisabled = isPending && isPastDate;
-                                
-                                return (
-                                  <button 
-                                    key={s} 
-                                    disabled={isDisabled}
-                                    onClick={() => { 
-                                      const newC = [...editArtist.concerts]; 
-                                      newC[cIdx].performances[pIdx].status = s; 
-                                      setEditArtist({ ...editArtist, concerts: newC }); 
-                                    }} 
-                                    className={`flex-1 py-1.5 text-[9px] font-black rounded-lg border transition-all ${
-                                      perf.status === s 
-                                        ? 'bg-[#53BEE8] text-white border-[#53BEE8] shadow-sm' 
-                                        : 'bg-white text-gray-400 border-slate-100'
-                                    } ${isDisabled ? 'opacity-20 cursor-not-allowed bg-gray-100' : ''}`}
-                                  >
-                                    {s === 'PENDING' ? '検討' : s === 'SKIPPED' ? '見送り' : s === 'LOST' ? '落選' : '参戦'}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                            {isPastDate && (
-                              <p className="text-[8px] text-gray-400 text-center font-bold">※ 過去の日付のため「検討」は選択できません</p>
-                            )}
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </section>
 
           <div className="pt-10 flex flex-col items-center">
@@ -1243,6 +1265,12 @@ const App: React.FC = () => {
     );
   };
 
+  function renderDetail() {
+    throw new Error('Function not implemented.');
+  }
+
+  // Remove this error-throwing function - it's already implemented above
+  // The renderDetail function is already defined and exported in the component
   return (
     <ConfigProvider theme={{ token: { colorPrimary: '#53BEE8', borderRadius: 8 } }}>
       <style>{`

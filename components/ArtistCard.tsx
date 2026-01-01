@@ -22,20 +22,15 @@ export const ArtistCard: React.FC<ArtistCardProps> = ({ artist, now, onClick, on
   const relevantPerformances = allPerformancesWithConcert.filter(p => {
     const isPast = !p.isUndetermined && isValidDate(p.date) && new Date(p.date) < now;
     
-    if (viewMode === HomeViewMode.REGULAR) {
-      // 通常モード: 公演情報を表示しない
-      return false;
-    }
+    if (viewMode === HomeViewMode.REGULAR) return false;
 
     if (viewMode === HomeViewMode.TRACKING) {
-      // 追跡モード: 検討中、参戦を表示（過去の参戦を除く）
       if (isAutoSkipped(p, now)) return false;
       const isOngoingOrFuture = p.isUndetermined || !isPast;
       return (p.status === ConcertStatus.PENDING || p.status === ConcertStatus.JOINED) && isOngoingOrFuture;
     }
 
     if (viewMode === HomeViewMode.HISTORY) {
-      // 履歴モード: 参戦済みのみ表示
       return p.status === ConcertStatus.JOINED && isPast;
     }
 
@@ -50,8 +45,15 @@ export const ArtistCard: React.FC<ArtistCardProps> = ({ artist, now, onClick, on
         <div className="flex items-start justify-between">
           <div className="flex items-start space-x-4">
             <div className="relative shrink-0">
-              <img src={artist.avatar || `https://picsum.photos/seed/${artist.id}/100`} alt={artist.name} className="w-14 h-14 md:w-16 md:h-16 rounded-3xl object-cover border-2 border-white shadow-sm" />
-              {artist.hasUpdate && (
+              <img 
+                src={artist.avatar || 'https://via.placeholder.com/200?text=No+Image'} 
+                onError={(e) => { 
+                  (e.target as HTMLImageElement).src = 'https://via.placeholder.com/200?text=Error'; 
+                }}
+                className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md"
+              />
+              {/* 这里修复了之前的结构错误 */}
+              {isHighlighted && (
                 <span className="absolute -top-1 -right-1 flex h-4 w-4">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#53BEE8]/50 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-4 w-4 bg-[#53BEE8] border-2 border-white"></span>
