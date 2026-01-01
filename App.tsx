@@ -352,21 +352,26 @@ const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url
     startEditing(updatedArtist);
   };
 
-  const addArtist = () => {
+ const addArtist = () => {
     const newArtist: Artist = {
       id: Date.now().toString(),
       name: '新規アーティスト',
-      avatar: '', // 👈 这里一定要叫 avatar，手机才不会爆满
+      avatar: '', // 必须是空字符串，不能不写
       websiteUrls: [{ name: '', url: '' }],
       isAutoMonitoring: false,
       monitoringInterval: 7,
       monitoringTime: "10:00",
+      lastChecked: undefined, // 显式声明，防止组件读取报错
       stage: MonitoringStage.MONITORING_CONCERT,
+      latestKeyword: '', 
       hasUpdate: false,
-      concerts: [],
-      latestKeyword: ''
+      concerts: [], // 确保初始是空数组
     };
-    setArtists([...artists, newArtist]);
+
+    // 关键点：在保存前先打印一下，看看对象对不对
+    console.log('正在添加新歌手:', newArtist);
+
+    setArtists(prev => [...prev, newArtist]);
     setSelectedArtistId(String(newArtist.id));
     startEditing(newArtist, true);
   };
