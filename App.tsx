@@ -229,9 +229,14 @@ const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url
     const reader = new FileReader();
     reader.onload = async (event) => {
       const base64 = event.target?.result as string;
-      // 修复：在这里调用压缩
-      const compressed = await compressImage(base64, maxWidth);
-      callback(compressed);
+      try {
+        // 核心修复：强制压缩，防止大图塞爆存储
+        const compressed = await compressImage(base64, 600); 
+        callback(compressed);
+      } catch (err) {
+        console.error("图片压缩失败:", err);
+        callback(base64); // 如果压缩失败则使用原图
+      }
     };
     reader.readAsDataURL(file);
   }
@@ -324,9 +329,12 @@ const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url
   const handleConfirmConcert = (artistId: string) => {
     const artist = artists.find(a => String(a.id) === String(artistId));
     if (!artist) return;
+
     const newConcert: Concert = {
       id: Date.now().toString(),
       name: '',
+      // 核心修改：这里必须用 imageUrl，并设为空字符串，防止系统调用默认大图
+      imageUrl: '', 
       performances: [{
         id: (Date.now() + 1).toString(),
         date: '',
@@ -335,12 +343,14 @@ const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url
         venue: ''
       }]
     };
+
     const updatedArtist: Artist = {
       ...artist,
       stage: MonitoringStage.MONITORING_TICKETS,
       hasUpdate: false,
       concerts: [...artist.concerts, newConcert]
     };
+
     setArtists(artists.map(a => String(a.id) === String(artistId) ? updatedArtist : a));
     setSelectedArtistId(String(artistId));
     startEditing(updatedArtist);
@@ -350,6 +360,8 @@ const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url
     const newArtist: Artist = {
       id: Date.now().toString(),
       name: '新規アーティスト',
+      // 核心修改：使用正确的字段名 avatar，并设为空字符串
+      avatar: '', 
       websiteUrls: [{ name: '', url: '' }],
       isAutoMonitoring: false,
       monitoringInterval: 7,
@@ -479,39 +491,40 @@ const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url
   };
 
   const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const data = JSON.parse(event.target?.result as string);
-        if (data.artists && Array.isArray(data.artists)) {
-          const incomingVersion = data.schemaVersion || 0;
-          if (incomingVersion > CURRENT_SCHEMA_VERSION) {
-            alert('より新しいバージョンのデータです。アプリを最新版にアップデートしてください。');
-            return;
-          }
-          const normalizedArtists = data.artists.map((a: any) => ({
-            ...a,
-            id: String(a.id),
-            concerts: Array.isArray(a.concerts) ? a.concerts.map((c: any) => ({
-              ...c,
-              id: String(c.id),
-              performances: Array.isArray(c.performances) ? c.performances.map((p: any) => ({ ...p, id: String(p.id) })) : []
-            })) : []
-          }));
-          setPendingImportData({ ...data, artists: normalizedArtists });
-          setShowImportConfirmModal(true);
-        } else {
-          alert('不正なバックアップファイルです。');
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    try {
+      const data = JSON.parse(event.target?.result as string);
+      if (data && data.artists && Array.isArray(data.artists)) {
+        const incomingVersion = data.schemaVersion || 0;
+        if (incomingVersion > CURRENT_SCHEMA_VERSION) {
+          alert('数据版本过高，请更新应用后再试。');
+          return;
         }
-      } catch (err) {
-        alert('ファイルの読み込みに失败しました。');
+        const normalizedArtists = data.artists.map((a: any) => ({
+          ...a,
+          id: String(a.id),
+          concerts: Array.isArray(a.concerts) ? a.concerts.map((c: any) => ({
+            ...c,
+            id: String(c.id),
+            performances: Array.isArray(c.performances) ? c.performances.map((p: any) => ({ ...p, id: String(p.id) })) : []
+          })) : []
+        }));
+        setPendingImportData({ ...data, artists: normalizedArtists });
+        setShowImportConfirmModal(true);
+      } else {
+        alert('无效的备份文件：格式不正确。');
       }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
+    } catch (err) {
+      console.error("导入解析失败:", err);
+      alert('读取文件失败，请检查文件是否损坏。');
+    }
   };
+  reader.readAsText(file);
+  e.target.value = ''; // 清除 input，方便下次操作
+};
 
   const confirmImport = () => {
     if (pendingImportData) {
