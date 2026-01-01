@@ -1,4 +1,3 @@
-
 export enum MonitoringStage {
   MONITORING_CONCERT = 'MONITORING_CONCERT', // フェーズ 1: 公演追跡
   CONCERT_DETECTED = 'CONCERT_DETECTED',     // フェーズ 2: 公演検出済み
@@ -31,6 +30,7 @@ export interface Performance {
   venue?: string;
   price?: string;
   ticketUrl?: string;
+  lotteryResultDate?: string; // 抽選結果発表日時
 }
 
 export interface Concert {

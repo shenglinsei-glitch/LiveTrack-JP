@@ -1,5 +1,6 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { ConfigProvider, DatePicker, App as AntdApp } from 'antd';
+import dayjs from 'dayjs';
 import { Artist, MonitoringStage, Concert, Page, ConcertStatus, Performance, HomeViewMode, GlobalSettings, SortMode, MonitoringUrl } from './types';
 import { ArtistCard } from './components/ArtistCard';
 import { ConcertSection } from './components/ConcertSection';
@@ -26,7 +27,6 @@ export const isAutoSkipped = (perf: Performance, now: Date) => {
 export const getArtistStatus = (artist: Artist, now: Date) => {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   
-  // High Priority: System Alert (New Concert Detected)
   if (artist.stage === MonitoringStage.CONCERT_DETECTED) {
     return { label: '公演情報を検出！', color: STATUS_COLORS.ALERT };
   }
@@ -41,26 +41,21 @@ export const getArtistStatus = (artist: Artist, now: Date) => {
     p.isUndetermined || (isValidDate(p.date) && new Date(p.date) >= today)
   );
 
-  // 1. 開演前 (Priority after Alert)
   if (hasFutureJoined) {
     return { label: '開演前', color: STATUS_COLORS.PRE_SHOW };
   }
 
-  // 2. ライブ追跡中（自動）
   if (artist.isAutoMonitoring) {
-    // If in ticket tracking stage, show keyword if available, else standard auto label
     if (artist.stage === MonitoringStage.MONITORING_TICKETS && artist.latestKeyword) {
         return { label: artist.latestKeyword, color: STATUS_COLORS.TICKET_PHASE };
     }
     return { label: 'ライブ追跡中（自動）', color: STATUS_COLORS.AUTO_TRACKING };
   }
 
-  // 3. ツアー中（見送ります）
   if (hasFutureAny) {
     return { label: 'ツアー中（見送ります）', color: STATUS_COLORS.TOURING_SKIPPED };
   }
 
-  // 4. フォローしていません (Default/Manual with no future events)
   return { label: 'フォローしていません', color: STATUS_COLORS.NOT_FOLLOWING };
 };
 
@@ -68,13 +63,21 @@ const App: React.FC = () => {
   const [artists, setArtists] = useState<Artist[]>(() => {
     const saved = localStorage.getItem('live-track-jp-artists');
     if (!saved) return [];
-    const parsed = JSON.parse(saved);
-    return parsed.map((a: any) => ({
-      ...a,
-      websiteUrls: Array.isArray(a.websiteUrls) 
-        ? a.websiteUrls.map((u: any) => typeof u === 'string' ? { name: '', url: u } : u) 
-        : []
-    }));
+    try {
+      const parsed = JSON.parse(saved);
+      return parsed.map((a: any) => ({
+        ...a,
+        id: String(a.id),
+        websiteUrls: Array.isArray(a.websiteUrls) 
+          ? a.websiteUrls.map((u: any) => typeof u === 'string' ? { name: '', url: u } : u) 
+          : [],
+        concerts: Array.isArray(a.concerts) ? a.concerts.map((c: any) => ({
+          ...c,
+          id: String(c.id),
+          performances: Array.isArray(c.performances) ? c.performances.map((p: any) => ({ ...p, id: String(p.id) })) : []
+        })) : []
+      }));
+    } catch(e) { return []; }
   });
 
   const [settings, setSettings] = useState<GlobalSettings>(() => {
@@ -89,6 +92,7 @@ const App: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showConflictModal, setShowConflictModal] = useState(false);
   const [showImportConfirmModal, setShowImportConfirmModal] = useState(false);
   const [showViewMenu, setShowViewMenu] = useState(false);
   const [draggedArtistId, setDraggedArtistId] = useState<string | null>(null);
@@ -97,12 +101,11 @@ const App: React.FC = () => {
   const [avatarUrlInput, setAvatarUrlInput] = useState('');
   const [isUrlLoading, setIsUrlLoading] = useState(false);
 
-  // Concert album state
   const [showAddPhotoModal, setShowAddPhotoModal] = useState(false);
   const [photoUrlInput, setPhotoUrlInput] = useState('');
   const [fullscreenImage, setFullscreenImage] = useState<number | null>(null);
+  const [photoToDeleteIndex, setPhotoToDeleteIndex] = useState<number | null>(null);
 
-  // For concerts
   const [concertUrlInputs, setConcertUrlInputs] = useState<Record<string, string>>({});
   const [concertUrlLoading, setConcertUrlLoading] = useState<Record<string, boolean>>({});
 
@@ -143,13 +146,13 @@ const App: React.FC = () => {
   }, [artists, settings.sortMode]);
 
   const selectedArtist = useMemo(() => 
-    artists.find(a => a.id === selectedArtistId), 
+    artists.find(a => String(a.id) === String(selectedArtistId)), 
     [artists, selectedArtistId]
   );
 
   const selectedConcert = useMemo(() => {
     if (!selectedArtist || !selectedConcertId) return null;
-    return selectedArtist.concerts.find(c => c.id === selectedConcertId);
+    return selectedArtist.concerts.find(c => String(c.id) === String(selectedConcertId));
   }, [selectedArtist, selectedConcertId]);
 
   const totalPerformancesCount = useMemo(() => {
@@ -188,8 +191,8 @@ const App: React.FC = () => {
   };
 
   const navigateToConcertSummary = (artistId: string, concertId: string) => {
-    setSelectedArtistId(artistId);
-    setSelectedConcertId(concertId);
+    setSelectedArtistId(String(artistId));
+    setSelectedConcertId(String(concertId));
     setCurrentPage('CONCERT_SUMMARY');
   };
 
@@ -250,7 +253,7 @@ const App: React.FC = () => {
       const dataUrl = await imageUrlToBase64(url);
       if (editArtist) {
         const newConcerts = editArtist.concerts.map(c => 
-          c.id === concertId ? { ...c, imageUrl: dataUrl } : c
+          String(c.id) === String(concertId) ? { ...c, imageUrl: dataUrl } : c
         );
         setEditArtist({ ...editArtist, concerts: newConcerts });
         setConcertUrlInputs(prev => ({ ...prev, [concertId]: '' }));
@@ -259,7 +262,7 @@ const App: React.FC = () => {
       console.warn("CORS or loading error. Storing direct URL as fallback.", err);
       if (editArtist) {
         const newConcerts = editArtist.concerts.map(c => 
-          c.id === concertId ? { ...c, imageUrl: url } : c
+          String(c.id) === String(concertId) ? { ...c, imageUrl: url } : c
         );
         setEditArtist({ ...editArtist, concerts: newConcerts });
       }
@@ -289,7 +292,7 @@ const App: React.FC = () => {
   };
 
   const handleConfirmConcert = (artistId: string) => {
-    const artist = artists.find(a => a.id === artistId);
+    const artist = artists.find(a => String(a.id) === String(artistId));
     if (!artist) return;
     const newConcert: Concert = {
       id: Date.now().toString(),
@@ -308,8 +311,8 @@ const App: React.FC = () => {
       hasUpdate: false,
       concerts: [...artist.concerts, newConcert]
     };
-    setArtists(artists.map(a => a.id === artistId ? updatedArtist : a));
-    setSelectedArtistId(artistId);
+    setArtists(artists.map(a => String(a.id) === String(artistId) ? updatedArtist : a));
+    setSelectedArtistId(String(artistId));
     startEditing(updatedArtist);
   };
 
@@ -327,13 +330,13 @@ const App: React.FC = () => {
       latestKeyword: ''
     };
     setArtists([...artists, newArtist]);
-    setSelectedArtistId(newArtist.id);
+    setSelectedArtistId(String(newArtist.id));
     startEditing(newArtist, true);
   };
 
   const deleteArtist = () => {
     if (editArtist) {
-      setArtists(artists.filter(a => a.id !== editArtist.id));
+      setArtists(artists.filter(a => String(a.id) !== String(editArtist.id)));
       setEditArtist(null);
       setSelectedArtistId(null);
       setShowDeleteModal(false);
@@ -349,7 +352,7 @@ const App: React.FC = () => {
         try {
           const original = JSON.parse(originalArtistRef.current);
           if (original.name === '新規アーティスト') {
-            setArtists(prev => prev.filter(a => a.id !== editArtist.id));
+            setArtists(prev => prev.filter(a => String(a.id) !== String(editArtist.id)));
           }
         } catch (e) {}
       }
@@ -363,7 +366,7 @@ const App: React.FC = () => {
       try {
         const original = JSON.parse(originalArtistRef.current);
         if (original.name === '新規アーティスト') {
-          setArtists(artists.filter(a => a.id !== editArtist.id));
+          setArtists(artists.filter(a => String(a.id) !== String(editArtist.id)));
         }
       } catch (e) {}
     }
@@ -374,7 +377,7 @@ const App: React.FC = () => {
 
   const onDragStart = (e: React.DragEvent, id: string) => {
     if (settings.sortMode !== SortMode.MANUAL) return;
-    setDraggedArtistId(id);
+    setDraggedArtistId(String(id));
     e.dataTransfer.effectAllowed = 'move';
   };
 
@@ -384,10 +387,10 @@ const App: React.FC = () => {
   };
 
   const onDrop = (e: React.DragEvent, targetId: string) => {
-    if (settings.sortMode !== SortMode.MANUAL || !draggedArtistId || draggedArtistId === targetId) return;
+    if (settings.sortMode !== SortMode.MANUAL || !draggedArtistId || String(draggedArtistId) === String(targetId)) return;
     const newArtists = [...artists];
-    const draggedIndex = newArtists.findIndex(a => a.id === draggedArtistId);
-    const targetIndex = newArtists.findIndex(a => a.id === targetId);
+    const draggedIndex = newArtists.findIndex(a => String(a.id) === String(draggedArtistId));
+    const targetIndex = newArtists.findIndex(a => String(a.id) === String(targetId));
     const [removed] = newArtists.splice(draggedIndex, 1);
     newArtists.splice(targetIndex, 0, removed);
     setArtists(newArtists);
@@ -404,12 +407,12 @@ const App: React.FC = () => {
   };
 
   const onPhotoDrop = (e: React.DragEvent, targetIndex: number) => {
-    if (draggedPhotoIndex === null || draggedPhotoIndex === targetIndex || !selectedArtist || !selectedConcertId) return;
+    if (draggedPhotoIndex === null || draggedPhotoIndex === targetIndex || !selectedArtistId || !selectedConcertId) return;
     
-    const updatedArtists = artists.map(a => {
-      if (a.id === selectedArtist.id) {
+    setArtists(prev => prev.map(a => {
+      if (String(a.id) === String(selectedArtistId)) {
         const updatedConcerts = a.concerts.map(c => {
-          if (c.id === selectedConcertId && c.album) {
+          if (String(c.id) === String(selectedConcertId) && c.album) {
             const newAlbum = [...c.album];
             const [removed] = newAlbum.splice(draggedPhotoIndex, 1);
             newAlbum.splice(targetIndex, 0, removed);
@@ -420,9 +423,8 @@ const App: React.FC = () => {
         return { ...a, concerts: updatedConcerts };
       }
       return a;
-    });
+    }));
     
-    setArtists(updatedArtists);
     setDraggedPhotoIndex(null);
   };
 
@@ -459,13 +461,22 @@ const App: React.FC = () => {
             alert('より新しいバージョンのデータです。アプリを最新版にアップデートしてください。');
             return;
           }
-          setPendingImportData(data);
+          const normalizedArtists = data.artists.map((a: any) => ({
+            ...a,
+            id: String(a.id),
+            concerts: Array.isArray(a.concerts) ? a.concerts.map((c: any) => ({
+              ...c,
+              id: String(c.id),
+              performances: Array.isArray(c.performances) ? c.performances.map((p: any) => ({ ...p, id: String(p.id) })) : []
+            })) : []
+          }));
+          setPendingImportData({ ...data, artists: normalizedArtists });
           setShowImportConfirmModal(true);
         } else {
           alert('不正なバックアップファイルです。');
         }
       } catch (err) {
-        alert('ファイルの読み込みに失敗しました。');
+        alert('ファイルの読み込みに失败しました。');
       }
     };
     reader.readAsText(file);
@@ -487,9 +498,9 @@ const App: React.FC = () => {
   const handleAddPhoto = () => {
     if (!photoUrlInput.trim() || !selectedArtist || !selectedConcertId) return;
     const updatedArtists = artists.map(a => {
-      if (a.id === selectedArtist.id) {
+      if (String(a.id) === String(selectedArtist.id)) {
         const updatedConcerts = a.concerts.map(c => {
-          if (c.id === selectedConcertId) {
+          if (String(c.id) === String(selectedConcertId)) {
             return { ...c, album: [...(c.album || []), photoUrlInput] };
           }
           return c;
@@ -504,12 +515,14 @@ const App: React.FC = () => {
   };
 
   const handleDeletePhoto = (idx: number) => {
-    if (!selectedArtist || !selectedConcertId) return;
-    const updatedArtists = artists.map(a => {
-      if (a.id === selectedArtist.id) {
+    if (!selectedArtistId || !selectedConcertId) return;
+    
+    setArtists(prevArtists => prevArtists.map(a => {
+      if (String(a.id) === String(selectedArtistId)) {
         const updatedConcerts = a.concerts.map(c => {
-          if (c.id === selectedConcertId) {
-            const newAlbum = (c.album || []).filter((_, i) => i !== idx);
+          if (String(c.id) === String(selectedConcertId)) {
+            const currentAlbum = c.album || [];
+            const newAlbum = currentAlbum.filter((_, i) => i !== idx);
             return { ...c, album: newAlbum };
           }
           return c;
@@ -517,8 +530,66 @@ const App: React.FC = () => {
         return { ...a, concerts: updatedConcerts };
       }
       return a;
+    }));
+  };
+
+  const validateConcertConflicts = (targetArtist: Artist): boolean => {
+    // Collect all unique performance dates from the artist being edited
+    const newPerformanceDates = new Set<string>();
+    targetArtist.concerts.forEach(concert => {
+      concert.performances.forEach(perf => {
+        if (!perf.isUndetermined && perf.date && isValidDate(perf.date)) {
+          newPerformanceDates.add(perf.date);
+        }
+      });
     });
-    setArtists(updatedArtists);
+
+    // Check for self-conflicts within the same artist (two different concerts on same day)
+    // Actually, we check global conflicts against ALL other registered artists
+    for (const otherArtist of artists) {
+      // Skip comparing against the old version of the artist we are currently editing
+      if (String(otherArtist.id) === String(targetArtist.id)) continue;
+
+      for (const otherConcert of otherArtist.concerts) {
+        for (const otherPerf of otherConcert.performances) {
+          if (!otherPerf.isUndetermined && otherPerf.date && isValidDate(otherPerf.date)) {
+            if (newPerformanceDates.has(otherPerf.date)) {
+              return true; // Conflict found
+            }
+          }
+        }
+      }
+    }
+
+    // Check internal conflicts (different concerts within the same newly edited artist data)
+    const seenDatesInCurrentEdit = new Map<string, string>(); // date -> concertId
+    for (const concert of targetArtist.concerts) {
+      for (const perf of concert.performances) {
+        if (!perf.isUndetermined && perf.date && isValidDate(perf.date)) {
+          const existingConcertId = seenDatesInCurrentEdit.get(perf.date);
+          if (existingConcertId && existingConcertId !== concert.id) {
+            return true; // Conflict within same artist
+          }
+          seenDatesInCurrentEdit.set(perf.date, concert.id);
+        }
+      }
+    }
+
+    return false;
+  };
+
+  const saveArtistSettings = (force: boolean = false) => {
+    if (!editArtist) return;
+
+    if (!force && validateConcertConflicts(editArtist)) {
+      setShowConflictModal(true);
+      return;
+    }
+
+    setArtists(prev => prev.map(a => String(a.id) === String(editArtist.id) ? editArtist : a));
+    setEditArtist(null);
+    setCurrentPage(cameFromHomeRef.current ? 'HOME' : 'DETAIL');
+    setShowConflictModal(false);
   };
 
   const renderHome = () => (
@@ -535,12 +606,12 @@ const App: React.FC = () => {
       <div className="px-4 sm:px-6">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8">
           {sortedArtists.map((artist) => (
-            <div key={artist.id} draggable={settings.sortMode === SortMode.MANUAL} onDragStart={(e) => onDragStart(e, artist.id)} onDragOver={onDragOver} onDrop={(e) => onDrop(e, artist.id)} className={draggedArtistId === artist.id ? 'opacity-40' : ''}>
+            <div key={artist.id} draggable={settings.sortMode === SortMode.MANUAL} onDragStart={(e) => onDragStart(e, artist.id)} onDragOver={onDragOver} onDrop={(e) => onDrop(e, artist.id)} className={draggedArtistId === String(artist.id) ? 'opacity-40' : ''}>
               <ArtistCard 
                 artist={artist} 
                 now={now} 
                 viewMode={settings.homeViewMode} 
-                onClick={() => { setSelectedArtistId(artist.id); setArtists(prev => prev.map(a => a.id === artist.id ? { ...a, hasUpdate: false } : a)); setCurrentPage('DETAIL'); }}
+                onClick={() => { setSelectedArtistId(String(artist.id)); setArtists(prev => prev.map(a => String(a.id) === String(artist.id) ? { ...a, hasUpdate: false } : a)); setCurrentPage('DETAIL'); }}
                 onConcertClick={(concertId) => navigateToConcertSummary(artist.id, concertId)}
               />
             </div>
@@ -577,7 +648,7 @@ const App: React.FC = () => {
                   </div>
                 </div>
                 <div className="mt-4 pt-4 border-t border-gray-100">
-                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">データ管理</span>
+                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">数据管理</span>
                   <div className="mt-2 space-y-1">
                     <button onClick={handleExportBackup} className="w-full text-left px-3 py-2 rounded-xl text-xs font-black text-gray-500 hover:bg-white transition-all flex items-center gap-2">
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
@@ -661,7 +732,6 @@ const App: React.FC = () => {
 
     return (
       <div className="relative min-h-screen">
-        {/* Background Layer */}
         <div 
           className="fixed inset-0 z-0 bg-cover bg-center transition-opacity" 
           style={{ backgroundImage: `url(${bgUrl})` }}
@@ -669,7 +739,6 @@ const App: React.FC = () => {
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-2xl" />
         </div>
 
-        {/* Content Layer */}
         <div className="relative z-10 max-w-4xl mx-auto px-6 py-10 md:py-16 text-white/90">
           <header className="flex items-center mb-12">
             <button onClick={() => setCurrentPage('DETAIL')} className="p-2 -ml-2 text-white/40 hover:text-white transition-colors">
@@ -679,7 +748,6 @@ const App: React.FC = () => {
             <div className="w-10" />
           </header>
 
-          {/* ① Basic Info Section */}
           <section className="flex flex-col items-center mb-16 text-center">
             <div className="w-32 h-32 md:w-44 md:h-44 rounded-3xl overflow-hidden shadow-2xl mb-8 border border-white/10 ring-4 ring-white/5">
               <img src={bgUrl} className="w-full h-full object-cover" />
@@ -695,35 +763,30 @@ const App: React.FC = () => {
               ))}
             </div>
 
-            {/* Grid Info: 2x2 with Icons on the left */}
             <div className="grid grid-cols-2 gap-x-8 gap-y-6 w-full max-w-2xl px-8 py-6 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md">
-              {/* Row 1, Col 1: Date */}
-              <div className="flex items-center gap-3">
-                <svg className="w-4 h-4 opacity-40 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="flex flex-col gap-1.5 items-center md:items-start">
+                <svg className="w-4 h-4 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2-2v12a2 2 0 002 2z" />
                 </svg>
-                <span className="text-sm font-bold truncate">{joinedPerformances[0]?.date ? new Date(joinedPerformances[0].date).toLocaleDateString('ja-JP') : '未定'}</span>
+                <span className="text-sm font-bold truncate w-full">{joinedPerformances[0]?.date ? new Date(joinedPerformances[0].date).toLocaleDateString('ja-JP') : '未定'}</span>
               </div>
               
-              {/* Row 1, Col 2: Venue */}
-              <div className="flex items-center gap-3">
-                <svg className="w-4 h-4 opacity-40 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="flex flex-col gap-1.5 items-center md:items-start">
+                <svg className="w-4 h-4 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                <span className="text-sm font-bold truncate">{joinedPerformances[0]?.venue || '不明'}</span>
+                <span className="text-sm font-bold truncate w-full text-center md:text-left">{joinedPerformances[0]?.venue || '不明'}</span>
               </div>
 
-              {/* Row 2, Col 1: Price */}
-              <div className="flex items-center gap-3">
-                <svg className="w-4 h-4 opacity-40 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="flex flex-col gap-1.5 items-center md:items-start">
+                <svg className="w-4 h-4 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 8h6m-2 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span className="text-sm font-bold truncate">{joinedPerformances[0]?.price || 'N/A'}</span>
+                <span className="text-sm font-bold truncate w-full">{joinedPerformances[0]?.price || 'N/A'}</span>
               </div>
 
-              {/* Row 2, Col 2: Link */}
-              <div className="flex items-center gap-3">
-                <svg className="w-4 h-4 opacity-40 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="flex flex-col gap-1.5 items-center md:items-start">
+                <svg className="w-4 h-4 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.826L10.242 9.242a4 4 0 115.656 5.656l-1.101 1.101m-.758-4.826L12 12" />
                 </svg>
                 {selectedConcert.websiteUrl ? (
@@ -737,7 +800,6 @@ const App: React.FC = () => {
             </div>
           </section>
 
-          {/* ② Multi-performance Info Section */}
           {joinedPerformances.length > 1 && (
             <section className="mb-16">
                <h3 className="text-[10px] font-black opacity-30 uppercase tracking-widest mb-6 px-2">その他の参戦公演</h3>
@@ -755,16 +817,12 @@ const App: React.FC = () => {
             </section>
           )}
 
-          {/* ③ Album Section with Drag and Drop */}
           <section className="mb-24">
             <div className="flex items-center justify-between mb-8 px-2">
               <h3 className="text-[10px] font-black opacity-30 uppercase tracking-widest">フォトアルバム</h3>
-              <div className="flex items-center gap-3">
-                <span className="text-[9px] opacity-20 font-black uppercase tracking-widest hidden sm:inline">長押しで並べ替え</span>
-                <button onClick={() => setShowAddPhotoModal(true)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                </button>
-              </div>
+              <button onClick={() => setShowAddPhotoModal(true)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+              </button>
             </div>
 
             {(!selectedConcert.album || selectedConcert.album.length === 0) ? (
@@ -779,22 +837,23 @@ const App: React.FC = () => {
                 {selectedConcert.album.map((url, i) => (
                   <div 
                     key={`${i}-${url}`} 
-                    draggable 
+                    draggable
                     onDragStart={(e) => onPhotoDragStart(e, i)}
-                    onDragOver={onPhotoDragOver}
+                    onDragOver={(e) => onPhotoDragOver(e)}
                     onDrop={(e) => onPhotoDrop(e, i)}
                     className={`relative aspect-square group rounded-2xl overflow-hidden shadow-lg bg-black/20 cursor-move transition-all ${draggedPhotoIndex === i ? 'opacity-40 scale-95 border-2 border-[#53BEE8]' : 'hover:scale-105 active:scale-95'}`} 
                     onClick={() => setFullscreenImage(i)}
                   >
-                    <img src={url} className="w-full h-full object-cover pointer-events-none" />
+                    <img src={url} className="w-full h-full object-cover pointer-events-none transition-transform duration-700 group-hover:scale-110" />
                     <button 
-                      onClick={(e) => { e.stopPropagation(); handleDeletePhoto(i); }}
-                      className="absolute top-2 right-2 p-1.5 rounded-full bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 z-10"
+                      onClick={(e) => { e.stopPropagation(); setPhotoToDeleteIndex(i); }}
+                      className="absolute top-0 right-0 w-16 h-16 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 active:scale-90"
+                      aria-label="Delete photo"
                     >
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                      <div className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors">
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                      </div>
                     </button>
-                    {/* Drag Handle Indicator Overlay */}
-                    <div className="absolute inset-0 bg-[#53BEE8]/10 opacity-0 group-active:opacity-100 transition-opacity pointer-events-none" />
                   </div>
                 ))}
               </div>
@@ -820,6 +879,32 @@ const App: React.FC = () => {
                   <button onClick={() => { setShowAddPhotoModal(false); setPhotoUrlInput(''); }} className="flex-1 py-4 bg-white/5 rounded-2xl font-black text-xs text-white/40 uppercase tracking-widest">キャンセル</button>
                   <button onClick={handleAddPhoto} className="flex-1 py-4 bg-[#53BEE8] rounded-2xl font-black text-xs text-white uppercase tracking-widest shadow-xl shadow-[#53BEE8]/20">追加する</button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {photoToDeleteIndex !== null && (
+          <div className="fixed inset-0 z-[1000] bg-black/70 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in scale-in duration-200">
+            <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-10 shadow-2xl">
+              <h3 className="text-center text-xl font-black text-red-600 mb-2">画像を削除</h3>
+              <p className="text-center text-sm text-gray-400 font-medium mb-10 leading-loose">この画像を削除してもよろしいですか？</p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setPhotoToDeleteIndex(null)} 
+                  className="flex-1 py-4 bg-slate-50 rounded-2xl font-black text-xs text-gray-400 hover:bg-slate-100 transition-colors active:scale-95"
+                >
+                  キャンセル
+                </button>
+                <button 
+                  onClick={() => { 
+                    if (photoToDeleteIndex !== null) handleDeletePhoto(photoToDeleteIndex); 
+                    setPhotoToDeleteIndex(null); 
+                  }} 
+                  className="flex-1 py-4 bg-red-600 rounded-2xl font-black text-xs text-white shadow-xl shadow-red-200 hover:bg-red-700 transition-colors active:scale-95"
+                >
+                  削除
+                </button>
               </div>
             </div>
           </div>
@@ -863,7 +948,7 @@ const App: React.FC = () => {
   const renderSettings = () => {
     if (!editArtist) return null;
     return (
-      <div className="max-w-3xl mx-auto min-h-screen pb-24 md:pt-8 relative">
+      <div className="max-w-3xl mx-auto min-h-screen pb-24 md:pt-8 relative px-4">
         <header className="p-6 flex items-center bg-white/90 backdrop-blur-md sticky top-0 z-50 border-b border-slate-100 rounded-b-3xl mb-8">
           <button onClick={handleSettingsBack} className="text-gray-400 p-1 hover:text-[#53BEE8] transition-colors"><svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg></button>
           <h2 className="flex-grow text-center font-bold text-gray-800 md:text-xl">アーティスト管理</h2>
@@ -876,7 +961,7 @@ const App: React.FC = () => {
               <img src={editArtist.avatar || `https://picsum.photos/seed/${editArtist.id}/200`} className="w-28 h-28 md:w-36 md:h-36 rounded-full object-cover border-4 border-white shadow-md transition-all group-hover:brightness-75" />
               <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, (url) => setEditArtist({ ...editArtist, avatar: url }))} />
               <div className="absolute inset-0 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                 <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                 <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812-1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
               </div>
             </div>
             
@@ -1001,7 +1086,6 @@ const App: React.FC = () => {
             {editArtist.concerts.map((concert, cIdx) => (
               <div key={concert.id} className="p-6 bg-white border border-slate-100 rounded-[2.5rem] shadow-sm space-y-6">
                 <div className="flex flex-col sm:flex-row gap-6">
-                  {/* Concert Image Management */}
                   <div className="flex-shrink-0 flex flex-col items-center space-y-3">
                     <div className="relative group cursor-pointer w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden bg-gray-100 border-2 border-slate-50 shadow-inner" onClick={() => concertFileInputRefs.current[concert.id]?.click()}>
                       <img 
@@ -1020,25 +1104,7 @@ const App: React.FC = () => {
                         })} 
                       />
                       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                         <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                      </div>
-                    </div>
-                    <div className="w-full max-w-[120px]">
-                      <div className="flex flex-col gap-1">
-                        <input 
-                          type="text" 
-                          value={concertUrlInputs[concert.id] || ''} 
-                          onChange={(e) => setConcertUrlInputs(prev => ({ ...prev, [concert.id]: e.target.value }))}
-                          placeholder="画像URL" 
-                          className="w-full bg-slate-50 px-2 py-1 text-[8px] font-bold rounded-md border border-slate-100 outline-none"
-                        />
-                        <button 
-                          onClick={() => handleConcertUrlLoad(concert.id)} 
-                          disabled={concertUrlLoading[concert.id] || !concertUrlInputs[concert.id]?.trim()}
-                          className={`w-full py-1 rounded-md text-[8px] font-black transition-all ${concertUrlLoading[concert.id] || !concertUrlInputs[concert.id]?.trim() ? 'bg-gray-100 text-gray-400' : 'bg-[#53BEE8] text-white hover:bg-[#42adc9]'}`}
-                        >
-                          {concertUrlLoading[concert.id] ? '読込中' : 'URL読込'}
-                        </button>
+                         <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812-1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                       </div>
                     </div>
                   </div>
@@ -1062,20 +1128,27 @@ const App: React.FC = () => {
                         return (
                           <div key={perf.id} className="p-4 bg-slate-50 rounded-2xl space-y-3 border border-slate-100">
                             <div className="flex items-center gap-3">
-                              <input type="date" disabled={perf.isUndetermined} value={perf.date} onChange={(e) => { 
-                                const newC = [...editArtist.concerts]; 
-                                newC[cIdx].performances[pIdx].date = e.target.value; 
-                                const isNewDatePast = isValidDate(e.target.value) && (new Date(e.target.value) < new Date(now.getFullYear(), now.getMonth(), now.getDate()));
-                                if (isNewDatePast && newC[cIdx].performances[pIdx].status === ConcertStatus.PENDING) {
-                                  newC[cIdx].performances[pIdx].status = ConcertStatus.SKIPPED;
-                                }
-                                setEditArtist({ ...editArtist, concerts: newC }); 
-                              }} className="flex-grow p-2 rounded-lg text-xs font-bold shadow-sm" />
+                              <DatePicker 
+                                placeholder="公演日"
+                                className="flex-grow !rounded-[12px] h-10"
+                                disabled={perf.isUndetermined}
+                                value={perf.date ? dayjs(perf.date) : null}
+                                onChange={(date) => {
+                                  const newC = [...editArtist.concerts];
+                                  const dateStr = date ? date.format('YYYY-MM-DD') : '';
+                                  newC[cIdx].performances[pIdx].date = dateStr;
+                                  const isNewDatePast = isValidDate(dateStr) && (new Date(dateStr) < new Date(now.getFullYear(), now.getMonth(), now.getDate()));
+                                  if (isNewDatePast && newC[cIdx].performances[pIdx].status === ConcertStatus.PENDING) {
+                                    newC[cIdx].performances[pIdx].status = ConcertStatus.SKIPPED;
+                                  }
+                                  setEditArtist({ ...editArtist, concerts: newC });
+                                }}
+                              />
                               <label className="flex items-center gap-1 cursor-pointer">
                                 <input type="checkbox" checked={perf.isUndetermined} onChange={(e) => { const newC = [...editArtist.concerts]; newC[cIdx].performances[pIdx].isUndetermined = e.target.checked; if(e.target.checked) newC[cIdx].performances[pIdx].date = ''; setEditArtist({ ...editArtist, concerts: newC }); }} />
                                 <span className="text-[10px] font-black text-gray-400">未定</span>
                               </label>
-                              <button onClick={() => { const newC = [...editArtist.concerts]; newC[cIdx].performances = newC[cIdx].performances.filter(p => p.id !== perf.id); setEditArtist({ ...editArtist, concerts: newC }); }} className="text-gray-300 hover:text-red-400">✕</button>
+                              <button onClick={() => { const newC = [...editArtist.concerts]; newC[cIdx].performances = newC[cIdx].performances.filter(p => String(p.id) !== String(perf.id)); setEditArtist({ ...editArtist, concerts: newC }); }} className="text-gray-300 hover:text-red-400">✕</button>
                             </div>
 
                             <div className="space-y-2">
@@ -1088,6 +1161,20 @@ const App: React.FC = () => {
                               <div className="grid grid-cols-2 gap-2">
                                 <input value={perf.price || ''} onChange={(e) => { const newC = [...editArtist.concerts]; newC[cIdx].performances[pIdx].price = e.target.value; setEditArtist({ ...editArtist, concerts: newC }); }} placeholder="价格 (例: ¥10,000)" className="p-2 rounded-lg text-[10px] font-bold bg-white border border-slate-100 shadow-sm" />
                                 <input value={perf.ticketUrl || ''} onChange={(e) => { const newC = [...editArtist.concerts]; newC[cIdx].performances[pIdx].ticketUrl = e.target.value; setEditArtist({ ...editArtist, concerts: newC }); }} placeholder="チケットURL" className="p-2 rounded-lg text-[10px] font-bold bg-white border border-slate-100 shadow-sm" />
+                              </div>
+                              <div className="space-y-1">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">抽選結果発表日時</span>
+                                <DatePicker 
+                                  showTime
+                                  placeholder="発表日時を選択"
+                                  className="w-full !rounded-[12px] h-10"
+                                  value={perf.lotteryResultDate ? dayjs(perf.lotteryResultDate) : null}
+                                  onChange={(date) => {
+                                    const newC = [...editArtist.concerts];
+                                    newC[cIdx].performances[pIdx].lotteryResultDate = date ? date.toISOString() : '';
+                                    setEditArtist({ ...editArtist, concerts: newC });
+                                  }}
+                                />
                               </div>
                             </div>
 
@@ -1130,7 +1217,7 @@ const App: React.FC = () => {
           </section>
 
           <div className="pt-10 flex flex-col items-center">
-            <button disabled={!isDirty} onClick={() => { setArtists(prev => prev.map(a => a.id === editArtist.id ? editArtist : a)); setEditArtist(null); setCurrentPage(cameFromHomeRef.current ? 'HOME' : 'DETAIL'); }} className={`px-16 py-4 rounded-full text-sm font-black transition-all ${isDirty ? 'bg-[#53BEE8] text-white shadow-xl shadow-[#53BEE8]/20' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>保存</button>
+            <button disabled={!isDirty} onClick={() => saveArtistSettings()} className={`px-16 py-4 rounded-full text-sm font-black transition-all ${isDirty ? 'bg-[#53BEE8] text-white shadow-xl shadow-[#53BEE8]/20' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>保存</button>
           </div>
         </div>
       </div>
@@ -1138,58 +1225,114 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 relative">
-      {currentPage === 'HOME' && renderHome()}
-      {currentPage === 'DETAIL' && renderDetail()}
-      {currentPage === 'SETTINGS' && renderSettings()}
-      {currentPage === 'CONCERT_SUMMARY' && renderConcertSummary()}
-      
-      {showUnsavedModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-6 animate-in fade-in">
-          <div className="bg-white w-full max-w-sm rounded-[2rem] p-8 shadow-2xl">
-            <h3 className="text-center text-xl font-black text-gray-900 mb-2">未保存の内容</h3>
-            <p className="text-center text-sm text-gray-400 font-medium mb-8">変更を破棄して戻りますか？</p>
-            <div className="flex gap-4">
-              <button onClick={() => setShowUnsavedModal(false)} className="flex-1 py-4 bg-slate-50 rounded-2xl font-black text-sm text-gray-400">キャンセル</button>
-              <button onClick={discardChangesAndLeave} className="flex-1 py-4 bg-red-500 rounded-2xl font-black text-sm text-white">破棄する</button>
-            </div>
-          </div>
-        </div>
-      )}
+    <ConfigProvider theme={{ token: { colorPrimary: '#53BEE8', borderRadius: 8 } }}>
+      <style>{`
+        /* 全局 Ant Design DatePicker 样式覆盖 */
+        .ant-picker-panel-container, 
+        .ant-picker-panel {
+          border-radius: 16px !important;
+          overflow: hidden !important;
+          box-shadow: 0 10px 25px -5px rgba(83, 190, 232, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.05) !important;
+        }
+        
+        /* 选中状态的背景色 */
+        .ant-picker-cell-in-view.ant-picker-cell-selected .ant-picker-cell-inner {
+          background-color: #53BEE8 !important;
+          color: #fff !important;
+          border-radius: 8px !important;
+        }
 
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-6 animate-in fade-in scale-in">
-           <div className="bg-white w-full max-sm rounded-[2rem] p-8 shadow-2xl">
-            <h3 className="text-center text-xl font-black text-gray-900 mb-2 text-red-600">アーティスト削除</h3>
-            <p className="text-center text-sm text-gray-400 font-medium mb-8">このアーティストとすべての公演情報を削除しますか？</p>
-            <div className="flex gap-4">
-              <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-4 bg-slate-50 rounded-2xl font-black text-sm text-gray-400">キャンセル</button>
-              <button onClick={deleteArtist} className="flex-1 py-4 bg-red-600 rounded-2xl font-black text-sm text-white">削除する</button>
-            </div>
-          </div>
-        </div>
-      )}
+        /* 今天标志的颜色同步 */
+        .ant-picker-cell-in-view.ant-picker-cell-today .ant-picker-cell-inner::before {
+          border-color: #53BEE8 !important;
+        }
 
-      {showImportConfirmModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-6 animate-in fade-in scale-in">
-          <div className="bg-white w-full max-md rounded-[2rem] p-8 shadow-2xl">
-            <div className="flex justify-center mb-6">
-              <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center text-amber-600">
-                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+        /* 确定按钮样式强制对齐 */
+        .ant-picker-footer button.ant-btn-primary {
+          background-color: #53BEE8 !important;
+          border-color: #53BEE8 !important;
+          border-radius: 8px !important;
+          font-weight: 700 !important;
+        }
+      `}</style>
+      <AntdApp>
+        <div className="min-h-screen bg-slate-50 text-slate-900 relative">
+          {currentPage === 'HOME' && renderHome()}
+          {currentPage === 'DETAIL' && renderDetail()}
+          {currentPage === 'SETTINGS' && renderSettings()}
+          {currentPage === 'CONCERT_SUMMARY' && renderConcertSummary()}
+          
+          {showUnsavedModal && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-6 animate-in fade-in">
+              <div className="bg-white w-full max-sm rounded-[2rem] p-8 shadow-2xl">
+                <h3 className="text-center text-xl font-black text-gray-900 mb-2">未保存の内容</h3>
+                <p className="text-center text-sm text-gray-400 font-medium mb-8">変更を破棄して戻りますか？</p>
+                <div className="flex gap-4">
+                  <button onClick={() => setShowUnsavedModal(false)} className="flex-1 py-4 bg-slate-50 rounded-2xl font-black text-sm text-gray-400">キャンセル</button>
+                  <button onClick={discardChangesAndLeave} className="flex-1 py-4 bg-red-500 rounded-2xl font-black text-sm text-white">破棄する</button>
+                </div>
               </div>
             </div>
-            <h3 className="text-center text-xl font-black text-gray-900 mb-4">バックアップを読み込みますか</h3>
-            <p className="text-center text-sm text-gray-500 font-bold leading-relaxed mb-10">
-              現在のデータはすべて削除され、バックアップの内容で置き換えられます。この操作は元に戻せません。
-            </p>
-            <div className="flex gap-4">
-              <button onClick={() => { setShowImportConfirmModal(false); setPendingImportData(null); }} className="flex-1 py-4 bg-slate-50 rounded-2xl font-black text-sm text-gray-400 hover:bg-slate-100 transition-colors">キャンセル</button>
-              <button onClick={confirmImport} className="flex-1 py-4 bg-[#53BEE8] rounded-2xl font-black text-sm text-white hover:bg-[#42adc9] transition-colors shadow-lg shadow-[#53BEE8]/20">確定する</button>
+          )}
+
+          {showDeleteModal && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-6 animate-in fade-in scale-in">
+               <div className="bg-white w-full max-sm rounded-[2rem] p-8 shadow-2xl">
+                <h3 className="text-center text-xl font-black text-gray-900 mb-2 text-red-600">アーティスト削除</h3>
+                <p className="text-center text-sm text-gray-400 font-medium mb-8">このアーティストとすべての公演情報を削除しますか？</p>
+                <div className="flex gap-4">
+                  <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-4 bg-slate-50 rounded-2xl font-black text-sm text-gray-400">キャンセル</button>
+                  <button onClick={deleteArtist} className="flex-1 py-4 bg-red-600 rounded-2xl font-black text-sm text-white">削除する</button>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
+
+          {showConflictModal && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-6 animate-in fade-in scale-in duration-200">
+              <div className="bg-white w-full max-sm rounded-[2rem] p-10 shadow-2xl">
+                <h3 className="text-center text-xl font-black text-red-600 mb-2">公演の重複</h3>
+                <p className="text-center text-sm text-gray-400 font-medium mb-10 leading-loose">この日時には既に別の公演が登録されています。重複して登録しますか？</p>
+                <div className="flex gap-4">
+                  <button 
+                    onClick={() => setShowConflictModal(false)} 
+                    className="flex-1 py-4 bg-slate-50 rounded-2xl font-black text-xs text-gray-400 hover:bg-slate-100 transition-colors active:scale-95"
+                  >
+                    修正する
+                  </button>
+                  <button 
+                    onClick={() => saveArtistSettings(true)} 
+                    className="flex-1 py-4 bg-[#53BEE8] rounded-2xl font-black text-xs text-white shadow-xl shadow-[#53BEE8]/20 hover:bg-[#42adc9] transition-colors active:scale-95"
+                  >
+                    このまま保存
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showImportConfirmModal && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-6 animate-in fade-in scale-in">
+              <div className="bg-white w-full max-md rounded-[2rem] p-8 shadow-2xl">
+                <div className="flex justify-center mb-6">
+                  <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center text-amber-600">
+                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                  </div>
+                </div>
+                <h3 className="text-center text-xl font-black text-gray-900 mb-4">バックアップを読み込みますか</h3>
+                <p className="text-center text-sm text-gray-500 font-bold leading-relaxed mb-10">
+                  現在の数据はすべて削除され、バックアップの内容で置き換えられます。この操作は元に戻せません。
+                </p>
+                <div className="flex gap-4">
+                  <button onClick={() => { setShowImportConfirmModal(false); setPendingImportData(null); }} className="flex-1 py-4 bg-slate-50 rounded-2xl font-black text-sm text-gray-400 hover:bg-slate-100 transition-colors">キャンセル</button>
+                  <button onClick={confirmImport} className="flex-1 py-4 bg-[#53BEE8] rounded-2xl font-black text-sm text-white hover:bg-[#42adc9] transition-colors shadow-lg shadow-[#53BEE8]/20">确定する</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-      )}
-    </div>
+      </AntdApp>
+    </ConfigProvider>
   );
 };
 

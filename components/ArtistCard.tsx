@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Artist, ConcertStatus, Performance, HomeViewMode } from '../types';
 import { getArtistStatus, isAutoSkipped } from '../App';
@@ -101,6 +100,11 @@ export const ArtistCard: React.FC<ArtistCardProps> = ({ artist, now, onClick, on
                       </span>
                       {perf.venue && (
                         <span className="text-[9px] text-[#53BEE8] font-bold truncate">@ {perf.venue}</span>
+                      )}
+                      {perf.status === ConcertStatus.PENDING && perf.lotteryResultDate && (
+                        <span className="text-[9px] text-amber-600 font-bold mt-0.5">
+                          発表: {new Date(perf.lotteryResultDate).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       )}
                     </div>
                   </div>

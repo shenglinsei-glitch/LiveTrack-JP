@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Concert, ConcertStatus, Performance } from '../types';
 import { isAutoSkipped } from '../App';
@@ -99,6 +98,16 @@ export const ConcertSection: React.FC<ConcertSectionProps> = ({ concert, now, on
                            <span className="text-[9px] md:text-[10px] font-black text-gray-500 tracking-tight">{perf.venue}</span>
                          </div>
                        )}
+                       {perf.status === ConcertStatus.PENDING && perf.lotteryResultDate && (
+                        <div className="flex items-center gap-2 mt-1">
+                          <svg className="w-3 h-3 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span className="text-[9px] md:text-[10px] font-black text-amber-600 tracking-tight">
+                            抽選発表: {new Date(perf.lotteryResultDate).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <span className={`text-[8px] md:text-[10px] px-2.5 py-0.5 rounded-lg font-black uppercase tracking-tight shadow-sm transition-colors ${getStatusBadgeClass(perf)}`}>
                       {getStatusText(perf)}
