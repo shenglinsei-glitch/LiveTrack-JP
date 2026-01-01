@@ -92,6 +92,7 @@ const App: React.FC = () => {
   const [showImportConfirmModal, setShowImportConfirmModal] = useState(false);
   const [showViewMenu, setShowViewMenu] = useState(false);
   const [draggedArtistId, setDraggedArtistId] = useState<string | null>(null);
+  const [draggedPhotoIndex, setDraggedPhotoIndex] = useState<number | null>(null);
   const [pendingImportData, setPendingImportData] = useState<any>(null);
   const [avatarUrlInput, setAvatarUrlInput] = useState('');
   const [isUrlLoading, setIsUrlLoading] = useState(false);
@@ -391,6 +392,38 @@ const App: React.FC = () => {
     newArtists.splice(targetIndex, 0, removed);
     setArtists(newArtists);
     setDraggedArtistId(null);
+  };
+
+  const onPhotoDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedPhotoIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const onPhotoDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const onPhotoDrop = (e: React.DragEvent, targetIndex: number) => {
+    if (draggedPhotoIndex === null || draggedPhotoIndex === targetIndex || !selectedArtist || !selectedConcertId) return;
+    
+    const updatedArtists = artists.map(a => {
+      if (a.id === selectedArtist.id) {
+        const updatedConcerts = a.concerts.map(c => {
+          if (c.id === selectedConcertId && c.album) {
+            const newAlbum = [...c.album];
+            const [removed] = newAlbum.splice(draggedPhotoIndex, 1);
+            newAlbum.splice(targetIndex, 0, removed);
+            return { ...c, album: newAlbum };
+          }
+          return c;
+        });
+        return { ...a, concerts: updatedConcerts };
+      }
+      return a;
+    });
+    
+    setArtists(updatedArtists);
+    setDraggedPhotoIndex(null);
   };
 
   const handleExportBackup = () => {
@@ -722,13 +755,16 @@ const App: React.FC = () => {
             </section>
           )}
 
-          {/* ③ Album Section */}
+          {/* ③ Album Section with Drag and Drop */}
           <section className="mb-24">
             <div className="flex items-center justify-between mb-8 px-2">
               <h3 className="text-[10px] font-black opacity-30 uppercase tracking-widest">フォトアルバム</h3>
-              <button onClick={() => setShowAddPhotoModal(true)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-              </button>
+              <div className="flex items-center gap-3">
+                <span className="text-[9px] opacity-20 font-black uppercase tracking-widest hidden sm:inline">長押しで並べ替え</span>
+                <button onClick={() => setShowAddPhotoModal(true)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                </button>
+              </div>
             </div>
 
             {(!selectedConcert.album || selectedConcert.album.length === 0) ? (
@@ -741,14 +777,24 @@ const App: React.FC = () => {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
                 {selectedConcert.album.map((url, i) => (
-                  <div key={i} className="relative aspect-square group rounded-2xl overflow-hidden shadow-lg bg-black/20 cursor-pointer" onClick={() => setFullscreenImage(i)}>
-                    <img src={url} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                  <div 
+                    key={`${i}-${url}`} 
+                    draggable 
+                    onDragStart={(e) => onPhotoDragStart(e, i)}
+                    onDragOver={onPhotoDragOver}
+                    onDrop={(e) => onPhotoDrop(e, i)}
+                    className={`relative aspect-square group rounded-2xl overflow-hidden shadow-lg bg-black/20 cursor-move transition-all ${draggedPhotoIndex === i ? 'opacity-40 scale-95 border-2 border-[#53BEE8]' : 'hover:scale-105 active:scale-95'}`} 
+                    onClick={() => setFullscreenImage(i)}
+                  >
+                    <img src={url} className="w-full h-full object-cover pointer-events-none" />
                     <button 
                       onClick={(e) => { e.stopPropagation(); handleDeletePhoto(i); }}
-                      className="absolute top-2 right-2 p-1.5 rounded-full bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
+                      className="absolute top-2 right-2 p-1.5 rounded-full bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 z-10"
                     >
                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
+                    {/* Drag Handle Indicator Overlay */}
+                    <div className="absolute inset-0 bg-[#53BEE8]/10 opacity-0 group-active:opacity-100 transition-opacity pointer-events-none" />
                   </div>
                 ))}
               </div>
