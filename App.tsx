@@ -234,23 +234,14 @@ const App: React.FC = () => {
     setCurrentPage('CONCERT_SUMMARY');
   };
 
-const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void, maxWidth: number) => {
-  const file = e.target.files?.[0];
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const base64 = event.target?.result as string;
-      try {
-        // 核心修复：强制压缩，防止大图塞爆存储
-        const compressed = await compressImage(base64, 600); 
-        callback(compressed);
-      } catch (err) {
-        console.error("图片压缩失败:", err);
-        callback(base64); // 如果压缩失败则使用原图
-      }
-    };
-    reader.readAsDataURL(file);
-  }
+const handleFileUpload = (
+  e: React.ChangeEvent<HTMLInputElement>,
+  callback: (url: string) => void,
+  maxWidth: number
+) => {
+  alert('⚠️ 本地图片上传已关闭，请使用图片 URL');
+  e.target.value = '';
+  return;
 };
 
   const imageUrlToBase64 = async (url: string): Promise<string> => {
@@ -553,23 +544,27 @@ const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url
   };
 
   const handleAddPhoto = () => {
-    if (!photoUrlInput.trim() || !selectedArtist || !selectedConcertId) return;
-    const updatedArtists = artists.map(a => {
-      if (String(a.id) === String(selectedArtist.id)) {
-        const updatedConcerts = a.concerts.map(c => {
-          if (String(c.id) === String(selectedConcertId)) {
-            return { ...c, album: [...(c.album || []), photoUrlInput] };
-          }
-          return c;
-        });
-        return { ...a, concerts: updatedConcerts };
-      }
-      return a;
-    });
-    setArtists(updatedArtists);
-    setPhotoUrlInput('');
-    setShowAddPhotoModal(false);
-  };
+  const url = photoUrlInput.trim();
+  if (!url || !url.startsWith('http') || !selectedArtist || !selectedConcertId) return;
+
+  const updatedArtists = artists.map(a => {
+    if (String(a.id) === String(selectedArtist.id)) {
+      const updatedConcerts = a.concerts.map(c => {
+        if (String(c.id) === String(selectedConcertId)) {
+          return { ...c, album: [...(c.album || []), url] };
+        }
+        return c;
+      });
+      return { ...a, concerts: updatedConcerts };
+    }
+    return a;
+  });
+
+  setArtists(updatedArtists);
+  setPhotoUrlInput('');
+  setShowAddPhotoModal(false);
+};
+
 
   const handleDeletePhoto = (idx: number) => {
     if (!selectedArtistId || !selectedConcertId) return;
@@ -969,13 +964,26 @@ const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url
         <div className="p-6 sm:p-10 space-y-12">
           <section className="flex flex-col items-center">
             <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-              <img 
-                src={editArtist?.avatar || 'https://via.placeholder.com/200?text=No+Image'} 
-                onError={(e) => { 
-                  (e.target as HTMLImageElement).src = 'https://via.placeholder.com/200?text=Invalid+Image'; 
-                }}
-                className="w-20 h-20 rounded-full object-cover border-2 border-[#53BEE8]/20 group-hover:border-[#53BEE8] transition-colors" 
-              />
+              <img
+  src={editArtist?.avatar || ''}
+  onError={(e) => {
+    const img = e.target as HTMLImageElement;
+    img.onerror = null;
+    img.src =
+      'data:image/svg+xml;utf8,' +
+      encodeURIComponent(`
+        <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">
+          <rect width="100%" height="100%" fill="#e5e7eb"/>
+          <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
+            fill="#9ca3af" font-size="14" font-family="sans-serif">
+            No Image
+          </text>
+        </svg>
+      `);
+  }}
+  className="w-20 h-20 rounded-full object-cover border-2 border-[#53BEE8]/20 group-hover:border-[#53BEE8] transition-colors"
+/>
+
               
               <input 
                 type="file" 
