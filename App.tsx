@@ -221,6 +221,24 @@ const backupImportInputRef = useRef<HTMLInputElement>(null);
     return selectedArtist.concerts.find(c => String(c.id) === String(selectedConcertId));
   }, [selectedArtist, selectedConcertId]);
 
+  // Prevent blank screens: if the current page depends on a selection that no longer exists,
+  // automatically fall back to a safe page.
+  useEffect(() => {
+    if (currentPage === 'DETAIL' && !selectedArtist) {
+      setCurrentPage('HOME');
+      return;
+    }
+    if (currentPage === 'CONCERT_SUMMARY') {
+      if (!selectedArtist) {
+        setCurrentPage('HOME');
+        return;
+      }
+      if (!selectedConcert) {
+        setCurrentPage('DETAIL');
+      }
+    }
+  }, [currentPage, selectedArtist, selectedConcert]);
+
   const totalPerformancesCount = useMemo(() => {
     if (settings.homeViewMode === HomeViewMode.REGULAR) return 0;
     let count = 0;
@@ -269,6 +287,20 @@ const backupImportInputRef = useRef<HTMLInputElement>(null);
     setSelectedArtistId(String(artistId));
     setSelectedConcertId(String(concertId));
     setCurrentPage('CONCERT_SUMMARY');
+  };
+
+  const goHome = () => {
+    setSelectedArtistId(null);
+    setSelectedConcertId(null);
+    setShowViewMenu(false);
+    setCurrentPage('HOME');
+  };
+
+  const goDetail = (artistId?: string | null) => {
+    if (artistId) setSelectedArtistId(String(artistId));
+    setSelectedConcertId(null);
+    setShowViewMenu(false);
+    setCurrentPage('DETAIL');
   };
 
 const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void, maxWidth: number) => {
@@ -708,7 +740,13 @@ const handleRefresh = async () => {
                 artist={artist} 
                 now={now} 
                 viewMode={settings.homeViewMode} 
-                onClick={() => { setSelectedArtistId(String(artist.id)); setArtists(prev => prev.map(a => String(a.id) === String(artist.id) ? { ...a, hasUpdate: false } : a)); setCurrentPage('DETAIL'); }}
+                onClick={() => { 
+                  setSelectedArtistId(String(artist.id));
+                  setSelectedConcertId(null);
+                  setShowViewMenu(false);
+                  setArtists(prev => prev.map(a => String(a.id) === String(artist.id) ? { ...a, hasUpdate: false } : a));
+                  setCurrentPage('DETAIL');
+                }}
                 onConcertClick={(concertId) => navigateToConcertSummary(artist.id, concertId)}
               />
             </div>
@@ -766,6 +804,7 @@ const handleRefresh = async () => {
       <div className="fixed bottom-8 right-8 z-50"><button onClick={addArtist} className="w-16 h-16 md:w-20 md:h-20 bg-[#53BEE8] text-white rounded-full flex items-center justify-center shadow-xl transition-all"><svg className="h-8 w-8 md:h-12 md:w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg></button></div>
     </div>
   );
+  };
 
   const renderDetail = () => {
     if (!selectedArtist) return null;
@@ -774,7 +813,7 @@ const handleRefresh = async () => {
     return (
       <div className="max-w-4xl mx-auto min-h-screen pb-20 md:pt-8">
         <header className="p-6 flex items-center bg-white/80 backdrop-blur-md sticky top-0 z-30 border-b border-slate-100 rounded-b-3xl">
-          <button onClick={() => setCurrentPage('HOME')} className="text-gray-400 p-1"><svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg></button>
+          <button onClick={goHome} className="text-gray-400 p-1"><svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg></button>
           <h2 className="flex-grow text-center font-bold text-gray-800 md:text-xl">{selectedArtist.name}</h2>
           <button onClick={() => startEditing(selectedArtist)} className="text-gray-400 p-1"><svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg></button>
         </header>
@@ -825,7 +864,6 @@ const handleRefresh = async () => {
         </div>
       </div>
     );
-    };
   };
 
   const renderConcertSummary = () => {
@@ -845,7 +883,7 @@ const handleRefresh = async () => {
 
         <div className="relative z-10 max-w-4xl mx-auto px-6 py-10 md:py-16 text-white/90">
           <header className="flex items-center mb-12">
-            <button onClick={() => setCurrentPage('DETAIL')} className="p-2 -ml-2 text-white/40 hover:text-white transition-colors">
+            <button onClick={goHome} className="p-2 -ml-2 text-white/40 hover:text-white transition-colors">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             </button>
             <h2 className="flex-grow text-center text-sm font-black uppercase tracking-[0.3em] opacity-40">公演記録</h2>
