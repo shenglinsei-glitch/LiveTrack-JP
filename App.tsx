@@ -241,6 +241,15 @@ const backupImportInputRef = useRef<HTMLInputElement>(null);
     return count;
   }, [artists, settings.homeViewMode, now]);
 
+  // NOTE: keep Hook calls at component top-level (NOT inside render functions)
+  // to avoid white-screen caused by Hook order mismatch when navigating pages.
+  const sortedArtists = useMemo(() => {
+    if (settings.sortMode === SortMode.ALPHABETICAL) {
+      return [...artists].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+    }
+    return artists;
+  }, [artists, settings.sortMode]);
+
   const isDirty = useMemo(() => {
     if (!editArtist) return false;
     return JSON.stringify(editArtist) !== originalArtistRef.current;
@@ -680,13 +689,6 @@ const handleRefresh = async () => {
   };
 
   const renderHome = () => {
-    const sortedArtists = useMemo(() => {
-      if (settings.sortMode === SortMode.ALPHABETICAL) {
-        return [...artists].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
-      }
-      return artists;
-    }, [artists, settings.sortMode]);
-
     return (
     <div className="max-w-6xl mx-auto min-h-screen pb-36">
       <header className="px-6 pt-10 md:pt-16 flex justify-between items-end mb-10">
