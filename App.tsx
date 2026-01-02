@@ -633,12 +633,11 @@ const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url
   };
 
   const renderHome = () => {
-    const sortedArtists = useMemo(() => {
-      if (settings.sortMode === SortMode.ALPHABETICAL) {
-        return [...artists].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
-      }
-      return artists;
-    }, [artists, settings.sortMode]);
+
+    const sortedArtists =
+      settings.sortMode === SortMode.ALPHABETICAL
+        ? [...artists].sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+        : artists;
 
     return (
     <div className="max-w-6xl mx-auto min-h-screen pb-36">
