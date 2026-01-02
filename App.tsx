@@ -154,6 +154,15 @@ const App: React.FC = () => {
       showArtistCards: saved?.showArtistCards ?? true,
       showConcertCards: saved?.showConcertCards ?? false,
 
+      // ✅ 新：演唱会卡片筛选（五种状态多选）
+      concertStatusFilters: saved?.concertStatusFilters ?? {
+        PENDING: true,     // 検討中
+        SKIPPED: true,     // 見送り
+        LOST: true,        // 落選
+        JOINED: true,      // 参戦
+        ATTENDED: true,    // 参戦済み
+      },
+
       // ✅ 新：排序
       homeSortMode: (saved?.homeSortMode ?? 'MANUAL') as HomeSortMode,
       concertTimeSortDirection: (saved?.concertTimeSortDirection ?? 'RECENT_FIRST') as SortDirection,
@@ -275,6 +284,50 @@ const backupImportInputRef = useRef<HTMLInputElement>(null);
     return ConcertStatus.PENDING; // 検討中
   };
 
+  const getConcertDisplayStatusKey = (concert: Concert): 'PENDING' | 'SKIPPED' | 'LOST' | 'JOINED' | 'ATTENDED' => {
+    const primary = getConcertPrimaryStatus(concert);
+
+    if (primary === ConcertStatus.JOINED) {
+      // ✅ 参戦済み判定：公演としての基準時間が「現在より過去」なら参戦済み
+      const t = getConcertSortTimeMs(concert);
+      if (typeof t === 'number' && t < now.getTime()) return 'ATTENDED';
+      return 'JOINED';
+    }
+
+    if (primary === ConcertStatus.LOST) return 'LOST';
+    if (primary === ConcertStatus.SKIPPED) return 'SKIPPED';
+    return 'PENDING'; // 検討中
+  };
+
+  const getConcertDisplayStatusLabel = (key: ReturnType<typeof getConcertDisplayStatusKey>) => {
+    switch (key) {
+      case 'PENDING': return '検討中';
+      case 'SKIPPED': return '見送り';
+      case 'LOST': return '落選';
+      case 'JOINED': return '参戦';
+      case 'ATTENDED': return '参戦済み';
+      default: return '';
+    }
+  };
+
+  const isConcertSummaryAvailable = (concert: Concert) => {
+    const k = getConcertDisplayStatusKey(concert);
+    return k === 'JOINED' || k === 'ATTENDED';
+  };
+
+  const openArtistDetail = (artistId: string | number) => {
+    setSelectedArtistId(String(artistId));
+    setCurrentPage('DETAIL');
+  };
+
+  const openConcertOrArtist = (artistId: string | number, concertId: string | number, concert: Concert) => {
+    if (isConcertSummaryAvailable(concert)) {
+      navigateToConcertSummary(artistId, concertId);
+      return;
+    }
+    openArtistDetail(artistId);
+  };
+
   const sortedArtists = useMemo(() => {
     const mode: HomeSortMode = settings.homeSortMode || 'MANUAL';
 
@@ -289,7 +342,7 @@ const backupImportInputRef = useRef<HTMLInputElement>(null);
   const homeConcertItems = useMemo(() => {
     if (!settings.showConcertCards) return [];
 
-    const items: Array<{ artist: Artist; concert: Concert; t: number | null }> = [];
+    let items: Array<{ artist: Artist; concert: Concert; t: number | null }> = [];
     artists.forEach(a => {
       (a.concerts || []).forEach(c => {
         items.push({ artist: a, concert: c, t: getConcertSortTimeMs(c) });
@@ -297,7 +350,15 @@ const backupImportInputRef = useRef<HTMLInputElement>(null);
     });
 
     // 仅勾选「演唱会卡片」：按全局时间线排序
-    const onlyConcerts = !!settings.showConcertCards && !settings.showArtistCards;
+    // ✅ 状态筛选（五种状态多选）
+    const filters = settings.concertStatusFilters || {};
+    items = items.filter(({ concert }) => {
+      const k = getConcertDisplayStatusKey(concert);
+      return filters[k] !== false; // 默认 true
+    });
+
+    
+const onlyConcerts = !!settings.showConcertCards && !settings.showArtistCards;
     if (onlyConcerts) {
       const dir: SortDirection = settings.concertTimeSortDirection || 'RECENT_FIRST';
       items.sort((x, y) => {
@@ -312,9 +373,18 @@ const backupImportInputRef = useRef<HTMLInputElement>(null);
 
   const displayedConcertCount = useMemo(() => {
     if (!settings.showConcertCards) return 0;
+
+    const filters = settings.concertStatusFilters || {};
+
+    // 只显示演唱会卡片：统计全局列表数量（已过滤）
     if (!settings.showArtistCards) return homeConcertItems.length;
-    return artists.reduce((sum, a) => sum + (a.concerts?.length || 0), 0);
-  }, [artists, settings.showConcertCards, settings.showArtistCards, homeConcertItems.length]);
+
+    // 两者都显示：统计分组下实际显示的演唱会数量（按过滤规则）
+    return artists.reduce((sum, a) => {
+      const cs = a.concerts || [];
+      return sum + cs.filter((c) => filters[getConcertDisplayStatusKey(c)] !== false).length;
+    }, 0);
+  }, [artists, settings.showConcertCards, settings.showArtistCards, settings.concertStatusFilters, homeConcertItems.length]);
 
 const isDirty = useMemo(() => {
     if (!editArtist) return false;
@@ -761,11 +831,17 @@ const handleRefresh = async () => {
     const onlyConcerts = showConcerts && !showArtists;
     const both = showConcerts && showArtists;
 
-    const statusLabel = (s: ConcertStatus) =>
-      s === ConcertStatus.PENDING ? '検討中' :
-      s === ConcertStatus.JOINED ? '参戦' :
-      s === ConcertStatus.LOST ? '落選' :
-      '見送り';
+    
+    const statusPillClass = (k: 'PENDING' | 'SKIPPED' | 'LOST' | 'JOINED' | 'ATTENDED') => {
+      switch (k) {
+        case 'PENDING': return 'bg-amber-50 text-amber-700 border border-amber-100';
+        case 'SKIPPED': return 'bg-gray-100 text-gray-600 border border-gray-200';
+        case 'LOST': return 'bg-rose-50 text-rose-700 border border-rose-100';
+        case 'JOINED': return 'bg-emerald-50 text-emerald-700 border border-emerald-100';
+        case 'ATTENDED': return 'bg-sky-50 text-sky-700 border border-sky-100';
+        default: return 'bg-gray-100 text-gray-600 border border-gray-200';
+      }
+    };
 
     const fmtDateTime = (isoOrYmd?: string) => {
       if (!isoOrYmd) return '';
@@ -797,7 +873,7 @@ const handleRefresh = async () => {
         </header>
 
         {/* ✅ 歌手カード */}
-        {showArtists && (
+        {showArtists && !both && (
           <div className="px-4 sm:px-6">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8">
               {sortedArtists.map((artist) => (
@@ -820,7 +896,11 @@ const handleRefresh = async () => {
                       );
                       setCurrentPage('DETAIL');
                     }}
-                    onConcertClick={(concertId) => navigateToConcertSummary(artist.id, concertId)}
+                    onConcertClick={(concertId) => {
+                      const c = (artist.concerts || []).find(x => String(x.id) === String(concertId));
+                      if (c) { openConcertOrArtist(artist.id, concertId, c); return; }
+                      openArtistDetail(artist.id);
+                    }}
                   />
                 </div>
               ))}
@@ -834,8 +914,8 @@ const handleRefresh = async () => {
             {onlyConcerts && (
               <div className="space-y-5">
                 {homeConcertItems.map(({ artist, concert, t }) => {
-                  const status = getConcertPrimaryStatus(concert);
-                  const isPending = status === ConcertStatus.PENDING;
+                  const statusKey = getConcertDisplayStatusKey(concert);
+                  const isPending = statusKey === 'PENDING';
 
                   const lotteryName = (concert.performances || []).find(p => (p as any).lotteryResultName)?.lotteryResultName as any;
                   const lotteryDate = (concert.performances || []).find(p => (p as any).lotteryResultDate)?.lotteryResultDate as any;
@@ -846,7 +926,7 @@ const handleRefresh = async () => {
                     <div
                       key={`${artist.id}-${concert.id}`}
                       className="p-5 md:p-6 rounded-[2.5rem] border bg-white shadow-sm hover:shadow-md transition-all cursor-pointer"
-                      onClick={() => navigateToConcertSummary(artist.id, concert.id)}
+                      onClick={() => openConcertOrArtist(artist.id, concert.id, concert)}
                     >
                       <div className="flex gap-5 items-start">
                         <div className="w-28 h-28 md:w-36 md:h-36 rounded-3xl bg-gray-200 overflow-hidden flex-shrink-0 shadow-inner">
@@ -893,8 +973,8 @@ const handleRefresh = async () => {
                               {concert.name || '名称未設定の公演'}
                             </h3>
 
-                            <span className="shrink-0 text-[10px] px-2.5 py-1 rounded-xl font-black bg-gray-100 text-gray-600">
-                              {statusLabel(status)}
+                            <span className={`shrink-0 text-[10px] px-2.5 py-1 rounded-xl font-black ${statusPillClass(statusKey)}`}>
+                              {getConcertDisplayStatusLabel(statusKey)}
                             </span>
                           </div>
 
@@ -928,8 +1008,10 @@ const handleRefresh = async () => {
               <div className="mt-6 space-y-10">
                 {sortedArtists.map((artist) => {
                   const concerts = [...(artist.concerts || [])];
+                  const filters = settings.concertStatusFilters || {};
+                  const filteredConcerts = concerts.filter((c) => filters[getConcertDisplayStatusKey(c)] !== false);
                   const dir: SortDirection = settings.concertTimeSortDirection || 'RECENT_FIRST';
-                  concerts.sort((a, b) => {
+                  filteredConcerts.sort((a, b) => {
                     const ta = getConcertSortTimeMs(a) ?? Number.NEGATIVE_INFINITY;
                     const tb = getConcertSortTimeMs(b) ?? Number.NEGATIVE_INFINITY;
                     return dir === 'RECENT_FIRST' ? (tb - ta) : (ta - tb);
@@ -963,9 +1045,9 @@ const handleRefresh = async () => {
                       </div>
 
                       <div className="space-y-4">
-                        {concerts.map((concert) => (
-                          <div key={concert.id} onClick={() => navigateToConcertSummary(artist.id, concert.id)} className="cursor-pointer">
-                            <ConcertSection concert={concert} now={now} onSummaryClick={(cid) => navigateToConcertSummary(artist.id, cid)} />
+                        {filteredConcerts.map((concert) => (
+                          <div key={concert.id} onClick={() => openConcertOrArtist(artist.id, concert.id, concert)} className="cursor-pointer">
+                            <ConcertSection concert={concert} now={now} onSummaryClick={(cid) => openConcertOrArtist(artist.id, cid, concert)} />
                           </div>
                         ))}
                       </div>
@@ -1024,6 +1106,28 @@ const handleRefresh = async () => {
                       />
                       <span className="text-xs font-black text-gray-700">演唱会カードを表示</span>
                     </label>
+
+
+                    {/* ✅ 演唱会カード：状態フィルター（多選） */}
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">状態フィルター</span>
+                      <div className="mt-2 space-y-2">
+                        {(['PENDING','SKIPPED','LOST','JOINED','ATTENDED'] as const).map((k) => (
+                          <label key={k} className="flex items-center gap-3 bg-white rounded-2xl px-3 py-2 border border-gray-100">
+                            <input
+                              type="checkbox"
+                              checked={settings.concertStatusFilters?.[k] !== false}
+                              onChange={(e) => {
+                                const next = { ...(settings.concertStatusFilters || {}) };
+                                next[k] = e.target.checked;
+                                setSettings({ ...settings, concertStatusFilters: next });
+                              }}
+                            />
+                            <span className="text-xs font-black text-gray-700">{getConcertDisplayStatusLabel(k)}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
                   </div>
 
                   <div className="mt-5 pt-4 border-t border-gray-100">
@@ -1172,7 +1276,7 @@ const handleRefresh = async () => {
                 <p className="text-xs font-bold text-gray-300">スケジュールはまだありません</p>
               </div>
             ) : (
-              selectedArtist.concerts.map(c => <ConcertSection key={c.id} concert={c} now={now} onSummaryClick={(cid) => navigateToConcertSummary(selectedArtist.id, cid)} />)
+              selectedArtist.concerts.map(c => <ConcertSection key={c.id} concert={c} now={now} onSummaryClick={(cid) => openConcertOrArtist(selectedArtist.id, cid, c)} />)
             )}
           </div>
         </div>
