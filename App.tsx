@@ -9,6 +9,9 @@ import { STATUS_COLORS } from './constants';
 
 const CURRENT_SCHEMA_VERSION = 1;
 
+type HomeSortMode = 'MANUAL' | 'ARTIST_NAME' | 'CONCERT_TIME';
+type SortDirection = 'RECENT_FIRST' | 'EARLIEST_FIRST';
+
 
 // Remove large base64 images before saving to localStorage.
 // Keeps only normal URLs (http/https) or empty string.
@@ -141,9 +144,25 @@ const App: React.FC = () => {
     } catch(e) { return []; }
   });
 
-  const [settings, setSettings] = useState<GlobalSettings>(() => {
-    const saved = localStorage.getItem('live-track-jp-settings');
-    return saved ? JSON.parse(saved) : { homeViewMode: HomeViewMode.REGULAR, sortMode: SortMode.MANUAL, autoUpdateTime: "10:00" };
+  const [settings, setSettings] = useState<any>(() => {
+    const savedRaw = localStorage.getItem('live-track-jp-settings');
+    const saved = savedRaw ? JSON.parse(savedRaw) : null;
+
+    return {
+      ...(saved || {}),
+      // ✅ 新：首页显示（多选）
+      showArtistCards: saved?.showArtistCards ?? true,
+      showConcertCards: saved?.showConcertCards ?? false,
+
+      // ✅ 新：排序
+      homeSortMode: (saved?.homeSortMode ?? 'MANUAL') as HomeSortMode,
+      concertTimeSortDirection: (saved?.concertTimeSortDirection ?? 'RECENT_FIRST') as SortDirection,
+
+      // 旧字段保持（不再在 Home 使用，但不删除，避免别处引用）
+      homeViewMode: saved?.homeViewMode ?? HomeViewMode.REGULAR,
+      sortMode: saved?.sortMode ?? SortMode.MANUAL,
+      autoUpdateTime: saved?.autoUpdateTime ?? '10:00',
+    };
   });
 
   const [now, setNow] = useState(new Date());
@@ -221,34 +240,83 @@ const backupImportInputRef = useRef<HTMLInputElement>(null);
     return selectedArtist.concerts.find(c => String(c.id) === String(selectedConcertId));
   }, [selectedArtist, selectedConcertId]);
 
-  const totalPerformancesCount = useMemo(() => {
-    if (settings.homeViewMode === HomeViewMode.REGULAR) return 0;
-    let count = 0;
-    artists.forEach(artist => {
-      artist.concerts.forEach(concert => {
-        concert.performances.forEach(perf => {
-          const isPast = !perf.isUndetermined && isValidDate(perf.date) && new Date(perf.date) < now;
-          if (settings.homeViewMode === HomeViewMode.TRACKING) {
-            if (isAutoSkipped(perf, now)) return;
-            const isOngoingOrFuture = perf.isUndetermined || !isPast;
-            if ((perf.status === ConcertStatus.PENDING || perf.status === ConcertStatus.JOINED) && isOngoingOrFuture) count++;
-          } else if (settings.homeViewMode === HomeViewMode.HISTORY) {
-            if (perf.status === ConcertStatus.JOINED && isPast) count++;
-          }
-        });
-      });
-    });
-    return count;
-  }, [artists, settings.homeViewMode, now]);
+  
+  // ---- Home: sorting helpers (no hooks inside render functions) ----
+  const getPerformanceTimeMs = (p: Performance): number | null => {
+    if (!p || p.isUndetermined || !isValidDate(p.date)) return null;
+    const t = new Date(p.date).getTime();
+    return Number.isFinite(t) ? t : null;
+  };
+
+  // ✅ 演唱会时间取值（用于排序）
+  // - 使用该演唱会所有场次（performances），不过滤任何状态
+  // - 若存在未来场次：取最接近现在的未来场次
+  // - 否则：取最近的过去场次
+  const getConcertSortTimeMs = (concert: Concert): number | null => {
+    const nowMs = now.getTime();
+    const times = (concert.performances || [])
+      .map(getPerformanceTimeMs)
+      .filter((v): v is number => typeof v === 'number');
+
+    if (times.length === 0) return null;
+
+    const future = times.filter(t => t >= nowMs).sort((a, b) => a - b);
+    if (future.length > 0) return future[0];
+
+    const past = times.filter(t => t < nowMs).sort((a, b) => b - a);
+    return past[0] ?? null;
+  };
+
+  const getConcertPrimaryStatus = (concert: Concert): ConcertStatus => {
+    const perfs = concert.performances || [];
+    if (perfs.some(p => p.status === ConcertStatus.JOINED)) return ConcertStatus.JOINED;
+    if (perfs.some(p => p.status === ConcertStatus.LOST)) return ConcertStatus.LOST;
+    if (perfs.some(p => isAutoSkipped(p, now) || p.status === ConcertStatus.SKIPPED)) return ConcertStatus.SKIPPED;
+    return ConcertStatus.PENDING; // 検討中
+  };
 
   const sortedArtists = useMemo(() => {
-    if (settings.sortMode === SortMode.ALPHABETICAL) {
-      return [...artists].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
-    }
-    return artists;
-  }, [artists, settings.sortMode]);
+    const mode: HomeSortMode = settings.homeSortMode || 'MANUAL';
 
-  const isDirty = useMemo(() => {
+    if (mode === 'ARTIST_NAME') {
+      return [...artists].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ja'));
+    }
+
+    // MANUAL / CONCERT_TIME：歌手顺序保持不变
+    return artists;
+  }, [artists, settings.homeSortMode]);
+
+  const homeConcertItems = useMemo(() => {
+    if (!settings.showConcertCards) return [];
+
+    const items: Array<{ artist: Artist; concert: Concert; t: number | null }> = [];
+    artists.forEach(a => {
+      (a.concerts || []).forEach(c => {
+        items.push({ artist: a, concert: c, t: getConcertSortTimeMs(c) });
+      });
+    });
+
+    // 仅勾选「演唱会卡片」：按全局时间线排序
+    const onlyConcerts = !!settings.showConcertCards && !settings.showArtistCards;
+    if (onlyConcerts) {
+      const dir: SortDirection = settings.concertTimeSortDirection || 'RECENT_FIRST';
+      items.sort((x, y) => {
+        const ax = x.t ?? Number.NEGATIVE_INFINITY;
+        const by = y.t ?? Number.NEGATIVE_INFINITY;
+        return dir === 'RECENT_FIRST' ? (by - ax) : (ax - by);
+      });
+    }
+
+    return items;
+  }, [artists, now, settings.showConcertCards, settings.showArtistCards, settings.concertTimeSortDirection]);
+
+  const displayedConcertCount = useMemo(() => {
+    if (!settings.showConcertCards) return 0;
+    if (!settings.showArtistCards) return homeConcertItems.length;
+    return artists.reduce((sum, a) => sum + (a.concerts?.length || 0), 0);
+  }, [artists, settings.showConcertCards, settings.showArtistCards, homeConcertItems.length]);
+
+const isDirty = useMemo(() => {
     if (!editArtist) return false;
     return JSON.stringify(editArtist) !== originalArtistRef.current;
   }, [editArtist]);
@@ -469,18 +537,18 @@ const handleRefresh = async () => {
   };
 
   const onDragStart = (e: React.DragEvent, id: string) => {
-    if (settings.sortMode !== SortMode.MANUAL) return;
+    if ((settings.homeSortMode || 'MANUAL') !== 'MANUAL') return;
     setDraggedArtistId(String(id));
     e.dataTransfer.effectAllowed = 'move';
   };
 
   const onDragOver = (e: React.DragEvent) => {
-    if (settings.sortMode !== SortMode.MANUAL) return;
+    if ((settings.homeSortMode || 'MANUAL') !== 'MANUAL') return;
     e.preventDefault();
   };
 
   const onDrop = (e: React.DragEvent, targetId: string) => {
-    if (settings.sortMode !== SortMode.MANUAL || !draggedArtistId || String(draggedArtistId) === String(targetId)) return;
+    if ((settings.homeSortMode || 'MANUAL') !== 'MANUAL' || !draggedArtistId || String(draggedArtistId) === String(targetId)) return;
     const newArtists = [...artists];
     const draggedIndex = newArtists.findIndex(a => String(a.id) === String(draggedArtistId));
     const targetIndex = newArtists.findIndex(a => String(a.id) === String(targetId));
@@ -686,87 +754,371 @@ const handleRefresh = async () => {
     setShowConflictModal(false);
   };
 
+  
   const renderHome = () => {
+    const showArtists = !!settings.showArtistCards;
+    const showConcerts = !!settings.showConcertCards;
+    const onlyConcerts = showConcerts && !showArtists;
+    const both = showConcerts && showArtists;
+
+    const statusLabel = (s: ConcertStatus) =>
+      s === ConcertStatus.PENDING ? '検討中' :
+      s === ConcertStatus.JOINED ? '参戦' :
+      s === ConcertStatus.LOST ? '落選' :
+      '見送り';
+
+    const fmtDateTime = (isoOrYmd?: string) => {
+      if (!isoOrYmd) return '';
+      const d = new Date(isoOrYmd);
+      if (Number.isNaN(d.getTime())) return '';
+      return d.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    };
 
     return (
-    <div className="max-w-6xl mx-auto min-h-screen pb-36">
-      <header className="px-6 pt-10 md:pt-16 flex justify-between items-end mb-10">
-        <div>
-          <h1 className="text-3xl md:text-5xl font-extrabold text-gray-900 tracking-tight">LiveTrack <span className="text-[#53BEE8]">JP</span></h1>
-          <p className="text-sm md:text-base text-gray-400 mt-2 font-medium italic">Monitor without anxiety.</p>
-        </div>
-        <button onClick={handleRefresh} className={`p-3 rounded-full transition-all shadow-sm bg-white border border-gray-100 ${isRefreshing ? 'animate-spin text-[#53BEE8]' : 'text-gray-400 hover:text-[#53BEE8]'}`}>
-          <svg className="h-6 w-6 md:h-8 md:w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-        </button>
-      </header>
-      <div className="px-4 sm:px-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8">
-          {sortedArtists.map((artist) => (
-            <div key={artist.id} draggable={settings.sortMode === SortMode.MANUAL} onDragStart={(e) => onDragStart(e, artist.id)} onDragOver={onDragOver} onDrop={(e) => onDrop(e, artist.id)} className={draggedArtistId === String(artist.id) ? 'opacity-40' : ''}>
-              <ArtistCard 
-                artist={artist} 
-                now={now} 
-                viewMode={settings.homeViewMode} 
-                onClick={() => { setSelectedArtistId(String(artist.id)); setArtists(prev => prev.map(a => String(a.id) === String(artist.id) ? { ...a, hasUpdate: false } : a)); setCurrentPage('DETAIL'); }}
-                onConcertClick={(concertId) => navigateToConcertSummary(artist.id, concertId)}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
-      {settings.homeViewMode !== HomeViewMode.REGULAR && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 pointer-events-none text-center">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center justify-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#53BEE8]/50" />
-            {settings.homeViewMode === HomeViewMode.TRACKING ? `追跡中: ${totalPerformancesCount} 公演` : `参戦済み: ${totalPerformancesCount} 公演`}
-          </p>
-        </div>
-      )}
-      <div className="fixed bottom-8 left-8 z-50">
-        <div className="relative" ref={viewMenuRef}>
-          <button onClick={() => setShowViewMenu(!showViewMenu)} className={`w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center transition-all border shadow-lg ${showViewMenu ? 'bg-[#53BEE8] text-white border-[#53BEE8]' : 'bg-white text-gray-400 border-gray-100'}`}>
-            <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+      <div className="max-w-6xl mx-auto min-h-screen pb-44">
+        <header className="px-6 pt-10 md:pt-16 flex justify-between items-end mb-10">
+          <div>
+            <h1 className="text-3xl md:text-5xl font-extrabold text-gray-900 tracking-tight">
+              LiveTrack <span className="text-[#53BEE8]">JP</span>
+            </h1>
+            <p className="text-sm md:text-base text-gray-400 mt-2 font-medium italic">Monitor without anxiety.</p>
+          </div>
+
+          <button
+            onClick={handleRefresh}
+            className={`p-3 rounded-full transition-all shadow-sm bg-white border border-gray-100 ${ 
+              isRefreshing ? 'animate-spin text-[#53BEE8]' : 'text-gray-400 hover:text-[#53BEE8]' 
+            }`}
+          >
+            <svg className="h-6 w-6 md:h-8 md:w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
           </button>
-          {showViewMenu && (
-            <div className="absolute left-0 bottom-full mb-4 w-64 bg-white rounded-[2rem] shadow-2xl border border-gray-50 p-2 z-[100] overflow-hidden">
-              <div className="px-4 py-3 bg-gray-50/50">
-                <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">表示設定</span>
-                <div className="mt-2 space-y-1">
-                  <button onClick={() => setSettings({...settings, homeViewMode: HomeViewMode.REGULAR})} className={`w-full text-left px-3 py-2 rounded-xl text-xs font-black transition-all ${settings.homeViewMode === HomeViewMode.REGULAR ? 'bg-[#53BEE8] text-white' : 'text-gray-500 hover:bg-white'}`}>通常モード</button>
-                  <button onClick={() => setSettings({...settings, homeViewMode: HomeViewMode.TRACKING})} className={`w-full text-left px-3 py-2 rounded-xl text-xs font-black transition-all ${settings.homeViewMode === HomeViewMode.TRACKING ? 'bg-[#53BEE8] text-white' : 'text-gray-500 hover:bg-white'}`}>追跡モード</button>
-                  <button onClick={() => setSettings({...settings, homeViewMode: HomeViewMode.HISTORY})} className={`w-full text-left px-3 py-2 rounded-xl text-xs font-black transition-all ${settings.homeViewMode === HomeViewMode.HISTORY ? 'bg-[#53BEE8] text-white' : 'text-gray-500 hover:bg-white'}`}>参戦履歴</button>
+        </header>
+
+        {/* ✅ 歌手カード */}
+        {showArtists && (
+          <div className="px-4 sm:px-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8">
+              {sortedArtists.map((artist) => (
+                <div
+                  key={artist.id}
+                  draggable={(settings.homeSortMode || 'MANUAL') === 'MANUAL'}
+                  onDragStart={(e) => onDragStart(e, String(artist.id))}
+                  onDragOver={onDragOver}
+                  onDrop={(e) => onDrop(e, String(artist.id))}
+                  className={draggedArtistId === String(artist.id) ? 'opacity-40' : ''}
+                >
+                  <ArtistCard
+                    artist={artist}
+                    now={now}
+                    viewMode={HomeViewMode.REGULAR}
+                    onClick={() => {
+                      setSelectedArtistId(String(artist.id));
+                      setArtists((prev) =>
+                        prev.map((a) => (String(a.id) === String(artist.id) ? { ...a, hasUpdate: false } : a))
+                      );
+                      setCurrentPage('DETAIL');
+                    }}
+                    onConcertClick={(concertId) => navigateToConcertSummary(artist.id, concertId)}
+                  />
                 </div>
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">並び替え</span>
-                  <div className="mt-2 space-y-1">
-                    <button onClick={() => setSettings({...settings, sortMode: SortMode.ALPHABETICAL})} className={`w-full text-left px-3 py-2 rounded-xl text-xs font-black transition-all ${settings.sortMode === SortMode.ALPHABETICAL ? 'bg-[#53BEE8] text-white' : 'text-gray-500 hover:bg-white'}`}>五十音順</button>
-                    <button onClick={() => setSettings({...settings, sortMode: SortMode.MANUAL})} className={`w-full text-left px-3 py-2 rounded-xl text-xs font-black transition-all ${settings.sortMode === SortMode.MANUAL ? 'bg-[#53BEE8] text-white' : 'text-gray-500 hover:bg-white'}`}>手動（ドラッグ）</button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ✅ 演唱会カード */}
+        {showConcerts && (
+          <div className="px-4 sm:px-6 mt-10">
+            {onlyConcerts && (
+              <div className="space-y-5">
+                {homeConcertItems.map(({ artist, concert, t }) => {
+                  const status = getConcertPrimaryStatus(concert);
+                  const isPending = status === ConcertStatus.PENDING;
+
+                  const lotteryName = (concert.performances || []).find(p => (p as any).lotteryResultName)?.lotteryResultName as any;
+                  const lotteryDate = (concert.performances || []).find(p => (p as any).lotteryResultDate)?.lotteryResultDate as any;
+                  const price = (concert.performances || []).find(p => (p as any).price)?.price as any;
+                  const venue = (concert.performances || []).find(p => (p as any).venue)?.venue as any;
+
+                  return (
+                    <div
+                      key={`${artist.id}-${concert.id}`}
+                      className="p-5 md:p-6 rounded-[2.5rem] border bg-white shadow-sm hover:shadow-md transition-all cursor-pointer"
+                      onClick={() => navigateToConcertSummary(artist.id, concert.id)}
+                    >
+                      <div className="flex gap-5 items-start">
+                        <div className="w-28 h-28 md:w-36 md:h-36 rounded-3xl bg-gray-200 overflow-hidden flex-shrink-0 shadow-inner">
+                          {concert.imageUrl ? (
+                            <img
+                              src={concert.imageUrl}
+                              onError={(e) => (e.target as HTMLImageElement).removeAttribute('src')}
+                              className="w-full h-full object-cover"
+                              alt="Concert"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <svg className="w-10 h-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7h18M3 7v13h18V7M7 7V4h10v3" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div
+                            className="flex items-center gap-2 mb-2 text-xs text-gray-400 font-black tracking-widest cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedArtistId(String(artist.id));
+                              setCurrentPage('DETAIL');
+                            }}
+                          >
+                            {artist.avatar ? (
+                              <img
+                                src={artist.avatar}
+                                onError={(e) => (e.target as HTMLImageElement).removeAttribute('src')}
+                                className="w-5 h-5 rounded-full object-cover bg-slate-100"
+                                alt={artist.name}
+                              />
+                            ) : (
+                              <span className="w-5 h-5 rounded-full bg-slate-100 inline-block" />
+                            )}
+                            <span className="truncate">{artist.name}</span>
+                          </div>
+
+                          <div className="flex items-start justify-between gap-3">
+                            <h3 className="text-lg md:text-2xl font-black text-gray-900 leading-tight truncate">
+                              {concert.name || '名称未設定の公演'}
+                            </h3>
+
+                            <span className="shrink-0 text-[10px] px-2.5 py-1 rounded-xl font-black bg-gray-100 text-gray-600">
+                              {statusLabel(status)}
+                            </span>
+                          </div>
+
+                          <div className="mt-3 space-y-1">
+                            <div className="text-xs font-bold text-gray-500">
+                              {t ? new Date(t).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '日程未定'}
+                            </div>
+                            {venue ? <div className="text-xs font-black text-gray-400 truncate">{venue}</div> : null}
+
+                            {isPending && (
+                              <div className="pt-2 space-y-1">
+                                {lotteryDate ? (
+                                  <div className="text-[11px] font-black text-amber-600">
+                                    抽選: {fmtDateTime(lotteryDate)}
+                                  </div>
+                                ) : null}
+                                {lotteryName ? <div className="text-[11px] font-black text-amber-700">名称: {lotteryName}</div> : null}
+                                {price ? <div className="text-[11px] font-black text-gray-600">￥ {price}</div> : null}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {both && (
+              <div className="mt-6 space-y-10">
+                {sortedArtists.map((artist) => {
+                  const concerts = [...(artist.concerts || [])];
+                  const dir: SortDirection = settings.concertTimeSortDirection || 'RECENT_FIRST';
+                  concerts.sort((a, b) => {
+                    const ta = getConcertSortTimeMs(a) ?? Number.NEGATIVE_INFINITY;
+                    const tb = getConcertSortTimeMs(b) ?? Number.NEGATIVE_INFINITY;
+                    return dir === 'RECENT_FIRST' ? (tb - ta) : (ta - tb);
+                  });
+
+                  return (
+                    <div key={artist.id}>
+                      <div className="flex items-center justify-between mb-4 px-1">
+                        <div className="flex items-center gap-3 min-w-0">
+                          {artist.avatar ? (
+                            <img
+                              src={artist.avatar}
+                              onError={(e) => (e.target as HTMLImageElement).removeAttribute('src')}
+                              className="w-10 h-10 rounded-full object-cover bg-slate-100"
+                              alt={artist.name}
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-slate-100" />
+                          )}
+                          <button
+                            className="text-left min-w-0"
+                            onClick={() => {
+                              setSelectedArtistId(String(artist.id));
+                              setCurrentPage('DETAIL');
+                            }}
+                          >
+                            <div className="text-base font-black text-gray-900 truncate">{artist.name}</div>
+                            <div className="text-[10px] text-gray-400 font-black tracking-widest">CONCERTS</div>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        {concerts.map((concert) => (
+                          <div key={concert.id} onClick={() => navigateToConcertSummary(artist.id, concert.id)} className="cursor-pointer">
+                            <ConcertSection concert={concert} now={now} onSummaryClick={(cid) => navigateToConcertSummary(artist.id, cid)} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none">
+          <div className="mx-auto max-w-6xl px-28 pb-4">
+            <div className="bg-white/80 backdrop-blur-md border border-gray-100 rounded-2xl shadow-sm py-2 text-center">
+              <span className="text-[11px] font-black text-gray-500 tracking-widest">
+                表示中：{displayedConcertCount} 件
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="fixed bottom-8 left-8 z-50">
+          <div className="relative" ref={viewMenuRef}>
+            <button
+              onClick={() => setShowViewMenu(!showViewMenu)}
+              className={`w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center transition-all border shadow-lg ${ 
+                showViewMenu ? 'bg-[#53BEE8] text-white border-[#53BEE8]' : 'bg-white text-gray-400 border-gray-100' 
+              }`}
+            >
+              <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+
+            {showViewMenu && (
+              <div className="absolute left-0 bottom-full mb-4 w-72 bg-white rounded-[2rem] shadow-2xl border border-gray-50 p-2 z-[100] overflow-hidden">
+                <div className="px-4 py-3 bg-gray-50/50">
+                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">ホーム表示</span>
+
+                  <div className="mt-3 space-y-2">
+                    <label className="flex items-center gap-3 bg-white rounded-2xl px-3 py-2 border border-gray-100">
+                      <input
+                        type="checkbox"
+                        checked={!!settings.showArtistCards}
+                        onChange={(e) => setSettings({ ...settings, showArtistCards: e.target.checked })}
+                      />
+                      <span className="text-xs font-black text-gray-700">歌手カードを表示</span>
+                    </label>
+
+                    <label className="flex items-center gap-3 bg-white rounded-2xl px-3 py-2 border border-gray-100">
+                      <input
+                        type="checkbox"
+                        checked={!!settings.showConcertCards}
+                        onChange={(e) => setSettings({ ...settings, showConcertCards: e.target.checked })}
+                      />
+                      <span className="text-xs font-black text-gray-700">演唱会カードを表示</span>
+                    </label>
                   </div>
-                </div>
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">数据管理</span>
-                  <div className="mt-2 space-y-1">
-                    <button onClick={handleExportBackup} className="w-full text-left px-3 py-2 rounded-xl text-xs font-black text-gray-500 hover:bg-white transition-all flex items-center gap-2">
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                      バックアップを書き出す
-                    </button>
-                    <button onClick={() => backupImportInputRef.current?.click()} className="w-full text-left px-3 py-2 rounded-xl text-xs font-black text-gray-500 hover:bg-white transition-all flex items-center gap-2">
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                      バックアップを読み込む
-                    </button>
-                    <input type="file" ref={backupImportInputRef} className="hidden" accept=".json" onChange={handleImportFileChange} />
+
+                  <div className="mt-5 pt-4 border-t border-gray-100">
+                    <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">並び替え</span>
+
+                    <div className="mt-2 space-y-2">
+                      <button
+                        onClick={() => setSettings({ ...settings, homeSortMode: 'MANUAL' as HomeSortMode })}
+                        className={`w-full text-left px-3 py-2 rounded-xl text-xs font-black transition-all ${ 
+                          (settings.homeSortMode || 'MANUAL') === 'MANUAL' ? 'bg-[#53BEE8] text-white' : 'text-gray-500 hover:bg-white' 
+                        }`}
+                      >
+                        手動ドラッグ
+                      </button>
+
+                      <button
+                        onClick={() => setSettings({ ...settings, homeSortMode: 'ARTIST_NAME' as HomeSortMode })}
+                        className={`w-full text-left px-3 py-2 rounded-xl text-xs font-black transition-all ${ 
+                          settings.homeSortMode === 'ARTIST_NAME' ? 'bg-[#53BEE8] text-white' : 'text-gray-500 hover:bg-white' 
+                        }`}
+                      >
+                        歌手名順
+                      </button>
+
+                      <button
+                        onClick={() => setSettings({ ...settings, homeSortMode: 'CONCERT_TIME' as HomeSortMode })}
+                        className={`w-full text-left px-3 py-2 rounded-xl text-xs font-black transition-all ${ 
+                          settings.homeSortMode === 'CONCERT_TIME' ? 'bg-[#53BEE8] text-white' : 'text-gray-500 hover:bg-white' 
+                        }`}
+                      >
+                        公演時間順
+                      </button>
+
+                      {settings.homeSortMode === 'CONCERT_TIME' && (
+                        <button
+                          onClick={() =>
+                            setSettings({
+                              ...settings,
+                              concertTimeSortDirection:
+                                (settings.concertTimeSortDirection || 'RECENT_FIRST') === 'RECENT_FIRST'
+                                  ? 'EARLIEST_FIRST'
+                                  : 'RECENT_FIRST',
+                            })
+                          }
+                          className="w-full text-left px-3 py-2 rounded-xl text-xs font-black transition-all text-gray-500 hover:bg-white"
+                        >
+                          方向：{(settings.concertTimeSortDirection || 'RECENT_FIRST') === 'RECENT_FIRST' ? '最近→最早' : '最早→最近'}
+                        </button>
+                      )}
+                    </div>
+
+                    <p className="mt-3 text-[10px] text-gray-400 font-bold leading-relaxed">
+                      ※「手動ドラッグ」選択中のみドラッグ有効。他の自動ソート中はドラッグ無効。<br />
+                      ※「公演時間順」は歌手順を変えず、歌手グループ内のみ時間で整列します。
+                    </p>
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">データ管理</span>
+                    <div className="mt-2 space-y-1">
+                      <button onClick={handleExportBackup} className="w-full text-left px-3 py-2 rounded-xl text-xs font-black text-gray-500 hover:bg-white transition-all flex items-center gap-2">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        バックアップを書き出す
+                      </button>
+                      <button onClick={() => backupImportInputRef.current?.click()} className="w-full text-left px-3 py-2 rounded-xl text-xs font-black text-gray-500 hover:bg-white transition-all flex items-center gap-2">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                        バックアップを読み込む
+                      </button>
+                      <input type="file" ref={backupImportInputRef} className="hidden" accept=".json" onChange={handleImportFileChange} />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        </div>
+
+        <div className="fixed bottom-8 right-8 z-50">
+          <button
+            onClick={addArtist}
+            className="w-16 h-16 md:w-20 md:h-20 bg-[#53BEE8] text-white rounded-full flex items-center justify-center shadow-xl transition-all"
+          >
+            <svg className="h-8 w-8 md:h-12 md:w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
         </div>
       </div>
-      <div className="fixed bottom-8 right-8 z-50"><button onClick={addArtist} className="w-16 h-16 md:w-20 md:h-20 bg-[#53BEE8] text-white rounded-full flex items-center justify-center shadow-xl transition-all"><svg className="h-8 w-8 md:h-12 md:w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg></button></div>
-    </div>
-  );
-
+    );
   };
+
 
   const renderDetail = () => {
     if (!selectedArtist) return null;
