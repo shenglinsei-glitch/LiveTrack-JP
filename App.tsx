@@ -1048,28 +1048,7 @@ const handleRefresh = async () => {
                         {filteredConcerts.map((concert) => (
                           <div key={concert.id} onClick={() => openConcertOrArtist(artist.id, concert.id, concert)} className="cursor-pointer">
                             <ConcertSection concert={concert} now={now} onSummaryClick={(cid) => openConcertOrArtist(artist.id, cid, concert)} />
-                          {(() => {
-                            const status = getConcertPrimaryStatus(concert);
-                            if (status !== ConcertStatus.PENDING) return null;
-
-                            const lotteryName = (concert.performances || []).find(p => (p as any).lotteryResultName)?.lotteryResultName as any;
-                            const lotteryDate = (concert.performances || []).find(p => (p as any).lotteryResultDate)?.lotteryResultDate as any;
-
-                            if (!lotteryName && !lotteryDate) return null;
-
-                            return (
-                              <div className="mt-2 px-2">
-                                {lotteryDate ? (
-                                  <div className="text-[11px] font-black text-amber-600">抽選: {fmtDateTime(lotteryDate)}</div>
-                                ) : null}
-                                {lotteryName ? (
-                                  <div className="text-[11px] font-black text-amber-700">名称: {lotteryName}</div>
-                                ) : null}
-                              </div>
-                            );
-                          })()}
-
-                          </div>
+</div>
                         ))}
                       </div>
                     </div>
