@@ -4,18 +4,42 @@ import dayjs from 'dayjs';
 import { Artist, MonitoringStage, Concert, Page, ConcertStatus, Performance, HomeViewMode, GlobalSettings, SortMode, MonitoringUrl } from './types';
 import { ArtistCard } from './components/ArtistCard';
 import { ConcertSection } from './components/ConcertSection';
-import { ArtistDetailPage } from './components/ArtistDetailPage';
-
 import { simulateMonitor } from './services/geminiService';
 import { STATUS_COLORS } from './constants';
-
-
 
 const CURRENT_SCHEMA_VERSION = 1;
 
 const isValidDate = (d?: string) => !!d && !isNaN(new Date(d).getTime());
 
+const compressImage = (base64Str: string, maxWidth: number, quality = 0.7): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(base64Str);
+        return;
+      }
 
+      let width = img.width;
+      let height = img.height;
+
+      if (width > maxWidth) {
+        height = (maxWidth / width) * height;
+        width = maxWidth;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+      // 关键修复：补全了 quality 参数和闭合括号
+      resolve(canvas.toDataURL('image/jpeg', quality)); 
+    };
+    img.onerror = () => resolve(base64Str);
+  });
+};
 /**
  * Helper to determine if a performance is effectively "Skipped" 
  */
@@ -64,13 +88,6 @@ export const getArtistStatus = (artist: Artist, now: Date) => {
 };
 
 const App: React.FC = () => {
-
-  // 🚨 一次性清理旧版本地存储（解决空间已满 + 自动生成图片）
-  useEffect(() => {
-    localStorage.removeItem('live-track-jp-artists');
-  }, []);
-
-  
     const [artists, setArtists] = useState<Artist[]>(() => {
     const saved = localStorage.getItem('live-track-jp-artists');
     if (!saved) return [];
@@ -110,6 +127,7 @@ const App: React.FC = () => {
   const [draggedPhotoIndex, setDraggedPhotoIndex] = useState<number | null>(null);
   const [pendingImportData, setPendingImportData] = useState<any>(null);
   const [avatarUrlInput, setAvatarUrlInput] = useState('');
+  const [isUrlLoading, setIsUrlLoading] = useState(false);
 
   const [showAddPhotoModal, setShowAddPhotoModal] = useState(false);
   const [photoUrlInput, setPhotoUrlInput] = useState('');
@@ -118,10 +136,7 @@ const App: React.FC = () => {
 
   const [concertUrlInputs, setConcertUrlInputs] = useState<Record<string, string>>({});
   const [concertUrlLoading, setConcertUrlLoading] = useState<Record<string, boolean>>({});
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const concertFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const backupImportInputRef = useRef<HTMLInputElement>(null);
+const backupImportInputRef = useRef<HTMLInputElement>(null);
   const viewMenuRef = useRef<HTMLDivElement>(null);
 
   const [editArtist, setEditArtist] = useState<Artist | null>(null);
@@ -190,21 +205,14 @@ const App: React.FC = () => {
   }, [editArtist]);
 
   const startEditing = (artist: Artist, fromHome: boolean = false) => {
-  // ⭐ 设置当前选中的 artist（用 ID）
-  setSelectedArtistId(String(artist.id));
-
-  setEditArtist(JSON.parse(JSON.stringify(artist)));
-  originalArtistRef.current = JSON.stringify(artist);
-  cameFromHomeRef.current = fromHome;
-
-  setAvatarUrlInput('');
-  setConcertUrlInputs({});
-  setConcertUrlLoading({});
-
-  setCurrentPage('SETTINGS');
-};
-
-
+    setEditArtist(JSON.parse(JSON.stringify(artist)));
+    originalArtistRef.current = JSON.stringify(artist);
+    cameFromHomeRef.current = fromHome;
+    setAvatarUrlInput('');
+    setConcertUrlInputs({});
+    setConcertUrlLoading({});
+    setCurrentPage('SETTINGS');
+  };
 
   const navigateToConcertSummary = (artistId: string, concertId: string) => {
     setSelectedArtistId(String(artistId));
@@ -212,44 +220,88 @@ const App: React.FC = () => {
     setCurrentPage('CONCERT_SUMMARY');
   };
 
-const handleFileUpload = (
-  e: React.ChangeEvent<HTMLInputElement>,
-  callback: (url: string) => void,
-  maxWidth: number
-) => {
-  alert('⚠️ 本地图片上传已关闭，请使用图片 URL');
-  e.target.value = '';
-  return;
+const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void, maxWidth: number) => {
+  const file = e.target.files?.[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const base64 = event.target?.result as string;
+      try {
+        // 核心修复：强制压缩，防止大图塞爆存储
+        const compressed = await compressImage(base64, 600); 
+        callback(compressed);
+      } catch (err) {
+        console.error("图片压缩失败:", err);
+        callback(base64); // 如果压缩失败则使用原图
+      }
+    };
+    reader.readAsDataURL(file);
+  }
 };
 
-   const handleUrlAvatarLoad = () => {
-  if (!avatarUrlInput.trim() || !editArtist) return;
+  const imageUrlToBase64 = async (url: string): Promise<string> => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous'; 
+    img.src = url;
+    
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = () => reject(new Error('画像の読み込みに失敗しました。'));
+    });
 
-  setEditArtist({
-    ...editArtist,
-    avatar: avatarUrlInput.trim(), // ✅ 只存 URL
-  });
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas context could not be created');
+    
+    ctx.drawImage(img, 0, 0);
+    return canvas.toDataURL('image/png');
+  };
 
-  setAvatarUrlInput('');
+ const handleUrlAvatarLoad = async () => {
+  if (!avatarUrlInput.trim()) return;
+  setIsUrlLoading(true);
+  try {
+    const dataUrl = await imageUrlToBase64(avatarUrlInput);
+    const compressed = await compressImage(dataUrl, 200); // 头像限制200px
+    if (editArtist) {
+      setEditArtist({ ...editArtist, avatar: compressed });
+      setAvatarUrlInput('');
+    }
+  } catch (err) {
+    if (editArtist) setEditArtist({ ...editArtist, avatar: avatarUrlInput });
+  } finally {
+    setIsUrlLoading(false);
+  }
 };
 
+  const handleConcertUrlLoad = async (concertId: string) => {
+    const url = concertUrlInputs[concertId];
+    if (!url || !url.trim()) return;
 
-  const handleConcertUrlLoad = (concertId: string) => {
-  const url = concertUrlInputs[concertId];
-  if (!url || !url.trim()) return;
-
-  if (!editArtist) return;
-
-  const newConcerts = editArtist.concerts.map(c =>
-    String(c.id) === String(concertId)
-      ? { ...c, imageUrl: url.trim() } // ✅ 只存 URL
-      : c
-  );
-
-  setEditArtist({ ...editArtist, concerts: newConcerts });
-  setConcertUrlInputs(prev => ({ ...prev, [concertId]: '' }));
-};
-
+    setConcertUrlLoading(prev => ({ ...prev, [concertId]: true }));
+    try {
+      const dataUrl = await imageUrlToBase64(url);
+      if (editArtist) {
+        const newConcerts = editArtist.concerts.map(c => 
+          String(c.id) === String(concertId) ? { ...c, imageUrl: dataUrl } : c
+        );
+        setEditArtist({ ...editArtist, concerts: newConcerts });
+        setConcertUrlInputs(prev => ({ ...prev, [concertId]: '' }));
+      }
+    } catch (err) {
+      console.warn("CORS or loading error. Storing direct URL as fallback.", err);
+      if (editArtist) {
+        const newConcerts = editArtist.concerts.map(c => 
+          String(c.id) === String(concertId) ? { ...c, imageUrl: url } : c
+        );
+        setEditArtist({ ...editArtist, concerts: newConcerts });
+      }
+    } finally {
+      setConcertUrlLoading(prev => ({ ...prev, [concertId]: false }));
+    }
+  };
 
   const handleRefresh = async () => {
     if (isRefreshing) return;
@@ -484,27 +536,23 @@ const handleFileUpload = (
   };
 
   const handleAddPhoto = () => {
-  const url = photoUrlInput.trim();
-  if (!url || !url.startsWith('http') || !selectedArtist || !selectedConcertId) return;
-
-  const updatedArtists = artists.map(a => {
-    if (String(a.id) === String(selectedArtist.id)) {
-      const updatedConcerts = a.concerts.map(c => {
-        if (String(c.id) === String(selectedConcertId)) {
-          return { ...c, album: [...(c.album || []), url] };
-        }
-        return c;
-      });
-      return { ...a, concerts: updatedConcerts };
-    }
-    return a;
-  });
-
-  setArtists(updatedArtists);
-  setPhotoUrlInput('');
-  setShowAddPhotoModal(false);
-};
-
+    if (!photoUrlInput.trim() || !selectedArtist || !selectedConcertId) return;
+    const updatedArtists = artists.map(a => {
+      if (String(a.id) === String(selectedArtist.id)) {
+        const updatedConcerts = a.concerts.map(c => {
+          if (String(c.id) === String(selectedConcertId)) {
+            return { ...c, album: [...(c.album || []), photoUrlInput] };
+          }
+          return c;
+        });
+        return { ...a, concerts: updatedConcerts };
+      }
+      return a;
+    });
+    setArtists(updatedArtists);
+    setPhotoUrlInput('');
+    setShowAddPhotoModal(false);
+  };
 
   const handleDeletePhoto = (idx: number) => {
     if (!selectedArtistId || !selectedConcertId) return;
@@ -571,15 +619,6 @@ const handleFileUpload = (
   };
 
   const saveArtistSettings = (force: boolean = false) => {
-    
-    console.log(
-    '[DEBUG save]',
-    'avatar =',
-    editArtist?.avatar,
-    'length =',
-    editArtist?.avatar?.length
-  );
-
     if (!editArtist) return;
 
     if (!force && validateConcertConflicts(editArtist)) {
@@ -594,10 +633,12 @@ const handleFileUpload = (
   };
 
   const renderHome = () => {
-    const sortedArtists =
-  settings.sortMode === SortMode.ALPHABETICAL
-    ? [...artists].sort((a, b) => a.name.localeCompare(b.name, 'ja'))
-    : artists;
+    const sortedArtists = useMemo(() => {
+      if (settings.sortMode === SortMode.ALPHABETICAL) {
+        return [...artists].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+      }
+      return artists;
+    }, [artists, settings.sortMode]);
 
     return (
     <div className="max-w-6xl mx-auto min-h-screen pb-36">
@@ -676,8 +717,67 @@ const handleFileUpload = (
       <div className="fixed bottom-8 right-8 z-50"><button onClick={addArtist} className="w-16 h-16 md:w-20 md:h-20 bg-[#53BEE8] text-white rounded-full flex items-center justify-center shadow-xl transition-all"><svg className="h-8 w-8 md:h-12 md:w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg></button></div>
     </div>
   );
-  };
 
+  const renderDetail = () => {
+    if (!selectedArtist) return null;
+    const status = getArtistStatus(selectedArtist, now);
+    const validUrls = selectedArtist.websiteUrls.filter(item => item.url.trim().length > 0);
+    return (
+      <div className="max-w-4xl mx-auto min-h-screen pb-20 md:pt-8">
+        <header className="p-6 flex items-center bg-white/80 backdrop-blur-md sticky top-0 z-30 border-b border-slate-100 rounded-b-3xl">
+          <button onClick={() => setCurrentPage('HOME')} className="text-gray-400 p-1"><svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg></button>
+          <h2 className="flex-grow text-center font-bold text-gray-800 md:text-xl">{selectedArtist.name}</h2>
+          <button onClick={() => startEditing(selectedArtist)} className="text-gray-400 p-1"><svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg></button>
+        </header>
+        <div className="px-4 sm:px-8 lg:px-12 mt-10">
+          {selectedArtist.stage === MonitoringStage.CONCERT_DETECTED && (
+            <div className="mb-8 p-6 bg-orange-50 border border-orange-100 rounded-[2rem] shadow-sm animate-pulse">
+              <h4 className="text-orange-600 font-black text-lg mb-2 text-center">公演情報が検出されました！</h4>
+              <p className="text-orange-400 text-xs text-center mb-6">詳細を入力してチケットの追跡を開始します。</p>
+              <button onClick={() => handleConfirmConcert(selectedArtist.id)} className="w-full py-4 bg-orange-500 text-white font-black rounded-2xl shadow-lg shadow-orange-200">公演情報を確定する</button>
+            </div>
+          )}
+          <div className="flex flex-col items-center mb-8">
+            <img 
+  src={selectedArtist.avatar || ''} 
+  onError={(e) => { 
+    (e.target as HTMLImageElement).src = ''; 
+  }}
+  className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white shadow-lg object-cover mb-4" 
+/>
+            <h3 className="text-2xl font-bold text-gray-900">{selectedArtist.name}</h3>
+            <div className="mt-2 flex items-center gap-2 bg-white px-4 py-1.5 rounded-full border border-slate-100 shadow-sm">
+              <span className={`w-2 h-2 rounded-full ${status.color}`} />
+              <span className="text-xs md:text-sm text-gray-500 font-bold uppercase tracking-widest">{status.label}</span>
+            </div>
+          </div>
+          {validUrls.length > 0 && (
+            <div className="mb-10 flex flex-wrap justify-center gap-x-6 gap-y-3">
+              {validUrls.map((item, idx) => (
+                <a key={idx} href={item.url.startsWith('http') ? item.url : `https://${item.url}`} target="_blank" rel="noopener noreferrer" className="group flex items-center gap-1.5 text-[11px] font-bold text-slate-400 hover:text-[#53BEE8] transition-all">
+                  <svg className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                  <span className="underline decoration-slate-200 group-hover:decoration-[#53BEE8] underline-offset-4">{item.name || '公式サイト'}</span>
+                </a>
+              ))}
+            </div>
+          )}
+          <div className="space-y-4">
+            <div className="px-2 mb-2 flex justify-between items-center">
+              <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">公演スケジュール</span>
+            </div>
+            {selectedArtist.concerts.length === 0 ? (
+              <div className="p-10 text-center bg-gray-50/50 rounded-[2rem] border border-dashed border-gray-200">
+                <p className="text-xs font-bold text-gray-300">スケジュールはまだありません</p>
+              </div>
+            ) : (
+              selectedArtist.concerts.map(c => <ConcertSection key={c.id} concert={c} now={now} onSummaryClick={(cid) => navigateToConcertSummary(selectedArtist.id, cid)} />)
+            )}
+          </div>
+        </div>
+      </div>
+    );
+    };
+  };
 
   const renderConcertSummary = () => {
     if (!selectedArtist || !selectedConcert) return null;
@@ -705,14 +805,7 @@ const handleFileUpload = (
 
           <section className="flex flex-col items-center mb-16 text-center">
             <div className="w-32 h-32 md:w-44 md:h-44 rounded-3xl overflow-hidden shadow-2xl mb-8 border border-white/10 ring-4 ring-white/5">
-              {bgUrl ? (
-  <img src={bgUrl} className="w-full h-full object-cover" />
-) : (
-  <div className="w-full h-full flex items-center justify-center text-white/30 text-xs font-black uppercase tracking-widest">
-    NO IMAGE
-  </div>
-)}
-
+              <img src={bgUrl} className="w-full h-full object-cover" />
             </div>
             <h1 className="text-2xl md:text-4xl font-black text-white mb-3 leading-tight">{selectedConcert.name}</h1>
             <p className="text-lg font-bold opacity-60 mb-6">{selectedArtist.name}</p>
@@ -919,46 +1012,21 @@ const handleFileUpload = (
 
         <div className="p-6 sm:p-10 space-y-12">
           <section className="flex flex-col items-center">
-            <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-              <img
-  src={editArtist?.avatar || ''}
-  onError={(e) => {
-    const img = e.target as HTMLImageElement;
-    img.onerror = null;
-    img.src =
-      'data:image/svg+xml;utf8,' +
-      encodeURIComponent(`
-        <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">
-          <rect width="100%" height="100%" fill="#e5e7eb"/>
-          <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
-            fill="#9ca3af" font-size="14" font-family="sans-serif">
-            No Image
-          </text>
-        </svg>
-      `);
-  }}
-  className="w-20 h-20 rounded-full object-cover border-2 border-[#53BEE8]/20 group-hover:border-[#53BEE8] transition-colors"
-/>
-
-              
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                className="hidden" 
-                accept="image/*" 
-                onChange={(e) => handleFileUpload(e, (url) => {
-                  if (editArtist) {
-                    setEditArtist({ ...editArtist, avatar: url });
-                  }
-                }, 200)} 
-              />
-
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812-1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            <div className="w-20 h-20 rounded-full overflow-hidden bg-slate-100 border-2 border-slate-200 shadow-inner flex items-center justify-center">
+              {editArtist?.avatar ? (
+                <img
+                  src={editArtist.avatar}
+                  onError={(e) => {
+                    // 如果链接失效：清空，显示占位
+                    (e.target as HTMLImageElement).removeAttribute('src');
+                  }}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <svg className="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 12a4 4 0 100-8 4 4 0 000 8zm0 2c-4.418 0-8 2.239-8 5v1h16v-1c0-2.761-3.582-5-8-5z" />
                 </svg>
-              </div>
+              )}
             </div>
           </section>
 
@@ -1065,33 +1133,24 @@ const handleFileUpload = (
                 <div key={concert.id} className="p-6 bg-white border border-slate-100 rounded-[2.5rem] shadow-sm space-y-6">
                   <div className="flex flex-col sm:flex-row gap-6">
                     <div className="flex-shrink-0 flex flex-col items-center space-y-3">
-                      <div 
-                        className="relative group cursor-pointer w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden bg-gray-100 border-2 border-slate-50 shadow-inner" 
-                        onClick={() => concertFileInputRefs.current[concert.id]?.click()}
+                      <div
+                        className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden bg-slate-100 border-2 border-slate-200 shadow-inner flex items-center justify-center"
                       >
-                        <img 
-                          src={concert.imageUrl || ''} 
-                          className="w-full h-full object-cover transition-all group-hover:brightness-75" 
-                        />
-                        <input 
-                          type="file" 
-                          ref={el => { concertFileInputRefs.current[concert.id] = el; }} 
-                          className="hidden" 
-                          accept="image/*" 
-                          onChange={(e) => handleFileUpload(e, (url) => {
-                            const newC = [...editArtist.concerts];
-                            newC[cIdx].imageUrl = url;
-                            setEditArtist({ ...editArtist, concerts: newC });
-                          }, 600)} // 这里已修改为 600px 压缩
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812-1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        {concert.imageUrl ? (
+                          <img
+                            src={concert.imageUrl}
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).removeAttribute('src');
+                            }}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <svg className="w-10 h-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7h18M3 7v13h18V7M7 7V4h10v3M8 12l3 3 5-6" />
                           </svg>
-                        </div>
+                        )}
                       </div>
-                      
+
                       {/* 公演图片URL导入功能 */}
                       <div className="mt-2 w-full max-w-[120px]">
                         <div className="flex flex-col gap-1.5">
@@ -1195,6 +1254,10 @@ const handleFileUpload = (
     );
   };
 
+  function renderDetail() {
+    throw new Error('Function not implemented.');
+  }
+
   // Remove this error-throwing function - it's already implemented above
   // The renderDetail function is already defined and exported in the component
   return (
@@ -1231,17 +1294,7 @@ const handleFileUpload = (
       <AntdApp>
         <div className="min-h-screen bg-slate-50 text-slate-900 relative">
           {currentPage === 'HOME' && renderHome()}
-          {currentPage === 'DETAIL' && (
-  <ArtistDetailPage
-    selectedArtist={selectedArtist}
-    now={now}
-    getArtistStatus={getArtistStatus}
-    setCurrentPage={setCurrentPage}
-    startEditing={startEditing}
-    handleConfirmConcert={handleConfirmConcert}
-    navigateToConcertSummary={navigateToConcertSummary}
-  />
-)}
+          {currentPage === 'DETAIL' && renderDetail()}
           {currentPage === 'SETTINGS' && renderSettings()}
           {currentPage === 'CONCERT_SUMMARY' && renderConcertSummary()}
           

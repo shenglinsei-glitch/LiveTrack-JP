@@ -98,14 +98,22 @@ export const ArtistDetailPage: React.FC<ArtistDetailPageProps> = ({
 
         {/* 头像 / 状态 */}
         <div className="flex flex-col items-center mb-8">
-          <img
-            src={selectedArtist.avatar || ''}
-            onError={(e) => {
-              (e.target as HTMLImageElement).src =
-                'https://via.placeholder.com/200?text=No+Image';
-            }}
-            className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white shadow-lg object-cover mb-4"
-          />
+          {selectedArtist.avatar ? (
+            <img
+              src={selectedArtist.avatar}
+              onError={(e) => {
+                // 链接失效：清空，显示占位
+                (e.target as HTMLImageElement).removeAttribute('src');
+              }}
+              className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white shadow-lg object-cover mb-4 bg-slate-100"
+            />
+          ) : (
+            <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white shadow-lg mb-4 bg-slate-100 flex items-center justify-center">
+              <svg className="w-10 h-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 12a4 4 0 100-8 4 4 0 000 8zm0 2c-4.418 0-8 2.239-8 5v1h16v-1c0-2.761-3.582-5-8-5z" />
+              </svg>
+            </div>
+          )}
 
           <h3 className="text-2xl font-bold text-gray-900">
             {selectedArtist.name}

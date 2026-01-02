@@ -54,13 +54,21 @@ export const ArtistCard: React.FC<ArtistCardProps> = ({ artist, now, onClick, on
         <div className="flex items-start justify-between">
           <div className="flex items-start space-x-4">
             <div className="relative shrink-0">
-              <img 
-                src={artist.avatar || 'https://via.placeholder.com/200?text=No+Image'} 
-                onError={(e) => { 
-                  (e.target as HTMLImageElement).src = 'https://via.placeholder.com/200?text=Error'; 
-                }}
-                className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md"
-              />
+              {artist.avatar ? (
+                <img
+                  src={artist.avatar}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).removeAttribute('src');
+                  }}
+                  className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md bg-slate-100"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-full border-2 border-white shadow-md bg-slate-100 flex items-center justify-center">
+                  <svg className="w-7 h-7 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 12a4 4 0 100-8 4 4 0 000 8zm0 2c-4.418 0-8 2.239-8 5v1h16v-1c0-2.761-3.582-5-8-5z" />
+                  </svg>
+                </div>
+              )}
               {isHighlighted && (
                 <span className="absolute -top-1 -right-1 flex h-4 w-4">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#53BEE8]/50 opacity-75"></span>

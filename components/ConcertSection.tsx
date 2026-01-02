@@ -73,7 +73,22 @@ export const ConcertSection: React.FC<ConcertSectionProps> = ({ concert, now, on
     >
       <div className="flex gap-4 md:gap-6 items-start">
         <div className="w-20 h-20 md:w-28 md:h-28 rounded-2xl bg-gray-200 overflow-hidden flex-shrink-0 shadow-inner">
-          <img src={concert.imageUrl || ''} className="w-full h-full object-cover" alt="Concert" />
+          {concert.imageUrl ? (
+            <img
+              src={concert.imageUrl}
+              onError={(e) => {
+                (e.target as HTMLImageElement).removeAttribute('src');
+              }}
+              className="w-full h-full object-cover"
+              alt="Concert"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <svg className="w-10 h-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7h18M3 7v13h18V7M7 7V4h10v3M8 12l3 3 5-6" />
+              </svg>
+            </div>
+          )}
         </div>
         <div className="flex-grow pt-1">
           <h4 className="text-base md:text-xl font-black text-gray-900 leading-tight mb-4">{concert.name || '名称未設定の公演'}</h4>
