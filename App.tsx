@@ -241,6 +241,13 @@ const backupImportInputRef = useRef<HTMLInputElement>(null);
     return count;
   }, [artists, settings.homeViewMode, now]);
 
+  const sortedArtists = useMemo(() => {
+    if (settings.sortMode === SortMode.ALPHABETICAL) {
+      return [...artists].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+    }
+    return artists;
+  }, [artists, settings.sortMode]);
+
   const isDirty = useMemo(() => {
     if (!editArtist) return false;
     return JSON.stringify(editArtist) !== originalArtistRef.current;
@@ -680,12 +687,6 @@ const handleRefresh = async () => {
   };
 
   const renderHome = () => {
-    const sortedArtists = useMemo(() => {
-      if (settings.sortMode === SortMode.ALPHABETICAL) {
-        return [...artists].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
-      }
-      return artists;
-    }, [artists, settings.sortMode]);
 
     return (
     <div className="max-w-6xl mx-auto min-h-screen pb-36">
@@ -765,6 +766,8 @@ const handleRefresh = async () => {
     </div>
   );
 
+  };
+
   const renderDetail = () => {
     if (!selectedArtist) return null;
     const status = getArtistStatus(selectedArtist, now);
@@ -823,7 +826,6 @@ const handleRefresh = async () => {
         </div>
       </div>
     );
-    };
   };
 
   const renderConcertSummary = () => {
