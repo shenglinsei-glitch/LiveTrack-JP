@@ -93,14 +93,9 @@ export const getArtistStatus = (artist: Artist, now: Date) => {
 
 const App: React.FC = () => {
 
-  // 🔥【临时】只加一次，用来清空旧的 base64 图片数据
-  React.useEffect(() => {
-    try {
-      localStorage.removeItem('live-track-jp-artists');
-      console.warn('已清空旧的 localStorage 数据');
-    } catch (e) {
-      console.warn('清理失败', e);
-    }
+  // 🚨 一次性清理旧版本地存储（解决空间已满 + 自动生成图片）
+  useEffect(() => {
+    localStorage.removeItem('live-track-jp-artists');
   }, []);
 
   
