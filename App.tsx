@@ -282,24 +282,39 @@ const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url
 };
 
   const imageUrlToBase64 = async (url: string): Promise<string> => {
+  return new Promise((resolve) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous'; 
+    img.crossOrigin = 'anonymous';
     img.src = url;
-    
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = () => reject(new Error('画像の読み込みに失敗しました。'));
-    });
 
-    const canvas = document.createElement('canvas');
-    canvas.width = img.width;
-    canvas.height = img.height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Canvas context could not be created');
-    
-    ctx.drawImage(img, 0, 0);
-    return canvas.toDataURL('image/png');
-  };
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      if (!ctx) {
+        // ❗不抛异常，直接回退为原始 URL
+        resolve(url);
+        return;
+      }
+
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+
+      try {
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      } catch {
+        resolve(url);
+      }
+    };
+
+    img.onerror = () => {
+      // ❗加载失败也不抛异常
+      resolve(url);
+    };
+  });
+};
+
 
  const handleUrlAvatarLoad = async () => {
   const url = avatarUrlInput.trim();
