@@ -15,35 +15,7 @@ const CURRENT_SCHEMA_VERSION = 1;
 
 const isValidDate = (d?: string) => !!d && !isNaN(new Date(d).getTime());
 
-const compressImage = (base64Str: string, maxWidth: number, quality = 0.7): Promise<string> => {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.src = base64Str;
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        resolve(base64Str);
-        return;
-      }
 
-      let width = img.width;
-      let height = img.height;
-
-      if (width > maxWidth) {
-        height = (maxWidth / width) * height;
-        width = maxWidth;
-      }
-
-      canvas.width = width;
-      canvas.height = height;
-      ctx.drawImage(img, 0, 0, width, height);
-      // 关键修复：补全了 quality 参数和闭合括号
-      resolve(canvas.toDataURL('image/jpeg', quality)); 
-    };
-    img.onerror = () => resolve(base64Str);
-  });
-};
 /**
  * Helper to determine if a performance is effectively "Skipped" 
  */
@@ -138,7 +110,6 @@ const App: React.FC = () => {
   const [draggedPhotoIndex, setDraggedPhotoIndex] = useState<number | null>(null);
   const [pendingImportData, setPendingImportData] = useState<any>(null);
   const [avatarUrlInput, setAvatarUrlInput] = useState('');
-  const [isUrlLoading, setIsUrlLoading] = useState(false);
 
   const [showAddPhotoModal, setShowAddPhotoModal] = useState(false);
   const [photoUrlInput, setPhotoUrlInput] = useState('');
@@ -251,72 +222,34 @@ const handleFileUpload = (
   return;
 };
 
-  const imageUrlToBase64 = async (url: string): Promise<string> => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous'; 
-    img.src = url;
-    
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = () => reject(new Error('画像の読み込みに失敗しました。'));
-    });
+   const handleUrlAvatarLoad = () => {
+  if (!avatarUrlInput.trim() || !editArtist) return;
 
-    const canvas = document.createElement('canvas');
-    canvas.width = img.width;
-    canvas.height = img.height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-  console.warn('Canvas context could not be created');
-  return;
-}
-    
-    ctx.drawImage(img, 0, 0);
-    return canvas.toDataURL('image/png');
-  };
+  setEditArtist({
+    ...editArtist,
+    avatar: avatarUrlInput.trim(), // ✅ 只存 URL
+  });
 
- const handleUrlAvatarLoad = async () => {
-  if (!avatarUrlInput.trim()) return;
-  setIsUrlLoading(true);
-  try {
-    const dataUrl = await imageUrlToBase64(avatarUrlInput);
-    const compressed = await compressImage(dataUrl, 200); // 头像限制200px
-    if (editArtist) {
-      setEditArtist({ ...editArtist, avatar: compressed });
-      setAvatarUrlInput('');
-    }
-  } catch (err) {
-    if (editArtist) setEditArtist({ ...editArtist, avatar: avatarUrlInput });
-  } finally {
-    setIsUrlLoading(false);
-  }
+  setAvatarUrlInput('');
 };
 
-  const handleConcertUrlLoad = async (concertId: string) => {
-    const url = concertUrlInputs[concertId];
-    if (!url || !url.trim()) return;
 
-    setConcertUrlLoading(prev => ({ ...prev, [concertId]: true }));
-    try {
-      const dataUrl = await imageUrlToBase64(url);
-      if (editArtist) {
-        const newConcerts = editArtist.concerts.map(c => 
-          String(c.id) === String(concertId) ? { ...c, imageUrl: dataUrl } : c
-        );
-        setEditArtist({ ...editArtist, concerts: newConcerts });
-        setConcertUrlInputs(prev => ({ ...prev, [concertId]: '' }));
-      }
-    } catch (err) {
-      console.warn("CORS or loading error. Storing direct URL as fallback.", err);
-      if (editArtist) {
-        const newConcerts = editArtist.concerts.map(c => 
-          String(c.id) === String(concertId) ? { ...c, imageUrl: url } : c
-        );
-        setEditArtist({ ...editArtist, concerts: newConcerts });
-      }
-    } finally {
-      setConcertUrlLoading(prev => ({ ...prev, [concertId]: false }));
-    }
-  };
+  const handleConcertUrlLoad = (concertId: string) => {
+  const url = concertUrlInputs[concertId];
+  if (!url || !url.trim()) return;
+
+  if (!editArtist) return;
+
+  const newConcerts = editArtist.concerts.map(c =>
+    String(c.id) === String(concertId)
+      ? { ...c, imageUrl: url.trim() } // ✅ 只存 URL
+      : c
+  );
+
+  setEditArtist({ ...editArtist, concerts: newConcerts });
+  setConcertUrlInputs(prev => ({ ...prev, [concertId]: '' }));
+};
+
 
   const handleRefresh = async () => {
     if (isRefreshing) return;
@@ -638,6 +571,15 @@ const handleFileUpload = (
   };
 
   const saveArtistSettings = (force: boolean = false) => {
+    
+    console.log(
+    '[DEBUG save]',
+    'avatar =',
+    editArtist?.avatar,
+    'length =',
+    editArtist?.avatar?.length
+  );
+
     if (!editArtist) return;
 
     if (!force && validateConcertConflicts(editArtist)) {
