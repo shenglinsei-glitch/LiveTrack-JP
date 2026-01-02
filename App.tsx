@@ -847,7 +847,7 @@ const handleRefresh = async () => {
       if (!isoOrYmd) return '';
       const d = new Date(isoOrYmd);
       if (Number.isNaN(d.getTime())) return '';
-      return d.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      return d.toLocaleString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     };
 
     return (
@@ -980,7 +980,7 @@ const handleRefresh = async () => {
 
                           <div className="mt-3 space-y-1">
                             <div className="text-xs font-bold text-gray-500">
-                              {t ? new Date(t).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '日程未定'}
+                              {t ? new Date(t).toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric' }) : '日程未定'}
                             </div>
                             {venue ? <div className="text-xs font-black text-gray-400 truncate">{venue}</div> : null}
 
@@ -1048,6 +1048,27 @@ const handleRefresh = async () => {
                         {filteredConcerts.map((concert) => (
                           <div key={concert.id} onClick={() => openConcertOrArtist(artist.id, concert.id, concert)} className="cursor-pointer">
                             <ConcertSection concert={concert} now={now} onSummaryClick={(cid) => openConcertOrArtist(artist.id, cid, concert)} />
+                          {(() => {
+                            const status = getConcertPrimaryStatus(concert);
+                            if (status !== ConcertStatus.PENDING) return null;
+
+                            const lotteryName = (concert.performances || []).find(p => (p as any).lotteryResultName)?.lotteryResultName as any;
+                            const lotteryDate = (concert.performances || []).find(p => (p as any).lotteryResultDate)?.lotteryResultDate as any;
+
+                            if (!lotteryName && !lotteryDate) return null;
+
+                            return (
+                              <div className="mt-2 px-2">
+                                {lotteryDate ? (
+                                  <div className="text-[11px] font-black text-amber-600">抽選: {fmtDateTime(lotteryDate)}</div>
+                                ) : null}
+                                {lotteryName ? (
+                                  <div className="text-[11px] font-black text-amber-700">名称: {lotteryName}</div>
+                                ) : null}
+                              </div>
+                            );
+                          })()}
+
                           </div>
                         ))}
                       </div>
@@ -1058,18 +1079,16 @@ const handleRefresh = async () => {
             )}
           </div>
         )}
-
-        <div className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none">
-          <div className="mx-auto max-w-6xl px-28 pb-4">
-            <div className="bg-white/80 backdrop-blur-md border border-gray-100 rounded-2xl shadow-sm py-2 text-center">
-              <span className="text-[11px] font-black text-gray-500 tracking-widest">
-                表示中：{displayedConcertCount} 件
-              </span>
-            </div>
+        
+        {settings.showConcertCards && (
+          <div className="mt-14 px-6 text-center">
+            <span className="text-[11px] md:text-xs font-bold text-gray-400">
+              表示中：{displayedConcertCount} 件
+            </span>
           </div>
-        </div>
+        )}
 
-        <div className="fixed bottom-8 left-8 z-50">
+<div className="fixed bottom-8 left-8 z-50">
           <div className="relative" ref={viewMenuRef}>
             <button
               onClick={() => setShowViewMenu(!showViewMenu)}
@@ -1095,7 +1114,7 @@ const handleRefresh = async () => {
                         checked={!!settings.showArtistCards}
                         onChange={(e) => setSettings({ ...settings, showArtistCards: e.target.checked })}
                       />
-                      <span className="text-xs font-black text-gray-700">歌手カードを表示</span>
+                      <span className="text-xs font-black text-gray-700">アーティスト表示</span>
                     </label>
 
                     <label className="flex items-center gap-3 bg-white rounded-2xl px-3 py-2 border border-gray-100">
@@ -1104,7 +1123,7 @@ const handleRefresh = async () => {
                         checked={!!settings.showConcertCards}
                         onChange={(e) => setSettings({ ...settings, showConcertCards: e.target.checked })}
                       />
-                      <span className="text-xs font-black text-gray-700">演唱会カードを表示</span>
+                      <span className="text-xs font-black text-gray-700">公演表示</span>
                     </label>
 
 
