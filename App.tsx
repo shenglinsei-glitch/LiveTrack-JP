@@ -93,7 +93,7 @@ const App: React.FC = () => {
     if (!saved) return [];
     try {
       const parsed = JSON.parse(saved);
-      return parsed.map((a: any) => ({
+      return sanitizeForStorage(parsed.map((a: any) => ({
         ...a,
         id: String(a.id),
         websiteUrls: Array.isArray(a.websiteUrls) 
@@ -104,7 +104,7 @@ const App: React.FC = () => {
           id: String(c.id),
           performances: Array.isArray(c.performances) ? c.performances.map((p: any) => ({ ...p, id: String(p.id) })) : []
         })) : []
-      }));
+      })));
     } catch(e) { return []; }
   });
 
@@ -142,6 +142,7 @@ const backupImportInputRef = useRef<HTMLInputElement>(null);
   const [editArtist, setEditArtist] = useState<Artist | null>(null);
   const originalArtistRef = useRef<string>('');
   const cameFromHomeRef = useRef<boolean>(false);
+  const storageFullRef = useRef<boolean>(false);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
@@ -160,15 +161,23 @@ const backupImportInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
   try {
-    localStorage.setItem('live-track-jp-artists', JSON.stringify(artists));
+    // ✅ 只保存 URL；自动清理以前遗留的 base64 大图，避免 localStorage 爆满
+    localStorage.setItem('live-track-jp-artists', JSON.stringify(sanitizeForStorage(artists)));
     localStorage.setItem('live-track-jp-settings', JSON.stringify(settings));
+    storageFullRef.current = false;
   } catch (e: any) {
-    if (e.name === 'QuotaExceededError') {
-      // 这样用户在屏幕上就能直接看到红色报错，而不是只在控制台
-      alert("本地存储空间已满！请尝试更换较小的图片或删除部分不需要的数据。");
+    if (e?.name === 'QuotaExceededError') {
+      // ✅ 只提示一次，避免每次点击都弹窗
+      if (!storageFullRef.current) {
+        alert('本地存储空间已满！请尝试更换较小的图片或删除部分不需要的数据。');
+        storageFullRef.current = true;
+      }
+    } else {
+      console.warn('Failed to persist to localStorage', e);
     }
   }
 }, [artists, settings]);
+
 
   const selectedArtist = useMemo(() => {
     return artists.find(a => String(a.id) === String(selectedArtistId)) || null;
@@ -260,50 +269,40 @@ const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url
   };
 
  const handleUrlAvatarLoad = async () => {
-  if (!avatarUrlInput.trim()) return;
+  const url = avatarUrlInput.trim();
+  if (!url) return;
+
   setIsUrlLoading(true);
   try {
-    const dataUrl = await imageUrlToBase64(avatarUrlInput);
-    const compressed = await compressImage(dataUrl, 200); // 头像限制200px
+    // ✅ 只保存链接（不转 base64），避免塞爆 localStorage
     if (editArtist) {
-      setEditArtist({ ...editArtist, avatar: compressed });
+      setEditArtist({ ...editArtist, avatar: url });
       setAvatarUrlInput('');
     }
-  } catch (err) {
-    if (editArtist) setEditArtist({ ...editArtist, avatar: avatarUrlInput });
   } finally {
     setIsUrlLoading(false);
   }
 };
 
   const handleConcertUrlLoad = async (concertId: string) => {
-    const url = concertUrlInputs[concertId];
-    if (!url || !url.trim()) return;
+  const url = (concertUrlInputs[concertId] || '').trim();
+  if (!url) return;
 
-    setConcertUrlLoading(prev => ({ ...prev, [concertId]: true }));
-    try {
-      const dataUrl = await imageUrlToBase64(url);
-      if (editArtist) {
-        const newConcerts = editArtist.concerts.map(c => 
-          String(c.id) === String(concertId) ? { ...c, imageUrl: dataUrl } : c
-        );
-        setEditArtist({ ...editArtist, concerts: newConcerts });
-        setConcertUrlInputs(prev => ({ ...prev, [concertId]: '' }));
-      }
-    } catch (err) {
-      console.warn("CORS or loading error. Storing direct URL as fallback.", err);
-      if (editArtist) {
-        const newConcerts = editArtist.concerts.map(c => 
-          String(c.id) === String(concertId) ? { ...c, imageUrl: url } : c
-        );
-        setEditArtist({ ...editArtist, concerts: newConcerts });
-      }
-    } finally {
-      setConcertUrlLoading(prev => ({ ...prev, [concertId]: false }));
+  setConcertUrlLoading(prev => ({ ...prev, [concertId]: true }));
+  try {
+    // ✅ 只保存链接（不转 base64）
+    if (editArtist) {
+      const newConcerts = editArtist.concerts.map(c =>
+        String(c.id) === String(concertId) ? { ...c, imageUrl: url } : c
+      );
+      setEditArtist({ ...editArtist, concerts: newConcerts });
+      setConcertUrlInputs(prev => ({ ...prev, [concertId]: '' }));
     }
-  };
-
-  const handleRefresh = async () => {
+  } finally {
+    setConcertUrlLoading(prev => ({ ...prev, [concertId]: false }));
+  }
+};
+const handleRefresh = async () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
     const updatedArtists = await Promise.all(artists.map(async (artist) => {
@@ -633,11 +632,12 @@ const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url
   };
 
   const renderHome = () => {
-
-    const sortedArtists =
-      settings.sortMode === SortMode.ALPHABETICAL
-        ? [...artists].sort((a, b) => a.name.localeCompare(b.name, 'ja'))
-        : artists;
+    const sortedArtists = useMemo(() => {
+      if (settings.sortMode === SortMode.ALPHABETICAL) {
+        return [...artists].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+      }
+      return artists;
+    }, [artists, settings.sortMode]);
 
     return (
     <div className="max-w-6xl mx-auto min-h-screen pb-36">
@@ -1027,6 +1027,40 @@ const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url
                 </svg>
               )}
             </div>
+            <div className="mt-4 w-full max-w-[360px]">
+              <div className="flex flex-col gap-2">
+                <input
+                  type="text"
+                  value={avatarUrlInput}
+                  onChange={(e) => setAvatarUrlInput(e.target.value)}
+                  placeholder="头像URL..."
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-bold outline-none focus:ring-1 ring-[#53BEE8] shadow-inner"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={handleUrlAvatarLoad}
+                    disabled={isUrlLoading || !avatarUrlInput.trim()}
+                    className={`py-2 rounded-xl text-[10px] font-black transition-all shadow-sm ${
+                      isUrlLoading || !avatarUrlInput.trim()
+                        ? 'bg-gray-100 text-gray-300'
+                        : 'bg-[#53BEE8] text-white hover:bg-[#42adc9]'
+                    }`}
+                  >
+                    {isUrlLoading ? '...' : '読込'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!editArtist) return;
+                      setEditArtist({ ...editArtist, avatar: '' });
+                      setAvatarUrlInput('');
+                    }}
+                    className="py-2 rounded-xl text-[10px] font-black bg-white border border-slate-200 text-gray-500 hover:bg-slate-50 transition-all"
+                  >
+                    削除
+                  </button>
+                </div>
+              </div>
+            </div>
           </section>
 
           <section className="space-y-4">
@@ -1167,6 +1201,18 @@ const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url
                           >
                             {concertUrlLoading[concert.id] ? '...' : '読込'}
                           </button>
+                          <button
+                            onClick={() => {
+                              if (!editArtist) return;
+                              const newC = [...editArtist.concerts];
+                              newC[cIdx].imageUrl = '';
+                              setEditArtist({ ...editArtist, concerts: newC });
+                              setConcertUrlInputs(prev => ({ ...prev, [concert.id]: '' }));
+                            }}
+                            className="w-full py-1.5 rounded-lg text-[9px] font-black bg-white border border-slate-100 text-gray-400 hover:bg-white transition-all"
+                          >
+                            削除
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -1252,11 +1298,6 @@ const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url
       </div>
     );
   };
-
-  function renderDetail() {
-    throw new Error('Function not implemented.');
-  }
-
   // Remove this error-throwing function - it's already implemented above
   // The renderDetail function is already defined and exported in the component
   return (
