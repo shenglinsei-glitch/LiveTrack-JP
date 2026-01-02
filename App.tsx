@@ -4,8 +4,12 @@ import dayjs from 'dayjs';
 import { Artist, MonitoringStage, Concert, Page, ConcertStatus, Performance, HomeViewMode, GlobalSettings, SortMode, MonitoringUrl } from './types';
 import { ArtistCard } from './components/ArtistCard';
 import { ConcertSection } from './components/ConcertSection';
+import { ArtistDetailPage } from './components/ArtistDetailPage';
+
 import { simulateMonitor } from './services/geminiService';
 import { STATUS_COLORS } from './constants';
+
+
 
 const CURRENT_SCHEMA_VERSION = 1;
 
@@ -208,14 +212,21 @@ const App: React.FC = () => {
   }, [editArtist]);
 
   const startEditing = (artist: Artist, fromHome: boolean = false) => {
-    setEditArtist(JSON.parse(JSON.stringify(artist)));
-    originalArtistRef.current = JSON.stringify(artist);
-    cameFromHomeRef.current = fromHome;
-    setAvatarUrlInput('');
-    setConcertUrlInputs({});
-    setConcertUrlLoading({});
-    setCurrentPage('SETTINGS');
-  };
+  // ⭐ 设置当前选中的 artist（用 ID）
+  setSelectedArtistId(String(artist.id));
+
+  setEditArtist(JSON.parse(JSON.stringify(artist)));
+  originalArtistRef.current = JSON.stringify(artist);
+  cameFromHomeRef.current = fromHome;
+
+  setAvatarUrlInput('');
+  setConcertUrlInputs({});
+  setConcertUrlLoading({});
+
+  setCurrentPage('SETTINGS');
+};
+
+
 
   const navigateToConcertSummary = (artistId: string, concertId: string) => {
     setSelectedArtistId(String(artistId));
@@ -256,7 +267,10 @@ const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url
     canvas.width = img.width;
     canvas.height = img.height;
     const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Canvas context could not be created');
+    if (!ctx) {
+  console.warn('Canvas context could not be created');
+  return;
+}
     
     ctx.drawImage(img, 0, 0);
     return canvas.toDataURL('image/png');
@@ -636,12 +650,10 @@ const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url
   };
 
   const renderHome = () => {
-    const sortedArtists = useMemo(() => {
-      if (settings.sortMode === SortMode.ALPHABETICAL) {
-        return [...artists].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
-      }
-      return artists;
-    }, [artists, settings.sortMode]);
+    const sortedArtists =
+  settings.sortMode === SortMode.ALPHABETICAL
+    ? [...artists].sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+    : artists;
 
     return (
     <div className="max-w-6xl mx-auto min-h-screen pb-36">
@@ -720,67 +732,8 @@ const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url
       <div className="fixed bottom-8 right-8 z-50"><button onClick={addArtist} className="w-16 h-16 md:w-20 md:h-20 bg-[#53BEE8] text-white rounded-full flex items-center justify-center shadow-xl transition-all"><svg className="h-8 w-8 md:h-12 md:w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg></button></div>
     </div>
   );
-
-  const renderDetail = () => {
-    if (!selectedArtist) return null;
-    const status = getArtistStatus(selectedArtist, now);
-    const validUrls = selectedArtist.websiteUrls.filter(item => item.url.trim().length > 0);
-    return (
-      <div className="max-w-4xl mx-auto min-h-screen pb-20 md:pt-8">
-        <header className="p-6 flex items-center bg-white/80 backdrop-blur-md sticky top-0 z-30 border-b border-slate-100 rounded-b-3xl">
-          <button onClick={() => setCurrentPage('HOME')} className="text-gray-400 p-1"><svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg></button>
-          <h2 className="flex-grow text-center font-bold text-gray-800 md:text-xl">{selectedArtist.name}</h2>
-          <button onClick={() => startEditing(selectedArtist)} className="text-gray-400 p-1"><svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg></button>
-        </header>
-        <div className="px-4 sm:px-8 lg:px-12 mt-10">
-          {selectedArtist.stage === MonitoringStage.CONCERT_DETECTED && (
-            <div className="mb-8 p-6 bg-orange-50 border border-orange-100 rounded-[2rem] shadow-sm animate-pulse">
-              <h4 className="text-orange-600 font-black text-lg mb-2 text-center">公演情報が検出されました！</h4>
-              <p className="text-orange-400 text-xs text-center mb-6">詳細を入力してチケットの追跡を開始します。</p>
-              <button onClick={() => handleConfirmConcert(selectedArtist.id)} className="w-full py-4 bg-orange-500 text-white font-black rounded-2xl shadow-lg shadow-orange-200">公演情報を確定する</button>
-            </div>
-          )}
-          <div className="flex flex-col items-center mb-8">
-            <img 
-  src={selectedArtist.avatar || `https://picsum.photos/seed/${selectedArtist.id}/200`} 
-  onError={(e) => { 
-    (e.target as HTMLImageElement).src = 'https://via.placeholder.com/200?text=No+Image'; 
-  }}
-  className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white shadow-lg object-cover mb-4" 
-/>
-            <h3 className="text-2xl font-bold text-gray-900">{selectedArtist.name}</h3>
-            <div className="mt-2 flex items-center gap-2 bg-white px-4 py-1.5 rounded-full border border-slate-100 shadow-sm">
-              <span className={`w-2 h-2 rounded-full ${status.color}`} />
-              <span className="text-xs md:text-sm text-gray-500 font-bold uppercase tracking-widest">{status.label}</span>
-            </div>
-          </div>
-          {validUrls.length > 0 && (
-            <div className="mb-10 flex flex-wrap justify-center gap-x-6 gap-y-3">
-              {validUrls.map((item, idx) => (
-                <a key={idx} href={item.url.startsWith('http') ? item.url : `https://${item.url}`} target="_blank" rel="noopener noreferrer" className="group flex items-center gap-1.5 text-[11px] font-bold text-slate-400 hover:text-[#53BEE8] transition-all">
-                  <svg className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                  <span className="underline decoration-slate-200 group-hover:decoration-[#53BEE8] underline-offset-4">{item.name || '公式サイト'}</span>
-                </a>
-              ))}
-            </div>
-          )}
-          <div className="space-y-4">
-            <div className="px-2 mb-2 flex justify-between items-center">
-              <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">公演スケジュール</span>
-            </div>
-            {selectedArtist.concerts.length === 0 ? (
-              <div className="p-10 text-center bg-gray-50/50 rounded-[2rem] border border-dashed border-gray-200">
-                <p className="text-xs font-bold text-gray-300">スケジュールはまだありません</p>
-              </div>
-            ) : (
-              selectedArtist.concerts.map(c => <ConcertSection key={c.id} concert={c} now={now} onSummaryClick={(cid) => navigateToConcertSummary(selectedArtist.id, cid)} />)
-            )}
-          </div>
-        </div>
-      </div>
-    );
-    };
   };
+
 
   const renderConcertSummary = () => {
     if (!selectedArtist || !selectedConcert) return null;
@@ -1278,10 +1231,6 @@ const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url
     );
   };
 
-  function renderDetail() {
-    throw new Error('Function not implemented.');
-  }
-
   // Remove this error-throwing function - it's already implemented above
   // The renderDetail function is already defined and exported in the component
   return (
@@ -1318,7 +1267,17 @@ const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url
       <AntdApp>
         <div className="min-h-screen bg-slate-50 text-slate-900 relative">
           {currentPage === 'HOME' && renderHome()}
-          {currentPage === 'DETAIL' && renderDetail()}
+          {currentPage === 'DETAIL' && (
+  <ArtistDetailPage
+    selectedArtist={selectedArtist}
+    now={now}
+    getArtistStatus={getArtistStatus}
+    setCurrentPage={setCurrentPage}
+    startEditing={startEditing}
+    handleConfirmConcert={handleConfirmConcert}
+    navigateToConcertSummary={navigateToConcertSummary}
+  />
+)}
           {currentPage === 'SETTINGS' && renderSettings()}
           {currentPage === 'CONCERT_SUMMARY' && renderConcertSummary()}
           
