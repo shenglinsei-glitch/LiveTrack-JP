@@ -92,6 +92,18 @@ export const getArtistStatus = (artist: Artist, now: Date) => {
 };
 
 const App: React.FC = () => {
+
+  // 🔥【临时】只加一次，用来清空旧的 base64 图片数据
+  React.useEffect(() => {
+    try {
+      localStorage.removeItem('live-track-jp-artists');
+      console.warn('已清空旧的 localStorage 数据');
+    } catch (e) {
+      console.warn('清理失败', e);
+    }
+  }, []);
+
+  
     const [artists, setArtists] = useState<Artist[]>(() => {
     const saved = localStorage.getItem('live-track-jp-artists');
     if (!saved) return [];
@@ -732,7 +744,7 @@ const handleFileUpload = (
 
   const renderConcertSummary = () => {
     if (!selectedArtist || !selectedConcert) return null;
-    const bgUrl = selectedConcert.imageUrl || `https://picsum.photos/seed/${selectedConcert.id}/600`;
+    const bgUrl = selectedConcert.imageUrl || '';
     const joinedPerformances = selectedConcert.performances.filter(p => p.status === ConcertStatus.JOINED);
     const artistUrls = selectedArtist.websiteUrls.filter(item => item.url.trim().length > 0);
 
@@ -756,7 +768,14 @@ const handleFileUpload = (
 
           <section className="flex flex-col items-center mb-16 text-center">
             <div className="w-32 h-32 md:w-44 md:h-44 rounded-3xl overflow-hidden shadow-2xl mb-8 border border-white/10 ring-4 ring-white/5">
-              <img src={bgUrl} className="w-full h-full object-cover" />
+              {bgUrl ? (
+  <img src={bgUrl} className="w-full h-full object-cover" />
+) : (
+  <div className="w-full h-full flex items-center justify-center text-white/30 text-xs font-black uppercase tracking-widest">
+    NO IMAGE
+  </div>
+)}
+
             </div>
             <h1 className="text-2xl md:text-4xl font-black text-white mb-3 leading-tight">{selectedConcert.name}</h1>
             <p className="text-lg font-bold opacity-60 mb-6">{selectedArtist.name}</p>
