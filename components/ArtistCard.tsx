@@ -36,7 +36,7 @@ export const ArtistCard: React.FC<ArtistCardProps> = ({ artist, now, onClick, on
     if (viewMode === HomeViewMode.TRACKING) {
       if (isAutoSkipped(p, now)) return false;
       const isOngoingOrFuture = p.isUndetermined || !isPast;
-      return (p.status === ConcertStatus.PENDING || p.status === ConcertStatus.JOINED) && isOngoingOrFuture;
+      return (p.status === ConcertStatus.PENDING || p.status === ConcertStatus.JOINED || p.status === ConcertStatus.LOST) && isOngoingOrFuture;
     }
 
     if (viewMode === HomeViewMode.HISTORY) {
@@ -119,14 +119,21 @@ export const ArtistCard: React.FC<ArtistCardProps> = ({ artist, now, onClick, on
                       {perf.venue && (
                         <span className="text-[9px] text-[#53BEE8] font-bold truncate">@ {perf.venue}</span>
                       )}
+                      {viewMode === HomeViewMode.TRACKING && perf.status !== ConcertStatus.PENDING && perf.lotteryResultDate && (
+                        <span className="text-[9px] text-amber-600 font-black truncate">
+                          抽選結果{perf.lotteryResultName ? `（${perf.lotteryResultName}）` : ''}: {new Date(perf.lotteryResultDate).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-tighter shadow-sm shrink-0 transition-colors ${
                     perf.status === ConcertStatus.JOINED 
                       ? (isPast ? 'bg-[#C1E9FA] text-[#2D8FB7]' : 'bg-[#53BEE8] text-white') 
-                      : 'bg-amber-100 text-amber-700'
+                      : (perf.status === ConcertStatus.LOST ? 'bg-slate-200 text-slate-700' : 'bg-amber-100 text-amber-700')
                   }`}>
-                    {perf.status === ConcertStatus.JOINED ? (isPast ? '参戦済み' : '参戦') : '検討中'}
+                    {perf.status === ConcertStatus.JOINED
+                      ? (isPast ? '参戦済み' : '参戦')
+                      : (perf.status === ConcertStatus.LOST ? '落選' : '検討中')}
                   </div>
                 </div>
               );

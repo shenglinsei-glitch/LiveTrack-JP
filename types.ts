@@ -30,7 +30,8 @@ export interface Performance {
   venue?: string;
   price?: string;
   ticketUrl?: string;
-  lotteryResultDate?: string; // 抽選結果発表日時
+  lotteryResultName?: string; // 抽選結果名（例: FC1次 / 一般）
+  lotteryResultDate?: string; // 抽選結果発表日時（ISO string）
 }
 
 export interface Concert {
