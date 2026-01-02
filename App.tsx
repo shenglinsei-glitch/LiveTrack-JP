@@ -1084,8 +1084,8 @@ const handleRefresh = async () => {
             </button>
 
             {showViewMenu && (
-              <div className="absolute left-0 bottom-full mb-4 w-72 bg-white rounded-[2rem] shadow-2xl border border-gray-50 p-2 z-[100] overflow-hidden">
-                <div className="px-4 py-3 bg-gray-50/50">
+              <div className="absolute left-0 bottom-full mb-4 w-72 bg-white rounded-[2rem] shadow-2xl border border-gray-50 p-2 z-[100] overflow-hidden max-h-[80vh]">
+                <div className="px-4 py-3 bg-gray-50/50 max-h-[78vh] overflow-y-auto overscroll-contain pr-1">
                   <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">ホーム表示</span>
 
                   <div className="mt-3 space-y-2">
