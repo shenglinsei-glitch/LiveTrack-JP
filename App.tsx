@@ -9,6 +9,39 @@ import { STATUS_COLORS } from './constants';
 
 const CURRENT_SCHEMA_VERSION = 1;
 
+
+// Remove large base64 images before saving to localStorage.
+// Keeps only normal URLs (http/https) or empty string.
+// Also cleans nested album arrays.
+function sanitizeForStorage<T>(data: T): T {
+  const isDataImage = (v: any) => typeof v === 'string' && v.startsWith('data:image');
+  const cleanStr = (v: any) => (typeof v === 'string' ? (isDataImage(v) ? '' : v) : v);
+
+  const walk = (v: any): any => {
+    if (v == null) return v;
+    if (typeof v === 'string') return cleanStr(v);
+    if (Array.isArray(v)) return v.map(walk).filter((x) => !isDataImage(x));
+    if (typeof v === 'object') {
+      const out: any = {};
+      for (const [k, val] of Object.entries(v)) {
+        if (k === 'avatar' || k === 'imageUrl') {
+          out[k] = cleanStr(val);
+          continue;
+        }
+        if (k === 'album' && Array.isArray(val)) {
+          out[k] = val.map(walk).filter((x: any) => typeof x === 'string' && !isDataImage(x));
+          continue;
+        }
+        out[k] = walk(val);
+      }
+      return out;
+    }
+    return v;
+  };
+
+  return walk(data);
+}
+
 const isValidDate = (d?: string) => !!d && !isNaN(new Date(d).getTime());
 
 const compressImage = (base64Str: string, maxWidth: number, quality = 0.7): Promise<string> => {
