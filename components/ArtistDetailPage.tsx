@@ -99,7 +99,7 @@ export const ArtistDetailPage: React.FC<ArtistDetailPageProps> = ({
         {/* 头像 / 状态 */}
         <div className="flex flex-col items-center mb-8">
           <img
-            src={selectedArtist.avatar || `https://picsum.photos/seed/${selectedArtist.id}/200`}
+            src={selectedArtist.avatar || ''}
             onError={(e) => {
               (e.target as HTMLImageElement).src =
                 'https://via.placeholder.com/200?text=No+Image';

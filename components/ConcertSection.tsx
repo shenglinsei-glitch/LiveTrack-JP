@@ -73,7 +73,7 @@ export const ConcertSection: React.FC<ConcertSectionProps> = ({ concert, now, on
     >
       <div className="flex gap-4 md:gap-6 items-start">
         <div className="w-20 h-20 md:w-28 md:h-28 rounded-2xl bg-gray-200 overflow-hidden flex-shrink-0 shadow-inner">
-          <img src={concert.imageUrl || `https://picsum.photos/seed/${concert.id}/300`} className="w-full h-full object-cover" alt="Concert" />
+          <img src={concert.imageUrl || ''} className="w-full h-full object-cover" alt="Concert" />
         </div>
         <div className="flex-grow pt-1">
           <h4 className="text-base md:text-xl font-black text-gray-900 leading-tight mb-4">{concert.name || '名称未設定の公演'}</h4>

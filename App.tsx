@@ -1128,7 +1128,7 @@ const handleFileUpload = (
                         onClick={() => concertFileInputRefs.current[concert.id]?.click()}
                       >
                         <img 
-                          src={concert.imageUrl || `https://picsum.photos/seed/${concert.id}/300`} 
+                          src={concert.imageUrl || ''} 
                           className="w-full h-full object-cover transition-all group-hover:brightness-75" 
                         />
                         <input 

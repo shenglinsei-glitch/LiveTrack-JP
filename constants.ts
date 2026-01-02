@@ -11,9 +11,5 @@ export const STATUS_COLORS = {
   TICKET_PHASE: 'bg-amber-400', // Amber (チケット追跡中)
 };
 
-export const MOCK_AVATARS = [
-  'https://picsum.photos/seed/artist1/200',
-  'https://picsum.photos/seed/artist2/200',
-  'https://picsum.photos/seed/artist3/200',
-  'https://picsum.photos/seed/artist4/200'
-];
+export const DEFAULT_AVATARS: string[] = [];
+
