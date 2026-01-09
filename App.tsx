@@ -141,7 +141,25 @@ export default function App() {
         if (!artist || !tour || !concert) return null;
         return <ConcertHomePage artistId={artist.id} concertId={concert.id} artist={artist} tour={tour} concert={concert} onBack={() => navigateToArtistDetail(artist.id)} onOpenConcertEditor={navigateToConcertEditor} onUpdateConcertAlbum={(aid, tid, cid, imgs) => updateConcert(aid, tid, cid, { images: imgs })} />;
       }
-      case 'ARTIST_EDITOR': return <ArtistEditorPage artistId={nav.artistId} artist={artists.find(a => a.id === nav.artistId)} onSave={upsertArtist} onCancel={navigateToArtistList} onOpenConcertEditor={navigateToConcertEditor} onDeleteArtist={id => { setArtists(p => p.filter(a => a.id !== id)); navigateToArtistList(); }} />;
+      case 'ARTIST_EDITOR': return (
+        <ArtistEditorPage 
+          artistId={nav.artistId} 
+          artist={artists.find(a => a.id === nav.artistId)} 
+          onSave={upsertArtist} 
+          onCancel={() => {
+            if (nav.artistId) {
+              navigateToArtistDetail(nav.artistId);
+            } else {
+              navigateToArtistList();
+            }
+          }} 
+          onOpenConcertEditor={navigateToConcertEditor} 
+          onDeleteArtist={id => { 
+            setArtists(p => p.filter(a => a.id !== id)); 
+            navigateToArtistList(); 
+          }} 
+        />
+      );
       case 'CONCERT_EDITOR': {
         const artist = artists.find(a => a.id === nav.artistId);
         if (!artist) return null;

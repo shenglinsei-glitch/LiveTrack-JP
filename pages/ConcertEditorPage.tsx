@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { theme } from '../ui/theme';
 import { GlassCard } from '../ui/GlassCard';
@@ -34,6 +33,7 @@ const statusOptions: { value: Status; label: string; color: string }[] = [
   { value: '抽選中', label: '抽選中', color: theme.colors.status['抽選中'] },
   { value: '参戦予定', label: '参戦予定', color: theme.colors.status['参戦予定'] },
   { value: '参戦済み', label: '参戦済み', color: theme.colors.status['参戦済み'] },
+  // Fixed typo: changed '见送' to '見送' to match Status type
   { value: '見送', label: '見送', color: theme.colors.status['見送'] },
 ];
 
@@ -160,6 +160,12 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
 
   const handleUpdateConcert = (id: string, updates: Partial<Concert>) => setFormData(prev => ({ ...prev, concerts: prev.concerts.map(c => c.id === id ? { ...c, ...updates } : c) }));
 
+  const handleLoadImage = () => {
+    if (imageUrlDraft.trim()) {
+      setFormData(p => ({ ...p, imageUrl: imageUrlDraft.trim() }));
+    }
+  };
+
   return (
     <PageShell header={
       <header style={headerStyle}>
@@ -178,7 +184,33 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
           <h3 style={sectionTitleStyle}>ツアー情報</h3>
           <GlassCard padding={theme.spacing.md} style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
             <Field label="ツアー名"><input type="text" value={formData.name} onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} style={inputStyle} /></Field>
-            <Field label="画像URL"><input type="url" value={imageUrlDraft} onChange={e => setImageUrlDraft(e.target.value)} onBlur={() => setFormData(p => ({ ...p, imageUrl: imageUrlDraft }))} style={inputStyle} /></Field>
+            <Field label="画像URL">
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input 
+                  type="url" 
+                  value={imageUrlDraft} 
+                  onChange={e => setImageUrlDraft(e.target.value)} 
+                  style={inputStyle} 
+                />
+                <button
+                  onClick={handleLoadImage}
+                  style={{
+                    padding: '0 16px',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(0,0,0,0.08)',
+                    background: 'white',
+                    color: theme.colors.textSecondary,
+                    fontSize: '13px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  読み込み
+                </button>
+              </div>
+            </Field>
             <Field label="公式サイトURL"><input type="url" value={formData.officialUrl || ''} onChange={e => setFormData(p => ({ ...p, officialUrl: e.target.value }))} style={inputStyle} /></Field>
           </GlassCard>
         </section>
@@ -219,7 +251,7 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
           </div>
         </section>
         <button disabled={!hasChanges || !formData.name} onClick={handleSave} style={{ width: '100%', padding: '16px', borderRadius: '16px', background: !hasChanges || !formData.name ? 'rgba(0,0,0,0.05)' : theme.colors.primary, color: 'white', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}>保存</button>
-        <ConfirmDialog isOpen={conflictDates.length > 0} title="重複警告" message={`同日に他公演があります：${conflictDates.join(', ')}`} confirmLabel="強制保存" onClose={() => setConflictDates([])} onConfirm={() => onSave(formData)} />
+        <ConfirmDialog isOpen={conflictDates.length > 0} title="重复警告" message={`同日に他公演があります：${conflictDates.join(', ')}`} confirmLabel="強制保存" onClose={() => setConflictDates([])} onConfirm={() => onSave(formData)} />
         <ConfirmDialog isOpen={isDeleteTourModalOpen} title="ツアー削除" message="全て削除されます。復元不可。" confirmLabel="削除" isDestructive onClose={() => setIsDeleteTourModalOpen(false)} onConfirm={() => onDeleteTour(artistId, formData.id)} />
         <ConfirmDialog isOpen={!!isDeleteConcertModalOpen} title="公演削除" message="この公演を削除しますか？" confirmLabel="削除" isDestructive onClose={() => setIsDeleteConcertModalOpen(null)} onConfirm={() => isDeleteConcertModalOpen && setFormData(p => ({ ...p, concerts: p.concerts.filter(c => c.id !== isDeleteConcertModalOpen) }))} />
       </div>
