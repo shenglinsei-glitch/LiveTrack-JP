@@ -371,6 +371,6 @@ export const ArtistDetailPage: React.FC<Props> = ({
         settings={settings}
         onChangeSettings={onChangeSettings}
       />
-    </div>
+    </PageShell>
   );
 };
