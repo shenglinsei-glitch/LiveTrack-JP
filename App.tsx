@@ -20,17 +20,64 @@ type NavContext = {
   from?: PageId; // Tracks the entry source list
 };
 
+const STORAGE_KEYS = {
+  ARTISTS: 'livetrack_jp_artists',
+  GLOBAL_SETTINGS: 'livetrack_jp_global_settings',
+  DISPLAY_SETTINGS: 'livetrack_jp_display_settings',
+  ARTIST_SORT: 'livetrack_jp_artist_sort',
+  CONCERT_SORT: 'livetrack_jp_concert_sort'
+};
+
 export default function App() {
   const [nav, setNav] = useState<NavContext>({ path: 'ARTIST_LIST' });
   const [isArtistPickerOpen, setIsArtistPickerOpen] = useState(false);
-  const [globalSettings, setGlobalSettings] = useState<GlobalSettings>({ autoTrackIntervalDays: 7 });
-  const [displaySettings, setDisplaySettings] = useState<DisplaySettings>({ showAttended: true, showSkipped: true });
+  
+  // Persistence: Initialize state from localStorage
+  const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.GLOBAL_SETTINGS);
+    return saved ? JSON.parse(saved) : { autoTrackIntervalDays: 7 };
+  });
 
-  // Persistence: Elevated sort modes
-  const [artistSortMode, setArtistSortMode] = useState<'manual' | 'status'>('status');
-  const [concertSortMode, setConcertSortMode] = useState<'status' | 'lottery'>('status');
+  const [displaySettings, setDisplaySettings] = useState<DisplaySettings>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.DISPLAY_SETTINGS);
+    return saved ? JSON.parse(saved) : { showAttended: true, showSkipped: true };
+  });
 
-  const [artists, setArtists] = useState<Artist[]>([]);
+  const [artistSortMode, setArtistSortMode] = useState<'manual' | 'status'>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.ARTIST_SORT);
+    return (saved as 'manual' | 'status') || 'status';
+  });
+
+  const [concertSortMode, setConcertSortMode] = useState<'status' | 'lottery'>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.CONCERT_SORT);
+    return (saved as 'status' | 'lottery') || 'status';
+  });
+
+  const [artists, setArtists] = useState<Artist[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.ARTISTS);
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Persistence: Save state to localStorage on changes
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.ARTISTS, JSON.stringify(artists));
+  }, [artists]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.GLOBAL_SETTINGS, JSON.stringify(globalSettings));
+  }, [globalSettings]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.DISPLAY_SETTINGS, JSON.stringify(displaySettings));
+  }, [displaySettings]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.ARTIST_SORT, artistSortMode);
+  }, [artistSortMode]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.CONCERT_SORT, concertSortMode);
+  }, [concertSortMode]);
 
   // Requirement: Global Alert calculation for Nav Red Dot
   const hasGlobalConcertAlert = useMemo(() => {
