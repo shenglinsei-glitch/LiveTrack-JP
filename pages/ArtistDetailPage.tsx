@@ -91,7 +91,7 @@ export const ArtistDetailPage: React.FC<Props> = ({
       return theme.colors.status[status.sub as Status] || theme.colors.primary;
     }
     if (status.main === TEXT.ARTIST_STATUS.MAIN_TRACKING) {
-      return '#00ffff';
+      return '#00E0FF';
     }
     return '#E2E8F0';
   }, [status]);
@@ -192,7 +192,22 @@ export const ArtistDetailPage: React.FC<Props> = ({
           <div style={{ minWidth: 0 }}>
             <h1 style={{ fontSize: '32px', fontWeight: '900', margin: 0, letterSpacing: '-0.02em', lineHeight: '1.2' }}>{artist.name}</h1>
             <div style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'white', padding: '6px 16px', borderRadius: '9999px', border: '1px solid #F1F5F9' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dotColor }} />
+              <div
+  style={{
+    width: '8px',
+    height: '8px',
+    borderRadius: '50%',
+    background: dotColor,
+    boxShadow:
+      status.main === TEXT.ARTIST_STATUS.MAIN_TRACKING
+        ? `0 0 12px ${dotColor}99`
+        : `0 0 12px ${dotColor}99`,
+    filter:
+      status.main === TEXT.ARTIST_STATUS.MAIN_TRACKING
+        ? 'blur(1.5px)'
+        : 'blur(1.5px)'
+  }}
+/>
               <span style={{ fontSize: '13px', fontWeight: '800', color: theme.colors.textMain }}>{status.main}</span>
             </div>
           </div>

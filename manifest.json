@@ -1,9 +1,8 @@
-
 {
   "name": "LiveTrack JP",
   "short_name": "LiveTrack",
   "description": "ライブ情報を効率的に追跡",
-  "start_url": "./index.html",
+  "start_url": "/LiveTrack-JP/",
   "display": "standalone",
   "background_color": "#F9FAFB",
   "theme_color": "#53BEE8",

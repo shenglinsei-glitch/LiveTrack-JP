@@ -39,7 +39,7 @@ const ArtistRowCard: React.FC<{
       return theme.colors.status[status.sub as Status] || theme.colors.primary;
     }
     if (status.main === TEXT.ARTIST_STATUS.MAIN_TRACKING) {
-      return '#00ffff';
+      return '#00E0FF';
     }
     return theme.colors.textLabel;
   }, [status]);
@@ -107,7 +107,15 @@ const ArtistRowCard: React.FC<{
             width: '8px',
             height: '8px',
             borderRadius: '50%',
-            background: dotColor,
+            background: dotColor,    
+            boxShadow:
+  status.main === TEXT.ARTIST_STATUS.MAIN_TRACKING
+    ? `0 0 12px ${dotColor}99`
+    : `0 0 12px ${dotColor}99`,
+filter:
+  status.main === TEXT.ARTIST_STATUS.MAIN_TRACKING
+    ? 'blur(1.5px)'
+    : 'blur(1.5px)'
           }} />
           <div style={{
             fontSize: '11px',
