@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef } from 'react';
 import { BottomMenu } from '../components/BottomMenu';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -108,14 +107,12 @@ const ArtistRowCard: React.FC<{
             height: '8px',
             borderRadius: '50%',
             background: dotColor,    
-            boxShadow:
-  status.main === TEXT.ARTIST_STATUS.MAIN_TRACKING
-    ? `0 0 12px ${dotColor}99`
-    : `0 0 12px ${dotColor}99`,
-filter:
-  status.main === TEXT.ARTIST_STATUS.MAIN_TRACKING
-    ? 'blur(1.5px)'
-    : 'blur(1.5px)'
+            boxShadow: status.main === TEXT.ARTIST_STATUS.MAIN_TRACKING
+              ? `0 0 12px ${dotColor}99`
+              : `0 0 12px ${dotColor}99`,
+            filter: status.main === TEXT.ARTIST_STATUS.MAIN_TRACKING
+              ? 'blur(1.5px)'
+              : 'blur(1.5px)'
           }} />
           <div style={{
             fontSize: '11px',
@@ -183,10 +180,8 @@ export const ArtistListPage: React.FC<Props> = ({
     setRefreshState('refreshing');
     onRefreshAll();
     
-    // Duration of spin animation
     setTimeout(() => {
       setRefreshState('completed');
-      // Duration of showing the checkmark
       setTimeout(() => {
         setRefreshState('idle');
       }, 1200);

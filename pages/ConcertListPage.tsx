@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { PageShell } from '../ui/PageShell';
 import { IconButton, Icons } from '../ui/IconButton';
@@ -29,6 +28,55 @@ interface ConcertWithMetadata extends Concert {
   tourImageUrl: string;
   tourOfficialUrl?: string;
 }
+
+
+// --- Helpers for compact single-line date/time display (mobile-friendly) ---
+const normalizeDateTimeText = (v?: string) => (v || '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+const formatCompactDateTime = (v?: string, includeYear: boolean = false) => {
+  const s = normalizeDateTimeText(v);
+  if (!s) return '';
+
+  const mDate = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/);
+  if (mDate) {
+    const yy = mDate[1];
+    const mm = String(parseInt(mDate[2], 10));
+    const dd = String(parseInt(mDate[3], 10));
+    const hh = mDate[4];
+    const min = mDate[5];
+    const prefix = includeYear ? `${yy}/` : '';
+    if (hh && min) return `${prefix}${mm}/${dd} ${hh}:${min}`;
+    return `${prefix}${mm}/${dd}`;
+  }
+
+  const mSlash = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?/);
+  if (mSlash) {
+    const yy = mSlash[1];
+    const mm = String(parseInt(mSlash[2], 10));
+    const dd = String(parseInt(mSlash[3], 10));
+    const hh = mSlash[4];
+    const min = mSlash[5];
+    const prefix = includeYear ? `${yy}/` : '';
+    if (hh && min) return `${prefix}${mm}/${dd} ${String(parseInt(hh,10)).padStart(2,'0')}:${min}`;
+    return `${prefix}${mm}/${dd}`;
+  }
+
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    const mm = String(d.getMonth() + 1);
+    const dd = String(d.getDate());
+    const hh = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return `${includeYear ? d.getFullYear() + '/' : ''}${mm}/${dd} ${hh}:${min}`;
+  }
+
+  return s;
+};
+
+const badgeBgFromColor = (color: string) => {
+  if (typeof color === 'string' && color.startsWith('#') && color.length === 7) return `${color}22`;
+  return 'rgba(0,0,0,0.06)';
+};
 
 const ActionPanel: React.FC<{ 
   concert: ConcertWithMetadata; 
@@ -114,21 +162,39 @@ const ConcertRowCard: React.FC<{
     onUpdate(updated);
   };
 
-  const displayDateInfo = useMemo(() => {
-    if (sortMode !== 'lottery') {
-      return { label: '', value: concert.concertAt || concert.date };
+  const displayMeta = useMemo(() => {
+    let actionType = '公演日';
+    let rawValue: string = concert.concertAt || concert.date || '';
+    const includeYear = true;
+
+    if (sortMode === 'lottery') {
+      switch (concert.status) {
+        case '抽選中':
+          actionType = '抽選結果';
+          rawValue = concert.resultAt || TEXT.GLOBAL.COMMON_NOT_REGISTERED;
+          break;
+        case '検討中':
+          actionType = '申込締切';
+          rawValue = concert.deadlineAt || TEXT.GLOBAL.COMMON_NOT_REGISTERED;
+          break;
+        case '発売前':
+          actionType = '発売開始';
+          rawValue = concert.saleAt || TEXT.GLOBAL.COMMON_NOT_REGISTERED;
+          break;
+        default:
+          actionType = '公演日';
+          rawValue = concert.concertAt || concert.date || TEXT.GLOBAL.COMMON_NOT_REGISTERED;
+          break;
+      }
     }
 
-    switch (concert.status) {
-      case '抽選中':
-        return { label: `${TEXT.LABELS.LOTTERY_RESULT}: `, value: concert.resultAt || TEXT.GLOBAL.COMMON_NOT_REGISTERED };
-      case '検討中':
-        return { label: '申込締切: ', value: concert.deadlineAt || TEXT.GLOBAL.COMMON_NOT_REGISTERED };
-      case '発売前':
-        return { label: '発売開始: ', value: concert.saleAt || TEXT.GLOBAL.COMMON_NOT_REGISTERED };
-      default:
-        return { label: '', value: concert.concertAt || concert.date };
-    }
+    const normalized = normalizeDateTimeText(rawValue);
+    const value =
+      normalized === TEXT.GLOBAL.COMMON_NOT_REGISTERED
+        ? normalized
+        : (formatCompactDateTime(normalized, includeYear) || normalized);
+
+    return { actionType, value };
   }, [concert, sortMode]);
 
   return (
@@ -143,7 +209,6 @@ const ConcertRowCard: React.FC<{
         padding: '20px 24px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '4px',
         cursor: 'pointer',
         boxShadow: isHovered 
           ? '0 10px 20px -5px rgba(0, 0, 0, 0.06)' 
@@ -164,19 +229,42 @@ const ConcertRowCard: React.FC<{
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '12px', color: theme.colors.textSecondary, fontWeight: '700', letterSpacing: '0.05em', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{concert.artistName}</div>
-          <div style={{ fontWeight: '800', fontSize: '18px', color: isHovered ? theme.colors.primary : theme.colors.text, transition: 'color 0.2s', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px' }}>{concert.tourName}</div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontSize: '13px', color: theme.colors.textSecondary, display: 'flex', alignItems: 'center', gap: '2px' }}>
-              {displayDateInfo.label && <span style={{ fontWeight: '800', color: theme.colors.textMain }}>{displayDateInfo.label}</span>}
-              <span>{displayDateInfo.value}</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', minWidth: 0, marginBottom: '2px' }}>
+            <div style={{ fontSize: '12px', color: theme.colors.textSecondary, fontWeight: '700', letterSpacing: '0.05em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+              {concert.artistName}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColor }} />
-              <div style={{ fontSize: '11px', fontWeight: '800', color: statusColor, textTransform: 'uppercase' }}>
-                {concert.status === '見送' && concert.lotteryResult === 'LOST' ? TEXT.BUTTONS.LOST : TEXT.STATUS[concert.status]}
-              </div>
+            <div style={{
+              flexShrink: 0,
+              fontSize: '11px',
+              fontWeight: '800',
+              color: statusColor,
+              background: badgeBgFromColor(statusColor),
+              border: '1px solid rgba(0,0,0,0.06)',
+              padding: '4px 10px',
+              borderRadius: '9999px',
+              lineHeight: 1,
+              whiteSpace: 'nowrap',
+            }}>
+              {concert.status === '見送' && concert.lotteryResult === 'LOST' ? TEXT.BUTTONS.LOST : TEXT.STATUS[concert.status]}
             </div>
+          </div>
+
+          <div style={{ fontWeight: '800', fontSize: '18px', color: isHovered ? theme.colors.primary : theme.colors.text, transition: 'color 0.2s', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px' }}>
+            {concert.tourName}
+          </div>
+
+          <div
+            style={{
+              fontSize: '12px',
+              color: theme.colors.textSecondary,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+            title={`${displayMeta.actionType}：${displayMeta.value}`}
+          >
+            <span style={{ fontWeight: '800', color: theme.colors.textMain }}>{displayMeta.actionType}：</span>{' '}
+            <span>{displayMeta.value}</span>
           </div>
         </div>
       </div>
@@ -245,11 +333,10 @@ export const ConcertListPage: React.FC<Props> = ({
               concert={concert} 
               sortMode={sortMode}
               onClick={() => {
-  // ✅ 代办状态也允许打开详情
-  if (concert.status === '参戦予定' || concert.status === '参戦済み') {
-    onOpenConcert(concert.artistId, concert.tourId, concert.id);
-  } else {
-    onOpenArtist(concert.artistId);
+                if (concert.status === '参戦予定' || concert.status === '参戦済み') {
+                  onOpenConcert(concert.artistId, concert.tourId, concert.id);
+                } else {
+                  onOpenArtist(concert.artistId);
                 }
               }} 
               onUpdate={(updates) => onUpdateConcert(concert.artistId, concert.tourId, concert.id, updates)}

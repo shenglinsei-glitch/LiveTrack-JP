@@ -1,7 +1,8 @@
-
 import React from 'react';
 import { GlassCard } from '../ui/GlassCard';
 import { theme } from '../ui/theme';
+import { Icons } from '../ui/IconButton';
+import { TEXT } from '../ui/constants';
 
 interface CalendarMenuProps {
   isOpen: boolean;
@@ -16,8 +17,8 @@ interface CalendarMenuProps {
 
 export const CalendarMenu: React.FC<CalendarMenuProps> = ({ 
   isOpen, 
-  onClose, 
-  weekStart, 
+  onClose,
+  weekStart,
   setWeekStart,
   showAttended,
   setShowAttended,
@@ -32,7 +33,7 @@ export const CalendarMenu: React.FC<CalendarMenuProps> = ({
       bottom: '100px',
       right: '16px',
       zIndex: 1000,
-      width: '240px',
+      width: '260px',
     }}>
       <div 
         style={{ position: 'fixed', inset: 0, background: 'transparent' }} 
@@ -41,35 +42,35 @@ export const CalendarMenu: React.FC<CalendarMenuProps> = ({
       <GlassCard className="fade-in">
         <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
           <section>
-            <h4 style={{ fontSize: '12px', color: theme.colors.textSecondary, marginBottom: theme.spacing.sm, fontWeight: 'bold' }}>表示切替</h4>
+            <h4 style={{ fontSize: '12px', color: theme.colors.textSecondary, marginBottom: theme.spacing.sm, fontWeight: 'bold' }}>週の開始日</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <MenuButton 
-                label="参戦済みを表示" 
-                toggle 
-                active={showAttended} 
-                onClick={() => setShowAttended(!showAttended)}
+                label="日曜日" 
+                active={weekStart === 'sun'} 
+                onClick={() => setWeekStart('sun')}
               />
               <MenuButton 
-                label="見送を表示" 
-                toggle 
-                active={showSkipped} 
-                onClick={() => setShowSkipped(!showSkipped)}
+                label="月曜日" 
+                active={weekStart === 'mon'} 
+                onClick={() => setWeekStart('mon')}
               />
             </div>
           </section>
 
           <section style={{ borderTop: `0.5px solid rgba(0,0,0,0.1)`, paddingTop: theme.spacing.md }}>
-            <h4 style={{ fontSize: '12px', color: theme.colors.textSecondary, marginBottom: theme.spacing.sm, fontWeight: 'bold' }}>カレンダー設定</h4>
+            <h4 style={{ fontSize: '12px', color: theme.colors.textSecondary, marginBottom: theme.spacing.sm, fontWeight: 'bold' }}>表示切替</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <MenuButton 
-                label="日曜始まり" 
-                active={weekStart === 'sun'} 
-                onClick={() => setWeekStart('sun')} 
+                label={TEXT.MENU.SHOW_ATTENDED} 
+                toggle 
+                active={showAttended} 
+                onClick={() => setShowAttended(!showAttended)}
               />
               <MenuButton 
-                label="月曜始まり" 
-                active={weekStart === 'mon'} 
-                onClick={() => setWeekStart('mon')} 
+                label={TEXT.MENU.SHOW_SKIPPED} 
+                toggle 
+                active={showSkipped} 
+                onClick={() => setShowSkipped(!showSkipped)}
               />
             </div>
           </section>
@@ -79,7 +80,7 @@ export const CalendarMenu: React.FC<CalendarMenuProps> = ({
   );
 };
 
-const MenuButton = ({ label, active, toggle, onClick }: any) => (
+const MenuButton = ({ label, active, primary, toggle, onClick, icon }: any) => (
   <button 
     onClick={onClick}
     style={{
@@ -88,10 +89,10 @@ const MenuButton = ({ label, active, toggle, onClick }: any) => (
       padding: '10px 12px',
       borderRadius: '12px',
       border: 'none',
-      background: active ? 'rgba(83, 190, 232, 0.1)' : 'transparent',
-      color: active ? theme.colors.primary : theme.colors.text,
+      background: primary ? theme.colors.primary : (active ? 'rgba(83, 190, 232, 0.1)' : 'transparent'),
+      color: primary ? 'white' : (active ? theme.colors.primary : theme.colors.text),
       fontSize: '14px',
-      fontWeight: active ? '800' : '600',
+      fontWeight: (primary || active) ? '800' : '600',
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
@@ -99,7 +100,10 @@ const MenuButton = ({ label, active, toggle, onClick }: any) => (
       transition: 'all 0.2s'
     }}
   >
-    <span>{label}</span>
+    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      {icon && <span style={{ display: 'flex', transform: 'scale(0.8)' }}>{icon}</span>}
+      {label}
+    </span>
     {toggle && <span style={{ fontSize: '10px' }}>{active ? 'ON' : 'OFF'}</span>}
   </button>
 );
