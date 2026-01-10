@@ -4,26 +4,49 @@ import { TEXT } from '../ui/constants';
 
 /**
  * ===== Date Parsing Rules =====
+ * iOS Safari compatibility: replaces '-' with '/' for broad support
  */
 export const parseConcertDate = (dateStr: string | null | undefined, type: 'CONCERT' | 'NORMAL'): Date | null => {
   if (!dateStr || dateStr === TEXT.GLOBAL.TBD) return null;
   
-  // If it has a time part
-  if (dateStr.includes(' ')) {
-    const d = new Date(dateStr);
-    return isNaN(d.getTime()) ? null : d;
-  }
+  // Standardize format for iOS: "2023-10-27" -> "2023/10/27"
+  const standardizedStr = dateStr.replace(/-/g, '/');
   
-  // Date only YYYY-MM-DD
-  const [y, m, d] = dateStr.split('-').map(Number);
-  if (type === 'CONCERT') {
-    return new Date(y, m - 1, d, 21, 0, 0); // Rule: 21:00 for concert
+  const d = new Date(standardizedStr);
+  if (isNaN(d.getTime())) {
+    // Fallback parsing for manual extraction if Date still fails
+    try {
+      const parts = dateStr.split(' ');
+      const dateParts = parts[0].split('-').map(Number);
+      if (parts.length > 1) {
+        const timeParts = parts[1].split(':').map(Number);
+        return new Date(dateParts[0], dateParts[1] - 1, dateParts[2], timeParts[0], timeParts[1] || 0);
+      }
+      if (type === 'CONCERT') {
+        return new Date(dateParts[0], dateParts[1] - 1, dateParts[2], 21, 0, 0);
+      }
+      return new Date(dateParts[0], dateParts[1] - 1, dateParts[2], 12, 0, 0);
+    } catch (e) {
+      return null;
+    }
   }
-  return new Date(y, m - 1, d, 12, 0, 0); // Rule: 12:00 for sale/deadline/result
+
+  // If input was just date, enforce specific hours
+  if (!dateStr.includes(' ')) {
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    const day = d.getDate();
+    if (type === 'CONCERT') {
+      return new Date(y, m, day, 21, 0, 0);
+    }
+    return new Date(y, m, day, 12, 0, 0);
+  }
+
+  return d;
 };
 
 /**
- * ===== Calendar Logic (New Specification) =====
+ * ===== Calendar Logic =====
  */
 
 export const EVENT_PRIORITY: Record<CalendarEventType, number> = {
@@ -35,8 +58,8 @@ export const EVENT_PRIORITY: Record<CalendarEventType, number> = {
 
 const extractDateAndTime = (str: string | null | undefined): { date: string; time?: string } | null => {
   if (!str || str === TEXT.GLOBAL.TBD) return null;
-  const [date, time] = str.split(' ');
-  return { date, time: time ? time.substring(0, 5) : undefined };
+  const parts = str.split(' ');
+  return { date: parts[0], time: parts[1] ? parts[1].substring(0, 5) : undefined };
 };
 
 export const buildCalendarEvents = (artists: Artist[], settings: { showAttended: boolean; showSkipped: boolean }): CalendarEvent[] => {
@@ -45,7 +68,6 @@ export const buildCalendarEvents = (artists: Artist[], settings: { showAttended:
   artists.forEach(artist => {
     artist.tours.forEach(tour => {
       tour.concerts.forEach(concert => {
-        // Skip based on global visibility settings
         if (!settings.showAttended && concert.status === '参戦済み') return;
         if (!settings.showSkipped && concert.status === '見送') return;
 
@@ -123,9 +145,6 @@ export const buildCalendarEvents = (artists: Artist[], settings: { showAttended:
   return events;
 };
 
-/**
- * ===== DueAction Determination Logic =====
- */
 export const getDueAction = (concert: Concert, now: Date = new Date()): DueAction | null => {
   const saleTime = parseConcertDate(concert.saleAt, 'NORMAL');
   const deadlineTime = parseConcertDate(concert.deadlineAt, 'NORMAL');
@@ -136,29 +155,22 @@ export const getDueAction = (concert: Concert, now: Date = new Date()): DueActio
     case '発売前':
       if (saleTime && now >= saleTime) return 'ASK_BUY_AT_SALE';
       return null;
-    
     case '検討中':
       if (deadlineTime && now >= deadlineTime) return 'ASK_BUY_AT_DEADLINE';
       if (!deadlineTime) return 'NEED_SET_DEADLINE_AT';
       return null;
-    
     case '抽選中':
       if (resultTime && now >= resultTime) return 'ASK_RESULT';
       if (!resultTime) return 'NEED_SET_RESULT_AT';
       return null;
-    
     case '参戦予定':
       if (!concertTime) return 'NEED_SET_CONCERT_AT';
       return null;
-    
     default:
       return null;
   }
 };
 
-/**
- * ===== Automatic Advancement (Requirement 6) =====
- */
 export const autoAdvanceConcertStatus = (concert: Concert, now: Date = new Date()): Concert => {
   if (concert.status === '参戦予定') {
     const concertTime = parseConcertDate(concert.concertAt, 'CONCERT');
@@ -169,9 +181,6 @@ export const autoAdvanceConcertStatus = (concert: Concert, now: Date = new Date(
   return concert;
 };
 
-/**
- * ===== Decision Application (Requirement 5) =====
- */
 export const applyDecision = (
   concert: Concert, 
   decision: 'BUY' | 'CONSIDER' | 'SKIP' | 'WON' | 'LOST', 
@@ -203,9 +212,6 @@ export const applyDecision = (
   }
 };
 
-/**
- * ===== Artist status logic =====
- */
 const ARTIST_SUB_STATUS_ORDER: Status[] = ['発売前', '検討中', '抽選中', '参戦予定', '参戦済み', '見送'];
 const ARTIST_SUB_STATUS_PRIORITY: Record<Status, number> = {
   '発売前': 0, '検討中': 1, '抽選中': 2, '参戦予定': 3, '参戦済み': 4, '見送': 5,
@@ -251,9 +257,6 @@ const getArtistPriority = (artist: Artist) => {
   return { main: 3, sub: 0 };
 };
 
-/**
- * ===== Concert sorting logic =====
- */
 const getConcertStatusPriority = (status: Status): number => {
   if (TICKET_TRACK_STATUSES.includes(status)) return 1;
   if (status === '参戦予定') return 2;
@@ -305,13 +308,9 @@ export const sortPerformancesByLotteryDate = (concerts: Concert[]): Concert[] =>
   return [...concerts].sort((a, b) => {
     const dateA = getMilestoneDate(a);
     const dateB = getMilestoneDate(b);
-    
-    // Items with milestone dates come first
     if (dateA && !dateB) return -1;
     if (!dateA && dateB) return 1;
     if (dateA && dateB) return dateA.localeCompare(dateB);
-    
-    // Fallback to concert date
     const cA = a.concertAt || a.date;
     const cB = b.concertAt || b.date;
     if (cA !== TEXT.GLOBAL.TBD && cB !== TEXT.GLOBAL.TBD) return cA.localeCompare(cB);
@@ -350,13 +349,14 @@ export const getTrackTargetConcerts = (artist: Artist, settings: GlobalSettings,
     if (!TICKET_TRACK_STATUSES.includes(concert.status)) return false;
     const d = concert.concertAt || concert.date;
     if (d === TEXT.GLOBAL.TBD || !d) return false;
-    const concertDate = new Date(d);
+    const standardized = d.replace(/-/g, '/');
+    const concertDate = new Date(standardized);
     return concertDate >= limitStart && concertDate <= todayStart;
   });
 };
 
 export const shouldTriggerAutoTrack = (lastCheckedAt: string | undefined, settings: GlobalSettings, now: Date = new Date()): boolean => {
   if (!lastCheckedAt) return true;
-  const diffDays = (now.getTime() - new Date(lastCheckedAt).getTime()) / (1000 * 60 * 60 * 24);
+  const diffDays = (now.getTime() - new Date(lastCheckedAt.replace(/-/g, '/')).getTime()) / (1000 * 60 * 60 * 24);
   return diffDays >= settings.autoTrackIntervalDays;
 };

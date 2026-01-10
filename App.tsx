@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { PageId, Artist, Tour, DisplaySettings, Status, GlobalSettings, SiteLink, TrackingStatus, TrackingErrorType, Concert } from './domain/types';
 import { Layout } from './components/Layout';
@@ -17,7 +18,7 @@ type NavContext = {
   artistId?: string; 
   tourId?: string; 
   concertId?: string; 
-  from?: PageId; // Tracks the entry source list
+  from?: PageId;
 };
 
 const STORAGE_KEYS = {
@@ -28,19 +29,54 @@ const STORAGE_KEYS = {
   CONCERT_SORT: 'livetrack_jp_concert_sort'
 };
 
+/**
+ * Robust Persistence Wrapper
+ */
+const safeSave = (key: string, data: any) => {
+  try {
+    // Basic Sanitation: Remove potential circular refs or functions
+    const serialized = JSON.stringify(data);
+    
+    // Quota Awareness: LocalStorage on mobile is usually ~5MB.
+    // If saving Artists, check if we're ballooning due to Base64
+    if (key === STORAGE_KEYS.ARTISTS && serialized.length > 4 * 1024 * 1024) {
+      console.warn("Storage warning: Data size is large. Images might be causing issues.");
+    }
+    
+    localStorage.setItem(key, serialized);
+  } catch (err: any) {
+    console.error(`Persistence Error for key [${key}]:`, err);
+    
+    let userMsg = "データの保存に失敗しました。";
+    if (err.name === 'QuotaExceededError' || err.code === 22) {
+      userMsg += "\nストレージ容量が不足しています。アルバムの画像を削除するか、URLでの指定に切り替えてください。";
+    } else if (err instanceof TypeError) {
+      userMsg += "\nデータの形式に問題があります。";
+    } else {
+      userMsg += `\nエラー: ${err.message || "不明な理由"}`;
+    }
+    
+    // UI Feedback is mandatory per requirement
+    window.alert(userMsg);
+  }
+};
+
 export default function App() {
   const [nav, setNav] = useState<NavContext>({ path: 'ARTIST_LIST' });
   const [isArtistPickerOpen, setIsArtistPickerOpen] = useState(false);
   
-  // Persistence: Initialize state from localStorage
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.GLOBAL_SETTINGS);
-    return saved ? JSON.parse(saved) : { autoTrackIntervalDays: 7 };
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.GLOBAL_SETTINGS);
+      return saved ? JSON.parse(saved) : { autoTrackIntervalDays: 7 };
+    } catch { return { autoTrackIntervalDays: 7 }; }
   });
 
   const [displaySettings, setDisplaySettings] = useState<DisplaySettings>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.DISPLAY_SETTINGS);
-    return saved ? JSON.parse(saved) : { showAttended: true, showSkipped: true };
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.DISPLAY_SETTINGS);
+      return saved ? JSON.parse(saved) : { showAttended: true, showSkipped: true };
+    } catch { return { showAttended: true, showSkipped: true }; }
   });
 
   const [artistSortMode, setArtistSortMode] = useState<'manual' | 'status'>(() => {
@@ -54,38 +90,38 @@ export default function App() {
   });
 
   const [artists, setArtists] = useState<Artist[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.ARTISTS);
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.ARTISTS);
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
   });
 
-  // Persistence: Save state to localStorage on changes
+  // Effect-based persistence with error handling
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.ARTISTS, JSON.stringify(artists));
+    safeSave(STORAGE_KEYS.ARTISTS, artists);
   }, [artists]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.GLOBAL_SETTINGS, JSON.stringify(globalSettings));
+    safeSave(STORAGE_KEYS.GLOBAL_SETTINGS, globalSettings);
   }, [globalSettings]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.DISPLAY_SETTINGS, JSON.stringify(displaySettings));
+    safeSave(STORAGE_KEYS.DISPLAY_SETTINGS, displaySettings);
   }, [displaySettings]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.ARTIST_SORT, artistSortMode);
+    safeSave(STORAGE_KEYS.ARTIST_SORT, artistSortMode);
   }, [artistSortMode]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.CONCERT_SORT, concertSortMode);
+    safeSave(STORAGE_KEYS.CONCERT_SORT, concertSortMode);
   }, [concertSortMode]);
 
-  // Requirement: Global Alert calculation for Nav Red Dot
   const hasGlobalConcertAlert = useMemo(() => {
     const now = new Date();
     return artists.some(a => a.tours.some(t => t.concerts.some(c => !!getDueAction(c, now))));
   }, [artists]);
 
-  // Requirement 6: Automatic advancement runner
   const runAutoAdvance = useCallback(() => {
     const now = new Date();
     setArtists(prev => prev.map(a => ({
@@ -99,21 +135,13 @@ export default function App() {
 
   useEffect(() => {
     runAutoAdvance();
-  }, [nav.path, runAutoAdvance]); // Run when switching pages
+  }, [nav.path, runAutoAdvance]);
 
   const navigateToArtistList = () => setNav({ path: 'ARTIST_LIST' });
-  
-  // Refined navigation helpers to track origin
-  const navigateToArtistDetail = (artistId: string, from?: PageId) => 
-    setNav({ path: 'ARTIST_DETAIL', artistId, from });
-
+  const navigateToArtistDetail = (artistId: string, from?: PageId) => setNav({ path: 'ARTIST_DETAIL', artistId, from });
   const navigateToArtistEditor = (artistId?: string) => setNav({ path: 'ARTIST_EDITOR', artistId });
-  
-  const navigateToConcertEditor = (artistId: string, tourId?: string) => 
-    setNav({ path: 'CONCERT_EDITOR', artistId, tourId });
-  
-  const navigateToConcertHome = (artistId: string, tourId: string, concertId: string, from?: PageId) => 
-    setNav({ path: 'CONCERT_HOME', artistId, tourId, concertId, from });
+  const navigateToConcertEditor = (artistId: string, tourId?: string) => setNav({ path: 'CONCERT_EDITOR', artistId, tourId });
+  const navigateToConcertHome = (artistId: string, tourId: string, concertId: string, from?: PageId) => setNav({ path: 'CONCERT_HOME', artistId, tourId, concertId, from });
 
   const upsertArtist = (updated: Artist) => {
     setArtists(prev => {
@@ -147,7 +175,10 @@ export default function App() {
     setArtists(prev => prev.map(artist => {
       if (artist.id !== artistId) return artist;
       const tourExists = artist.tours.some(t => t.id === updatedTour.id);
-      return { ...artist, tours: tourExists ? artist.tours.map(t => t.id === updatedTour.id ? updatedTour : t) : [...artist.tours, updatedTour] };
+      return { 
+        ...artist, 
+        tours: tourExists ? artist.tours.map(t => t.id === updatedTour.id ? updatedTour : t) : [...artist.tours, updatedTour] 
+      };
     }));
     navigateToArtistDetail(artistId, nav.from);
   };
@@ -209,7 +240,6 @@ export default function App() {
             onOpenConcertHome={(aid, tid, cid) => navigateToConcertHome(aid, tid, cid, nav.from)} 
             onChangeSettings={s => setDisplaySettings(p => ({...p, ...s}))} 
             onBack={() => {
-              // Context-aware back navigation
               if (nav.from === 'CONCERT_LIST') setNav({ path: 'CONCERT_LIST' });
               else if (nav.from === 'CALENDAR') setNav({ path: 'CALENDAR' });
               else navigateToArtistList();
@@ -286,6 +316,7 @@ export default function App() {
               {artists.map(a => (
                 <button 
                   key={a.id} 
+                  type="button"
                   onClick={() => { navigateToConcertEditor(a.id); setIsArtistPickerOpen(false); }} 
                   style={pickerButtonStyle}
                 >
@@ -293,7 +324,7 @@ export default function App() {
                 </button>
               ))}
             </div>
-            <button onClick={() => setIsArtistPickerOpen(false)} style={closeButtonStyle}>閉じる</button>
+            <button type="button" onClick={() => setIsArtistPickerOpen(false)} style={closeButtonStyle}>閉じる</button>
           </GlassCard>
         </div>
       )}

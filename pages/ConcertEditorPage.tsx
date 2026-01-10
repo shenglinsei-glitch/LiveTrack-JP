@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { theme } from '../ui/theme';
 import { GlassCard } from '../ui/GlassCard';
@@ -33,7 +34,6 @@ const statusOptions: { value: Status; label: string; color: string }[] = [
   { value: '抽選中', label: '抽選中', color: theme.colors.status['抽選中'] },
   { value: '参戦予定', label: '参戦予定', color: theme.colors.status['参戦予定'] },
   { value: '参戦済み', label: '参戦済み', color: theme.colors.status['参戦済み'] },
-  // Fixed typo: changed '见送' to '見送' to match Status type
   { value: '見送', label: '見送', color: theme.colors.status['見送'] },
 ];
 
@@ -42,7 +42,10 @@ const StatusPicker = ({ value, onChange }: { value: Status; onChange: (s: Status
   const current = statusOptions.find(o => o.value === value) || statusOptions[0];
   return (
     <div style={{ position: 'relative' }}>
-      <div onClick={() => setIsOpen(!isOpen)} style={{ ...inputStyle, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div 
+        onClick={() => setIsOpen(!isOpen)} 
+        style={{ ...inputStyle, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: current.color }} />
           {current.label}
@@ -50,14 +53,25 @@ const StatusPicker = ({ value, onChange }: { value: Status; onChange: (s: Status
         <span style={{ fontSize: '10px', opacity: 0.5 }}>{isOpen ? '▲' : '▼'}</span>
       </div>
       {isOpen && (
-        <><div style={{ position: 'fixed', inset: 0, zIndex: 100 }} onClick={() => setIsOpen(false)} />
-        <GlassCard padding="8px" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 101, marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          {statusOptions.map(opt => (
-            <div key={opt.value} onClick={() => { onChange(opt.value); setIsOpen(false); }} style={{ padding: '10px 12px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', background: value === opt.value ? 'rgba(83, 190, 232, 0.1)' : 'transparent', color: value === opt.value ? theme.colors.primary : theme.colors.textMain, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: opt.color }} />{opt.label}
-            </div>
-          ))}
-        </GlassCard></>
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 100 }} onClick={() => setIsOpen(false)} />
+          <GlassCard padding="8px" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 101, marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            {statusOptions.map(opt => (
+              <div 
+                key={opt.value} 
+                onClick={() => { onChange(opt.value); setIsOpen(false); }} 
+                style={{ 
+                  padding: '10px 12px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', 
+                  background: value === opt.value ? 'rgba(83, 190, 232, 0.1)' : 'transparent', 
+                  color: value === opt.value ? theme.colors.primary : theme.colors.textMain, 
+                  display: 'flex', alignItems: 'center', gap: '8px' 
+                }}
+              >
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: opt.color }} />{opt.label}
+              </div>
+            ))}
+          </GlassCard>
+        </>
       )}
     </div>
   );
@@ -68,20 +82,26 @@ const CustomDatePicker = ({ value, onChange, showTime = false, placeholder }: { 
   const valStr = value || '';
   const initialDateStr = valStr === 'TBD' || !valStr ? '' : valStr.split(' ')[0];
   const initialTimeStr = (showTime && valStr && valStr.includes(' ')) ? valStr.split(' ')[1] : '12:00';
-  const [viewDate, setViewDate] = useState(initialDateStr ? new Date(initialDateStr) : new Date());
+  const [viewDate, setViewDate] = useState(initialDateStr ? new Date(initialDateStr.replace(/-/g, '/')) : new Date());
   const [selectedTime, setSelectedTime] = useState(initialTimeStr);
 
   const daysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
   const firstDay = (y: number, m: number) => new Date(y, m, 1).getDay();
+  
   const calendarDays = useMemo(() => {
-    const y = viewDate.getFullYear(); const m = viewDate.getMonth(); const days = []; const first = firstDay(y, m);
+    const y = viewDate.getFullYear(); 
+    const m = viewDate.getMonth(); 
+    const days = []; 
+    const first = firstDay(y, m);
     for (let i = 0; i < first; i++) days.push(null);
     for (let i = 1; i <= daysInMonth(y, m); i++) days.push(i);
     return days;
   }, [viewDate]);
 
   const handleSelectDay = (day: number) => {
-    const y = viewDate.getFullYear(); const m = String(viewDate.getMonth() + 1).padStart(2, '0'); const d = String(day).padStart(2, '0');
+    const y = viewDate.getFullYear(); 
+    const m = String(viewDate.getMonth() + 1).padStart(2, '0'); 
+    const d = String(day).padStart(2, '0');
     const datePart = `${y}-${m}-${d}`;
     if (showTime) onChange(`${datePart} ${selectedTime}`);
     else { onChange(datePart); setIsOpen(false); }
@@ -97,33 +117,68 @@ const CustomDatePicker = ({ value, onChange, showTime = false, placeholder }: { 
         {showTime ? <Icons.Clock /> : <Icons.Calendar />}
       </div>
       {isOpen && (
-        <><div style={{ position: 'fixed', inset: 0, zIndex: 100 }} onClick={() => setIsOpen(false)} />
-        <GlassCard padding="16px" style={{ position: 'absolute', top: '100%', left: 0, width: showTime ? '320px' : '280px', zIndex: 101, marginTop: '4px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))} style={navBtnStyle}>◀</button>
-            <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{viewDate.getFullYear()}年 {viewDate.getMonth() + 1}月</div>
-            <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))} style={navBtnStyle}>▶</button>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', textAlign: 'center', marginBottom: showTime ? '16px' : '0' }}>
-            {['日','月','火','水','木','金','土'].map(d => <div key={d} style={{ fontSize: '10px', color: theme.colors.textWeak }}>{d}</div>)}
-            {calendarDays.map((day, i) => {
-              const isSelected = day && initialDateStr === `${viewDate.getFullYear()}-${String(viewDate.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-              return <div key={i} onClick={() => day && handleSelectDay(day)} style={{ padding: '8px 0', fontSize: '13px', borderRadius: '8px', cursor: day ? 'pointer' : 'default', background: isSelected ? theme.colors.primary : 'transparent', color: isSelected ? 'white' : theme.colors.textMain, opacity: day ? 1 : 0 }}>{day}</div>
-            })}
-          </div>
-          {showTime && (
-            <div style={{ borderTop: '0.5px solid rgba(0,0,0,0.05)', paddingTop: '16px' }}>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <select value={selectedTime.split(':')[0]} onChange={e => { const [h,m] = selectedTime.split(':'); setSelectedTime(`${e.target.value}:${m}`); if(initialDateStr) onChange(`${initialDateStr} ${e.target.value}:${m}`); }} style={selectTimeStyle}>{hours.map(h => <option key={h} value={h}>{h}時</option>)}</select>
-                <select value={selectedTime.split(':')[1]} onChange={e => { const [h,m] = selectedTime.split(':'); setSelectedTime(`${h}:${e.target.value}`); if(initialDateStr) onChange(`${initialDateStr} ${h}:${e.target.value}`); }} style={selectTimeStyle}>{minuteOptions.map(m => <option key={m} value={m}>{m}分</option>)}</select>
-              </div>
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 100 }} onClick={() => setIsOpen(false)} />
+          <GlassCard padding="16px" style={{ position: 'absolute', top: '100%', left: 0, width: showTime ? '320px' : '280px', zIndex: 101, marginTop: '4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <button type="button" onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))} style={navBtnStyle}>◀</button>
+              <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{viewDate.getFullYear()}年 {viewDate.getMonth() + 1}月</div>
+              <button type="button" onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))} style={navBtnStyle}>▶</button>
             </div>
-          )}
-          <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-            <button onClick={() => { onChange(''); setIsOpen(false); }} style={{ flex: 1, padding: '10px', background: 'rgba(0,0,0,0.05)', borderRadius: '10px', border: 'none', cursor: 'pointer' }}>クリア</button>
-            <button onClick={() => setIsOpen(false)} style={{ flex: 1, padding: '10px', background: theme.colors.primary, color: 'white', borderRadius: '10px', border: 'none', cursor: 'pointer' }}>確定</button>
-          </div>
-        </GlassCard></>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', textAlign: 'center', marginBottom: showTime ? '16px' : '0' }}>
+              {['日','月','火','水','木','金','土'].map(d => <div key={d} style={{ fontSize: '10px', color: theme.colors.textWeak }}>{d}</div>)}
+              {calendarDays.map((day, i) => {
+                const dateKey = `${viewDate.getFullYear()}-${String(viewDate.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                const isSelected = day && initialDateStr === dateKey;
+                return (
+                  <div 
+                    key={i} 
+                    onClick={() => day && handleSelectDay(day)} 
+                    style={{ 
+                      padding: '8px 0', fontSize: '13px', borderRadius: '8px', cursor: day ? 'pointer' : 'default', 
+                      background: isSelected ? theme.colors.primary : 'transparent', 
+                      color: isSelected ? 'white' : theme.colors.textMain, opacity: day ? 1 : 0 
+                    }}
+                  >
+                    {day}
+                  </div>
+                );
+              })}
+            </div>
+            {showTime && (
+              <div style={{ borderTop: '0.5px solid rgba(0,0,0,0.05)', paddingTop: '16px' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <select 
+                    value={selectedTime.split(':')[0]} 
+                    onChange={e => { 
+                      const [h,m] = selectedTime.split(':'); 
+                      setSelectedTime(`${e.target.value}:${m}`); 
+                      if(initialDateStr) onChange(`${initialDateStr} ${e.target.value}:${m}`); 
+                    }} 
+                    style={selectTimeStyle}
+                  >
+                    {hours.map(h => <option key={h} value={h}>{h}時</option>)}
+                  </select>
+                  <select 
+                    value={selectedTime.split(':')[1]} 
+                    onChange={e => { 
+                      const [h,m] = selectedTime.split(':'); 
+                      setSelectedTime(`${h}:${e.target.value}`); 
+                      if(initialDateStr) onChange(`${initialDateStr} ${h}:${e.target.value}`); 
+                    }} 
+                    style={selectTimeStyle}
+                  >
+                    {minuteOptions.map(m => <option key={m} value={m}>{m}分</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+              <button type="button" onClick={() => { onChange(''); setIsOpen(false); }} style={{ flex: 1, padding: '10px', background: 'rgba(0,0,0,0.05)', borderRadius: '10px', border: 'none', cursor: 'pointer' }}>クリア</button>
+              <button type="button" onClick={() => setIsOpen(false)} style={{ flex: 1, padding: '10px', background: theme.colors.primary, color: 'white', borderRadius: '10px', border: 'none', cursor: 'pointer' }}>確定</button>
+            </div>
+          </GlassCard>
+        </>
       )}
     </div>
   );
@@ -143,12 +198,33 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
   const [isDeleteConcertModalOpen, setIsDeleteConcertModalOpen] = useState<string | null>(null);
   const [conflictDates, setConflictDates] = useState<string[]>([]);
 
-  useEffect(() => { if (tour) { setFormData({ ...tour }); setImageUrlDraft(tour.imageUrl); initialSnapshotRef.current = JSON.stringify(tour); } }, [tourId, tour]);
-  useEffect(() => { setHasChanges(JSON.stringify(formData) !== initialSnapshotRef.current); }, [formData]);
+  useEffect(() => { 
+    if (tour) { 
+      setFormData({ ...tour }); 
+      setImageUrlDraft(tour.imageUrl); 
+      initialSnapshotRef.current = JSON.stringify(tour); 
+    } 
+  }, [tourId, tour]);
+  
+  useEffect(() => { 
+    setHasChanges(JSON.stringify(formData) !== initialSnapshotRef.current); 
+  }, [formData]);
 
-  const handleSave = () => {
+  const handleSave = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault(); // Safety for touch triggers
+    
+    // Explicit Validation
+    if (!formData.name.trim()) {
+      window.alert("ツアー名を入力してください。");
+      return;
+    }
+
     const conflicts = checkGlobalDateConflicts(allArtists, formData.id, formData.concerts);
-    if (conflicts.length > 0) { setConflictDates(conflicts); return; }
+    if (conflicts.length > 0) { 
+      setConflictDates(conflicts); 
+      return; 
+    }
+    
     onSave(formData);
   };
 
@@ -171,13 +247,17 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
       <header style={headerStyle}>
         <IconButton icon={<Icons.X />} onClick={onCancel} size={40} style={{ color: theme.colors.textSecondary, border: 'none', background: 'transparent', boxShadow: 'none' }} />
         <h2 style={{ fontSize: '17px', margin: 0, fontWeight: 'bold' }}>ツアー・公演編集</h2>
-        {tourId ? <IconButton icon={<Icons.Trash />} onClick={() => setIsDeleteTourModalOpen(true)} size={40} style={{ color: theme.colors.error, border: 'none', background: 'transparent', boxShadow: 'none' }} /> : <div style={{ width: 40 }} />}
+        {tourId ? (
+          <IconButton icon={<Icons.Trash />} onClick={() => setIsDeleteTourModalOpen(true)} size={40} style={{ color: theme.colors.error, border: 'none', background: 'transparent', boxShadow: 'none' }} />
+        ) : (
+          <div style={{ width: 40 }} />
+        )}
       </header>
     }>
       <div style={{ paddingBottom: '160px' }}>
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
           <div style={{ width: '120px', height: '160px', borderRadius: '16px', background: '#F3F4F6', border: '4px solid white', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {formData.imageUrl ? <img src={formData.imageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '32px', opacity: 0.2 }}>🎸</span>}
+            {formData.imageUrl ? <img src={formData.imageUrl} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '32px', opacity: 0.2 }}>🎸</span>}
           </div>
         </div>
         <section style={{ marginBottom: theme.spacing.xl }}>
@@ -193,6 +273,7 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
                   style={inputStyle} 
                 />
                 <button
+                  type="button"
                   onClick={handleLoadImage}
                   style={{
                     padding: '0 16px',
@@ -215,7 +296,10 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
           </GlassCard>
         </section>
         <section style={{ marginBottom: theme.spacing.xl }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.sm }}><h3 style={{ ...sectionTitleStyle, marginBottom: 0 }}>公演一覧</h3><button onClick={handleAddConcert} style={actionButtonStyle}>＋ 公演追加</button></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.sm }}>
+            <h3 style={{ ...sectionTitleStyle, marginBottom: 0 }}>公演一覧</h3>
+            <button type="button" onClick={handleAddConcert} style={actionButtonStyle}>＋ 公演追加</button>
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
             {sortPerformancesForDisplay(formData.concerts).map(c => {
               const exp = expandedConcertId === c.id;
@@ -242,7 +326,7 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
                         <Field label="抽選名"><input type="text" value={c.lotteryName || ''} onChange={e => handleUpdateConcert(c.id, { lotteryName: e.target.value })} style={inputStyle} /></Field>
                       </div>
                       <Field label="販売页面URL"><input type="url" value={c.saleLink} onChange={e => handleUpdateConcert(c.id, { saleLink: e.target.value })} style={inputStyle} /></Field>
-                      <button onClick={() => setIsDeleteConcertModalOpen(c.id)} style={{ padding: '8px', color: theme.colors.error, background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px' }}>この公演を削除</button>
+                      <button type="button" onClick={() => setIsDeleteConcertModalOpen(c.id)} style={{ padding: '8px', color: theme.colors.error, background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px' }}>この公演を削除</button>
                     </div>
                   )}
                 </GlassCard>
@@ -250,7 +334,18 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
             })}
           </div>
         </section>
-        <button disabled={!hasChanges || !formData.name} onClick={handleSave} style={{ width: '100%', padding: '16px', borderRadius: '16px', background: !hasChanges || !formData.name ? 'rgba(0,0,0,0.05)' : theme.colors.primary, color: 'white', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}>保存</button>
+        <button 
+          type="button" 
+          disabled={!hasChanges || !formData.name} 
+          onClick={handleSave} 
+          style={{ 
+            width: '100%', padding: '16px', borderRadius: '16px', 
+            background: !hasChanges || !formData.name ? 'rgba(0,0,0,0.05)' : theme.colors.primary, 
+            color: 'white', border: 'none', fontWeight: 'bold', cursor: 'pointer' 
+          }}
+        >
+          保存
+        </button>
         <ConfirmDialog isOpen={conflictDates.length > 0} title="重复警告" message={`同日に他公演があります：${conflictDates.join(', ')}`} confirmLabel="強制保存" onClose={() => setConflictDates([])} onConfirm={() => onSave(formData)} />
         <ConfirmDialog isOpen={isDeleteTourModalOpen} title="ツアー削除" message="全て削除されます。復元不可。" confirmLabel="削除" isDestructive onClose={() => setIsDeleteTourModalOpen(false)} onConfirm={() => onDeleteTour(artistId, formData.id)} />
         <ConfirmDialog isOpen={!!isDeleteConcertModalOpen} title="公演削除" message="この公演を削除しますか？" confirmLabel="削除" isDestructive onClose={() => setIsDeleteConcertModalOpen(null)} onConfirm={() => isDeleteConcertModalOpen && setFormData(p => ({ ...p, concerts: p.concerts.filter(c => c.id !== isDeleteConcertModalOpen) }))} />
