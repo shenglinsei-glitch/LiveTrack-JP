@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { theme } from '../ui/theme';
 import { TEXT } from '../ui/constants';
@@ -13,7 +12,6 @@ interface Props {
   artist?: Artist;
   onSave: (updated: Artist) => void;
   onCancel: () => void;
-  onOpenConcertEditor: (artistId: string, tourId?: string) => void;
   onDeleteArtist: (artistId: string) => void;
 }
 
@@ -39,7 +37,6 @@ export const ArtistEditorPage: React.FC<Props> = ({
   artist,
   onSave,
   onCancel,
-  onOpenConcertEditor,
   onDeleteArtist,
 }) => {
   const createNewArtist = (): Artist => ({

@@ -245,9 +245,11 @@ export const ConcertListPage: React.FC<Props> = ({
               concert={concert} 
               sortMode={sortMode}
               onClick={() => {
-                if (!getDueAction(concert)) {
-                  if (concert.status === '参戦予定' || concert.status === '参戦済み') onOpenConcert(concert.artistId, concert.tourId, concert.id);
-                  else onOpenArtist(concert.artistId);
+  // ✅ 代办状态也允许打开详情
+  if (concert.status === '参戦予定' || concert.status === '参戦済み') {
+    onOpenConcert(concert.artistId, concert.tourId, concert.id);
+  } else {
+    onOpenArtist(concert.artistId);
                 }
               }} 
               onUpdate={(updates) => onUpdateConcert(concert.artistId, concert.tourId, concert.id, updates)}

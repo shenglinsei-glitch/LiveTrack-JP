@@ -4,7 +4,6 @@ import { theme } from '../ui/theme';
 import { IconButton, Icons } from '../ui/IconButton';
 import { GlassCard } from '../ui/GlassCard';
 import { Artist, Concert, DisplaySettings, Status } from '../domain/types';
-import { ArtistDetailMenu } from '../components/ArtistDetailMenu';
 import { calcArtistStatus, sortPerformancesForDisplay } from '../domain/logic';
 import { TEXT } from '../ui/constants';
 
@@ -21,14 +20,19 @@ interface Props {
 
 const InstanceRow: React.FC<{ 
   concert: Concert; 
-  tourOfficialUrl?: string; 
-  onClick?: () => void;
   isLast: boolean;
+  onClick?: () => void;
   disabled?: boolean;
-}> = ({ concert, tourOfficialUrl, onClick, isLast, disabled }) => {
+}> = ({ concert, isLast, onClick, disabled }) => {
   const isSpecial = concert.status === '参戦予定' || concert.status === '参戦済み';
   const dotColor = isSpecial ? theme.colors.primary : '#9CA3AF';
-  const isLottery = concert.status === '抽選中';
+
+  const handleLinkClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (concert.saleLink) {
+      window.open(concert.saleLink, '_blank', 'noopener,noreferrer');
+    }
+  };
 
   return (
     <div 
@@ -56,10 +60,27 @@ const InstanceRow: React.FC<{
           {concert.venue || '会場未定'}
         </div>
       </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+      
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {concert.saleLink && (
+          <button 
+            onClick={handleLinkClick}
+            style={{ 
+              border: 'none', 
+              background: 'rgba(83, 190, 232, 0.1)', 
+              color: theme.colors.primary, 
+              padding: '8px', 
+              borderRadius: '10px', 
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center'
+            }}
+          >
+            <Icons.ExternalLink style={{ width: 16, height: 16 }} />
+          </button>
+        )}
         {onClick && !disabled && (
-          <div style={{ color: '#D1D5DB', paddingLeft: '4px' }}>
+          <div style={{ color: '#D1D5DB' }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="9 18 15 12 9 6"></polyline>
             </svg>
@@ -77,7 +98,6 @@ export const ArtistDetailPage: React.FC<Props> = ({
   onOpenArtistEditor, 
   onOpenConcertEditor, 
   onOpenConcertHome,
-  onChangeSettings,
   onBack 
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -106,8 +126,8 @@ export const ArtistDetailPage: React.FC<Props> = ({
           return true;
         }))
       }))
-      .filter(tour => tour.concerts.length > 0);
-  }, [artist.tours, settings]);
+      .filter(tour => tour.concerts.length > 0 || isSelectionMode);
+  }, [artist.tours, settings, isSelectionMode]);
 
   const handleEditConcertClick = () => {
     setIsMenuOpen(false);
@@ -123,63 +143,78 @@ export const ArtistDetailPage: React.FC<Props> = ({
   return (
     <PageShell
       header={
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <button 
-            onClick={isSelectionMode ? () => setIsSelectionMode(false) : onBack} 
-            style={{ border: 'none', background: 'none', color: '#9CA3AF', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          >
-            {isSelectionMode ? <Icons.X /> : <Icons.ChevronLeft />}
-          </button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: '44px' }}>
+          {!isSelectionMode ? (
+            <button 
+              onClick={onBack} 
+              style={{ border: 'none', background: 'none', color: '#9CA3AF', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center' }}
+            >
+              <Icons.ChevronLeft />
+            </button>
+          ) : (
+            <div style={{ flex: 1, paddingRight: '16px' }}>
+              <h2 style={{ fontSize: '15px', fontWeight: '800', color: theme.colors.primary, margin: 0 }}>
+                編集するツアーを選択してください
+              </h2>
+            </div>
+          )}
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {isSelectionMode && (
-              <span style={{ fontSize: '13px', fontWeight: '800', color: theme.colors.primary, marginRight: '8px' }}>
-                ツアーを選択
-              </span>
-            )}
-            <div style={{ position: 'relative' }}>
-              <IconButton 
-                icon={isSelectionMode ? <Icons.Plus /> : <Icons.Edit />} 
-                onClick={isSelectionMode ? () => onOpenConcertEditor(artistId) : () => setIsMenuOpen(!isMenuOpen)}
-                size={40}
-                style={{ 
-                  borderRadius: '16px', 
-                  color: theme.colors.primary, 
-                  borderColor: isMenuOpen ? theme.colors.primary : '#F3F4F6' 
+            {isSelectionMode ? (
+              <button 
+                onClick={() => setIsSelectionMode(false)}
+                style={{
+                  border: 'none',
+                  background: 'rgba(0,0,0,0.05)',
+                  color: theme.colors.textSecondary,
+                  padding: '8px 16px',
+                  borderRadius: '12px',
+                  fontSize: '13px',
+                  fontWeight: '800',
+                  cursor: 'pointer'
                 }}
-              />
-              
-              {isMenuOpen && (
-                <div style={{
-                  position: 'absolute',
-                  top: '48px',
-                  right: 0,
-                  zIndex: 1000,
-                  width: '220px',
-                }}>
-                  <div style={{ position: 'fixed', inset: 0 }} onClick={() => setIsMenuOpen(false)} />
-                  <GlassCard padding="8px" className="fade-in" style={{ boxShadow: theme.shadows.pop }}>
-                    <MenuOption 
-                      label="アーティスト編集" 
-                      icon={<Icons.Edit style={{ width: 16 }} />} 
-                      onClick={() => { onOpenArtistEditor(artistId); setIsMenuOpen(false); }} 
-                    />
-                    <MenuOption 
-                      label="ツアー・公演編集" 
-                      icon={<Icons.Calendar style={{ width: 16 }} />} 
-                      onClick={handleEditConcertClick} 
-                    />
-                  </GlassCard>
-                </div>
-              )}
-            </div>
+              >
+                キャンセル
+              </button>
+            ) : (
+              <div style={{ position: 'relative' }}>
+                <IconButton 
+                  icon={<Icons.Edit />} 
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  size={40}
+                  style={{ 
+                    borderRadius: '16px', 
+                    color: theme.colors.primary, 
+                    borderColor: isMenuOpen ? theme.colors.primary : '#F3F4F6' 
+                  }}
+                />
+                
+                {isMenuOpen && (
+                  <div style={{ position: 'absolute', top: '48px', right: 0, zIndex: 1000, width: '220px' }}>
+                    <div style={{ position: 'fixed', inset: 0 }} onClick={() => setIsMenuOpen(false)} />
+                    <GlassCard padding="8px" className="fade-in" style={{ boxShadow: theme.shadows.pop }}>
+                      <MenuOption 
+                        label="アーティスト編集" 
+                        icon={<Icons.Edit style={{ width: 16 }} />} 
+                        onClick={() => { onOpenArtistEditor(artistId); setIsMenuOpen(false); }} 
+                      />
+                      <MenuOption 
+                        label="ツアー・公演編集" 
+                        icon={<Icons.Calendar style={{ width: 16 }} />} 
+                        onClick={handleEditConcertClick} 
+                      />
+                    </GlassCard>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       }
     >
       <div style={{ paddingBottom: '120px' }}>
         {/* Profile Info */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px', marginBottom: '40px', opacity: isSelectionMode ? 0.4 : 1, transition: 'opacity 0.3s' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px', marginBottom: '32px', opacity: isSelectionMode ? 0.3 : 1, transition: 'opacity 0.3s' }}>
           <div style={{ 
             width: '96px', height: '96px', borderRadius: '50%', background: '#F3F4F6', border: '3px solid white', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}>
@@ -191,30 +226,63 @@ export const ArtistDetailPage: React.FC<Props> = ({
           </div>
           <div style={{ minWidth: 0 }}>
             <h1 style={{ fontSize: '32px', fontWeight: '900', margin: 0, letterSpacing: '-0.02em', lineHeight: '1.2' }}>{artist.name}</h1>
-            <div style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'white', padding: '6px 16px', borderRadius: '9999px', border: '1px solid #F1F5F9' }}>
-              <div
-  style={{
-    width: '8px',
-    height: '8px',
-    borderRadius: '50%',
-    background: dotColor,
-    boxShadow:
-      status.main === TEXT.ARTIST_STATUS.MAIN_TRACKING
-        ? `0 0 12px ${dotColor}99`
-        : `0 0 12px ${dotColor}99`,
-    filter:
-      status.main === TEXT.ARTIST_STATUS.MAIN_TRACKING
-        ? 'blur(1.5px)'
-        : 'blur(1.5px)'
-  }}
-/>
-              <span style={{ fontSize: '13px', fontWeight: '800', color: theme.colors.textMain }}>{status.main}</span>
+            <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'white', padding: '6px 14px', borderRadius: '9999px', border: '1px solid #F1F5F9' }}>
+                <div
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    background: dotColor,
+                    boxShadow: `0 0 12px ${dotColor}99`,
+                    filter: 'blur(1px)'
+                  }}
+                />
+                <span style={{ fontSize: '13px', fontWeight: '800', color: theme.colors.textMain }}>{status.main}</span>
+              </div>
             </div>
           </div>
         </div>
 
+        {/* Artist Links Section */}
+        {artist.links && artist.links.length > 0 && !isSelectionMode && (
+          <div style={{ 
+            display: 'flex', 
+            gap: '8px', 
+            overflowX: 'auto', 
+            paddingBottom: '8px', 
+            marginBottom: '40px',
+            msOverflowStyle: 'none',
+            scrollbarWidth: 'none'
+          }} className="hide-scrollbar">
+            {artist.links.map((link, idx) => (
+              <button
+                key={idx}
+                onClick={() => window.open(link.url, '_blank', 'noopener,noreferrer')}
+                style={{
+                  whiteSpace: 'nowrap',
+                  padding: '8px 16px',
+                  borderRadius: '14px',
+                  background: 'rgba(255,255,255,0.8)',
+                  border: '1px solid rgba(0,0,0,0.04)',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  color: theme.colors.textSecondary,
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = theme.colors.primary}
+                onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(0,0,0,0.04)'}
+              >
+                {link.name || '外部リンク'}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Tours List */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {processedTours.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 40px', color: theme.colors.textWeak }}>
               <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.3 }}>🎪</div>
@@ -222,66 +290,84 @@ export const ArtistDetailPage: React.FC<Props> = ({
             </div>
           ) : (
             processedTours.map(tour => (
-              <GlassCard 
-                key={tour.id} 
-                padding="0" 
-                onClick={isSelectionMode ? () => onOpenConcertEditor(artistId, tour.id) : undefined}
-                style={{ 
-                  overflow: 'hidden',
-                  border: isSelectionMode ? `2px solid ${theme.colors.primary}` : theme.glass.border,
-                  transform: isSelectionMode ? 'scale(1.02)' : 'scale(1)',
-                  boxShadow: isSelectionMode ? theme.shadows.pop : theme.shadows.card,
-                  transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
-                }}
-              >
-                <div style={{ display: 'flex', gap: '16px', padding: '20px', background: 'linear-gradient(to bottom right, rgba(255,255,255,0.8), rgba(255,255,255,0.4))', borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
-                  <div style={{ width: '60px', height: '80px', borderRadius: '12px', background: '#F3F4F6', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {tour.imageUrl && !imgErrors[tour.id] ? (
-                      <img src={tour.imageUrl} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setImgErrors(p => ({ ...p, [tour.id]: true }))} />
-                    ) : (
-                      <span style={{ fontSize: '24px', opacity: 0.2 }}>🎸</span>
-                    )}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <h3 style={{ fontSize: '18px', fontWeight: '900', margin: 0 }}>{tour.name}</h3>
-                      {isSelectionMode && <Icons.Edit style={{ color: theme.colors.primary }} />}
+              <div key={tour.id} style={{ transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)', transform: isSelectionMode ? 'scale(1.02)' : 'scale(1)' }}>
+                <GlassCard 
+                  padding="0" 
+                  onClick={isSelectionMode ? () => onOpenConcertEditor(artistId, tour.id) : undefined}
+                  style={{ 
+                    overflow: 'hidden',
+                    border: isSelectionMode ? `2.5px solid ${theme.colors.primary}` : theme.glass.border,
+                    boxShadow: isSelectionMode ? theme.shadows.pop : theme.shadows.card,
+                    position: 'relative'
+                  }}
+                >
+                  <div style={{ 
+                    display: 'flex', 
+                    gap: '16px', 
+                    padding: '20px', 
+                    background: isSelectionMode ? 'rgba(83, 190, 232, 0.05)' : 'linear-gradient(to bottom right, rgba(255,255,255,0.8), rgba(255,255,255,0.4))', 
+                    borderBottom: '1px solid rgba(0,0,0,0.03)' 
+                  }}>
+                    <div style={{ width: '60px', height: '80px', borderRadius: '12px', background: '#F3F4F6', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {tour.imageUrl && !imgErrors[tour.id] ? (
+                        <img src={tour.imageUrl} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setImgErrors(p => ({ ...p, [tour.id]: true }))} />
+                      ) : (
+                        <span style={{ fontSize: '24px', opacity: 0.2 }}>🎸</span>
+                      )}
                     </div>
-                    <div style={{ marginTop: '6px' }}>
-                      <span style={{ fontSize: '11px', fontWeight: '800', color: theme.colors.textWeak, background: '#F1F5F9', padding: '2px 8px', borderRadius: '6px' }}>
-                        {tour.concerts.length}公演
-                      </span>
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h3 style={{ fontSize: '18px', fontWeight: '900', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tour.name}</h3>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          {tour.officialUrl && !isSelectionMode && (
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); window.open(tour.officialUrl, '_blank', 'noopener,noreferrer'); }}
+                              style={{ border: 'none', background: 'none', cursor: 'pointer', color: theme.colors.textWeak, padding: '4px' }}
+                            >
+                              <Icons.Globe style={{ width: 18, height: 18 }} />
+                            </button>
+                          )}
+                          {isSelectionMode && (
+                            <div style={{ background: theme.colors.primary, color: 'white', padding: '4px', borderRadius: '50%', display: 'flex' }}>
+                              <Icons.Edit style={{ width: 14, height: 14 }} />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ marginTop: '6px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: '800', color: theme.colors.textWeak, background: '#F1F5F9', padding: '2px 8px', borderRadius: '6px' }}>
+                          {tour.concerts.length}公演
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {!isSelectionMode && (
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    {tour.concerts.map((c, idx) => (
-                      <InstanceRow 
-                        key={c.id} 
-                        concert={c} 
-                        isLast={idx === tour.concerts.length - 1}
-                        onClick={(c.status === '参戦予定' || c.status === '参戦済み') ? () => onOpenConcertHome(artistId, tour.id, c.id) : undefined} 
-                      />
-                    ))}
-                  </div>
-                )}
-              </GlassCard>
+                  {!isSelectionMode && (
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      {tour.concerts.map((c, idx) => (
+                        <InstanceRow 
+                          key={c.id} 
+                          concert={c} 
+                          isLast={idx === tour.concerts.length - 1}
+                          onClick={(c.status === '参戦予定' || c.status === '参戦済み') ? () => onOpenConcertHome(artistId, tour.id, c.id) : undefined} 
+                        />
+                      ))}
+                    </div>
+                  )}
+                </GlassCard>
+              </div>
             ))
           )}
         </div>
       </div>
 
       {!isSelectionMode && (
-        <>
-          <IconButton 
-            icon={<Icons.Plus />} 
-            primary size={64} 
-            onClick={() => onOpenConcertEditor(artistId)} 
-            style={{ position: 'fixed', right: '16px', bottom: 'calc(16px + env(safe-area-inset-bottom))', zIndex: 110, boxShadow: theme.shadows.fab }} 
-          />
-        </>
+        <IconButton 
+          icon={<Icons.Plus />} 
+          primary size={64} 
+          onClick={() => onOpenConcertEditor(artistId)} 
+          style={{ position: 'fixed', right: '16px', bottom: 'calc(16px + env(safe-area-inset-bottom))', zIndex: 110, boxShadow: theme.shadows.fab }} 
+        />
       )}
     </PageShell>
   );

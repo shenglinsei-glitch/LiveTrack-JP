@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { PageId, Artist, Tour, DisplaySettings, Status, GlobalSettings, SiteLink, TrackingStatus, TrackingErrorType, Concert } from './domain/types';
 import { Layout } from './components/Layout';
@@ -13,7 +12,13 @@ import { GlassCard } from './ui/GlassCard';
 import { theme } from './ui/theme';
 import { shouldTriggerAutoTrack, getTrackTargetConcerts, getDueAction, autoAdvanceConcertStatus } from './domain/logic';
 
-type NavContext = { path: PageId; artistId?: string; tourId?: string; concertId?: string; };
+type NavContext = { 
+  path: PageId; 
+  artistId?: string; 
+  tourId?: string; 
+  concertId?: string; 
+  from?: PageId; // Tracks the entry source list
+};
 
 export default function App() {
   const [nav, setNav] = useState<NavContext>({ path: 'ARTIST_LIST' });
@@ -50,17 +55,25 @@ export default function App() {
   }, [nav.path, runAutoAdvance]); // Run when switching pages
 
   const navigateToArtistList = () => setNav({ path: 'ARTIST_LIST' });
-  const navigateToArtistDetail = (artistId: string) => setNav({ path: 'ARTIST_DETAIL', artistId });
+  
+  // Refined navigation helpers to track origin
+  const navigateToArtistDetail = (artistId: string, from?: PageId) => 
+    setNav({ path: 'ARTIST_DETAIL', artistId, from });
+
   const navigateToArtistEditor = (artistId?: string) => setNav({ path: 'ARTIST_EDITOR', artistId });
-  const navigateToConcertEditor = (artistId: string, tourId?: string) => setNav({ path: 'CONCERT_EDITOR', artistId, tourId });
-  const navigateToConcertHome = (artistId: string, tourId: string, concertId: string) => setNav({ path: 'CONCERT_HOME', artistId, tourId, concertId });
+  
+  const navigateToConcertEditor = (artistId: string, tourId?: string) => 
+    setNav({ path: 'CONCERT_EDITOR', artistId, tourId });
+  
+  const navigateToConcertHome = (artistId: string, tourId: string, concertId: string, from?: PageId) => 
+    setNav({ path: 'CONCERT_HOME', artistId, tourId, concertId, from });
 
   const upsertArtist = (updated: Artist) => {
     setArtists(prev => {
       const exists = prev.some(a => a.id === updated.id);
       return exists ? prev.map(a => a.id === updated.id ? updated : a) : [...prev, updated];
     });
-    navigateToArtistDetail(updated.id);
+    navigateToArtistDetail(updated.id, nav.from);
   };
 
   const handleUpdateArtistOrder = (newArtists: Artist[]) => {
@@ -89,12 +102,12 @@ export default function App() {
       const tourExists = artist.tours.some(t => t.id === updatedTour.id);
       return { ...artist, tours: tourExists ? artist.tours.map(t => t.id === updatedTour.id ? updatedTour : t) : [...artist.tours, updatedTour] };
     }));
-    navigateToArtistDetail(artistId);
+    navigateToArtistDetail(artistId, nav.from);
   };
 
   const deleteTour = (artistId: string, tourId: string) => {
     setArtists(prev => prev.map(artist => artist.id !== artistId ? artist : { ...artist, tours: artist.tours.filter(t => t.id !== tourId) }));
-    navigateToArtistDetail(artistId);
+    navigateToArtistDetail(artistId, nav.from);
   };
 
   const renderPage = () => {
@@ -103,7 +116,7 @@ export default function App() {
         return (
           <ArtistListPage 
             artists={artists} 
-            onOpenArtist={navigateToArtistDetail} 
+            onOpenArtist={(id) => navigateToArtistDetail(id, 'ARTIST_LIST')} 
             onOpenArtistEditor={() => navigateToArtistEditor()} 
             onRefreshAll={runAutoAdvance} 
             onImportData={setArtists} 
@@ -118,8 +131,8 @@ export default function App() {
         return (
           <ConcertListPage 
             artists={artists} 
-            onOpenArtist={navigateToArtistDetail} 
-            onOpenConcert={navigateToConcertHome} 
+            onOpenArtist={(id) => navigateToArtistDetail(id, 'CONCERT_LIST')} 
+            onOpenConcert={(aid, tid, cid) => navigateToConcertHome(aid, tid, cid, 'CONCERT_LIST')} 
             onCreateConcert={() => setIsArtistPickerOpen(true)} 
             onRefreshAll={runAutoAdvance} 
             onUpdateConcert={updateConcert} 
@@ -128,18 +141,52 @@ export default function App() {
           />
         );
       case 'CALENDAR': 
-        return <CalendarPage artists={artists} onOpenArtist={navigateToArtistDetail} onOpenConcert={navigateToConcertHome} onRefreshAll={runAutoAdvance} />;
+        return (
+          <CalendarPage 
+            artists={artists} 
+            onOpenArtist={(id) => navigateToArtistDetail(id, 'CALENDAR')} 
+            onOpenConcert={(aid, tid, cid) => navigateToConcertHome(aid, tid, cid, 'CALENDAR')} 
+            onRefreshAll={runAutoAdvance} 
+          />
+        );
       case 'ARTIST_DETAIL': {
         const artist = artists.find(a => a.id === nav.artistId);
         if (!artist) return null;
-        return <ArtistDetailPage artistId={nav.artistId!} artist={artist} settings={displaySettings} onOpenArtistEditor={navigateToArtistEditor} onOpenConcertEditor={navigateToConcertEditor} onOpenConcertHome={navigateToConcertHome} onChangeSettings={s => setDisplaySettings(p => ({...p, ...s}))} onBack={navigateToArtistList} />;
+        return (
+          <ArtistDetailPage 
+            artistId={nav.artistId!} 
+            artist={artist} 
+            settings={displaySettings} 
+            onOpenArtistEditor={navigateToArtistEditor} 
+            onOpenConcertEditor={navigateToConcertEditor} 
+            onOpenConcertHome={(aid, tid, cid) => navigateToConcertHome(aid, tid, cid, nav.from)} 
+            onChangeSettings={s => setDisplaySettings(p => ({...p, ...s}))} 
+            onBack={() => {
+              // Context-aware back navigation
+              if (nav.from === 'CONCERT_LIST') setNav({ path: 'CONCERT_LIST' });
+              else if (nav.from === 'CALENDAR') setNav({ path: 'CALENDAR' });
+              else navigateToArtistList();
+            }} 
+          />
+        );
       }
       case 'CONCERT_HOME': {
         const artist = artists.find(a => a.id === nav.artistId);
         const tour = artist?.tours.find(t => t.id === nav.tourId);
         const concert = tour?.concerts.find(c => c.id === nav.concertId);
         if (!artist || !tour || !concert) return null;
-        return <ConcertHomePage artistId={artist.id} concertId={concert.id} artist={artist} tour={tour} concert={concert} onBack={() => navigateToArtistDetail(artist.id)} onOpenConcertEditor={navigateToConcertEditor} onUpdateConcertAlbum={(aid, tid, cid, imgs) => updateConcert(aid, tid, cid, { images: imgs })} />;
+        return (
+          <ConcertHomePage 
+            artistId={artist.id} 
+            concertId={concert.id} 
+            artist={artist} 
+            tour={tour} 
+            concert={concert} 
+            onBack={() => navigateToArtistDetail(artist.id, nav.from)} 
+            onOpenConcertEditor={navigateToConcertEditor} 
+            onUpdateConcertAlbum={(aid, tid, cid, imgs) => updateConcert(aid, tid, cid, { images: imgs })} 
+          />
+        );
       }
       case 'ARTIST_EDITOR': return (
         <ArtistEditorPage 
@@ -148,12 +195,11 @@ export default function App() {
           onSave={upsertArtist} 
           onCancel={() => {
             if (nav.artistId) {
-              navigateToArtistDetail(nav.artistId);
+              navigateToArtistDetail(nav.artistId, nav.from);
             } else {
               navigateToArtistList();
             }
           }} 
-          onOpenConcertEditor={navigateToConcertEditor} 
           onDeleteArtist={id => { 
             setArtists(p => p.filter(a => a.id !== id)); 
             navigateToArtistList(); 
@@ -163,7 +209,17 @@ export default function App() {
       case 'CONCERT_EDITOR': {
         const artist = artists.find(a => a.id === nav.artistId);
         if (!artist) return null;
-        return <ConcertEditorPage artistId={artist.id} tourId={nav.tourId} tour={artist.tours.find(t => t.id === nav.tourId)} allArtists={artists} onSave={t => upsertTour(artist.id, t)} onCancel={() => navigateToArtistDetail(artist.id)} onDeleteTour={deleteTour} />;
+        return (
+          <ConcertEditorPage 
+            artistId={artist.id} 
+            tourId={nav.tourId} 
+            tour={artist.tours.find(t => t.id === nav.tourId)} 
+            allArtists={artists} 
+            onSave={t => upsertTour(artist.id, t)} 
+            onCancel={() => navigateToArtistDetail(artist.id, nav.from)} 
+            onDeleteTour={deleteTour} 
+          />
+        );
       }
       default: return null;
     }
@@ -179,7 +235,17 @@ export default function App() {
           <div style={backdropStyle} onClick={() => setIsArtistPickerOpen(false)} />
           <GlassCard padding="24px" style={pickerCardStyle}>
             <h3>アーティストを選択</h3>
-            <div style={pickerListStyle}>{artists.map(a => <button key={a.id} onClick={() => { navigateToConcertEditor(a.id); setIsArtistPickerOpen(false); }} style={pickerButtonStyle}>{a.name}</button>)}</div>
+            <div style={pickerListStyle}>
+              {artists.map(a => (
+                <button 
+                  key={a.id} 
+                  onClick={() => { navigateToConcertEditor(a.id); setIsArtistPickerOpen(false); }} 
+                  style={pickerButtonStyle}
+                >
+                  {a.name}
+                </button>
+              ))}
+            </div>
             <button onClick={() => setIsArtistPickerOpen(false)} style={closeButtonStyle}>閉じる</button>
           </GlassCard>
         </div>

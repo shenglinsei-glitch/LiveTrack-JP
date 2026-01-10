@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { theme } from '../ui/theme';
 import { ImageDialog } from '../components/ImageDialog';
@@ -30,26 +29,20 @@ export const ConcertHomePage: React.FC<Props> = ({
   const [editingImageUrl, setEditingImageUrl] = useState<{ url: string; index: number } | null>(null);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
-  // Background image (blurred)
-  // NOTE: iOS Safari/PWA can fail to render fixed elements with negative z-index.
-  // We therefore keep the background at zIndex=0 and render the page content above it.
   const bgCandidates = [tour.imageUrl, artist.imageUrl].filter(Boolean) as string[];
   const [bgIndex, setBgIndex] = useState<number>(0);
   const bgUrl = bgCandidates[bgIndex] || '';
   
-  // Drag and Drop state
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
 
   const images = concert.images || [];
 
-  // Reset fallback chain when artist/tour changes
   useEffect(() => {
     setBgIndex(0);
   }, [tour.imageUrl, artist.imageUrl]);
 
   const handleBgError = () => {
-    // fallback: tour -> artist -> none
     setBgIndex((prev) => (prev + 1 < bgCandidates.length ? prev + 1 : prev));
   };
 
@@ -82,7 +75,6 @@ export const ConcertHomePage: React.FC<Props> = ({
     setIsDialogOpen(true);
   };
 
-  // Drag and Drop Handlers
   const handleDragStart = (index: number) => {
     dragItem.current = index;
   };
@@ -106,10 +98,6 @@ export const ConcertHomePage: React.FC<Props> = ({
 
   return (
     <div style={{ minHeight: '100vh', position: 'relative', overflowX: 'hidden' }}>
-      {/* 
-        Requirement Fix: Dynamic background using <img> for proper Referrer Policy support.
-        This replaces the CSS background-image which cannot bypass hotlink protection.
-      */}
       <div style={{ 
         position: 'fixed', 
         inset: 0, 
@@ -128,7 +116,7 @@ export const ConcertHomePage: React.FC<Props> = ({
               height: '100%', 
               objectFit: 'cover',
               filter: 'blur(40px) brightness(0.6)', 
-              transform: 'scale(1.2)', // Prevents blurred edges from showing the background
+              transform: 'scale(1.2)',
               transition: 'opacity 0.5s ease-in-out'
             }}
             onError={handleBgError}
@@ -158,11 +146,9 @@ export const ConcertHomePage: React.FC<Props> = ({
           </button>
           
           <div style={{ display: 'flex', gap: '12px' }}>
-            {tour.officialUrl && (
-              <a 
-                href={tour.officialUrl} 
-                target="_blank" 
-                rel="noopener noreferrer"
+            {concert.saleLink && (
+              <button 
+                onClick={() => window.open(concert.saleLink, '_blank', 'noopener,noreferrer')}
                 style={{ 
                   border: 'none', 
                   background: 'rgba(255,255,255,0.15)', 
@@ -174,13 +160,33 @@ export const ConcertHomePage: React.FC<Props> = ({
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'center', 
-                  cursor: 'pointer',
-                  textDecoration: 'none'
+                  cursor: 'pointer'
+                }}
+                title="チケット購入・詳細"
+              >
+                <Icons.ExternalLink style={{ width: 20, height: 20 }} />
+              </button>
+            )}
+            {tour.officialUrl && (
+              <button 
+                onClick={() => window.open(tour.officialUrl, '_blank', 'noopener,noreferrer')}
+                style={{ 
+                  border: 'none', 
+                  background: 'rgba(255,255,255,0.15)', 
+                  backdropFilter: 'blur(10px)',
+                  color: 'white', 
+                  width: '44px', 
+                  height: '44px', 
+                  borderRadius: '22px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  cursor: 'pointer'
                 }}
                 title="ツアー公式サイト"
               >
-                <Icons.Globe />
-              </a>
+                <Icons.Globe style={{ width: 20, height: 20 }} />
+              </button>
             )}
             <IconButton 
               icon={<Icons.Edit />} 
