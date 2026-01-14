@@ -57,11 +57,15 @@ export const ArtistEditorPage: React.FC<Props> = ({
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isBackConfirmOpen, setIsBackConfirmOpen] = useState(false);
 
+  type LinkJudgeResult = 'unjudged' | 'supported' | 'unsupported';
+  const [linkJudge, setLinkJudge] = useState<Record<number, LinkJudgeResult>>({});
+
   useEffect(() => {
     if (artist) {
       setFormData({ ...artist });
       setImageUrlDraft(artist.imageUrl);
       initialSnapshotRef.current = JSON.stringify(artist);
+      setLinkJudge({});
     }
   }, [artistId, artist]);
 
@@ -72,6 +76,31 @@ export const ArtistEditorPage: React.FC<Props> = ({
   const handleUpdateField = (field: keyof Artist, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
+  const judgeTrackability = (url: string): LinkJudgeResult => {
+    const u = (url || '').trim();
+    if (!u) return 'unjudged';
+    const lower = u.toLowerCase();
+    if (lower.includes('twitter.com') || lower.includes('x.com')) return 'unsupported';
+    const hasDetailHint = lower.includes('in.html') || lower.includes('id=') || lower.includes('detail') || lower.includes('article');
+    // Common dynamic list pages that rarely expose readable text in browser-only tracking
+    const looksLikeNewsList = /\/news\/?$/.test(lower) && !hasDetailHint;
+    if (looksLikeNewsList) return 'unsupported';
+    if (hasDetailHint) return 'supported';
+    if (lower.includes('/live') || lower.includes('/tour') || lower.includes('/schedule')) return 'supported';
+    return 'unjudged';
+  };
+
+  const getJudgeLabel = (r: LinkJudgeResult): string => {
+    if (r === 'unsupported') return '内容追跡に対応していません';
+    if (r === 'supported') return '内容追跡に対応している可能性があります';
+    return '未判定';
+  };
+
+  const runJudgeForLink = (index: number, url: string) => {
+    const result = judgeTrackability(url);
+    setLinkJudge((prev) => ({ ...prev, [index]: result }));
+  };
+
 
   const handleLoadImage = () => {
     if (imageUrlDraft.trim()) {
@@ -192,7 +221,28 @@ export const ArtistEditorPage: React.FC<Props> = ({
                     </Field>
                     <div style={{ height: '8px' }} />
                     <Field label="URL">
-                      <input type="url" value={safe.url} onChange={(e) => updateLink(idx, { url: e.target.value })} placeholder="https://..." style={inputStyle} />
+                      <input type="url" value={safe.url} onChange={(e) => { updateLink(idx, { url: e.target.value }); setLinkJudge((prev) => ({ ...prev, [idx]: 'unjudged' })); }} placeholder="https://..." style={inputStyle} />
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px', minHeight: '18px' }}>
+                        <div style={{ fontSize: '12px', color: theme.colors.textSecondary }}>
+                          {getJudgeLabel(linkJudge[idx] ?? 'unjudged')}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => runJudgeForLink(idx, safe.url)}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '999px',
+                            border: '1px solid rgba(0,0,0,0.10)',
+                            background: 'rgba(255,255,255,0.55)',
+                            fontSize: '12px',
+                            color: theme.colors.textSecondary,
+                            cursor: 'pointer',
+                            flexShrink: 0,
+                          }}
+                        >
+                          判定
+                        </button>
+                      </div>
                     </Field>
                   </div>
                 );

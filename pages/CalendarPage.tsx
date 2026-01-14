@@ -1,9 +1,8 @@
-
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { PageShell } from '../ui/PageShell';
 import { theme } from '../ui/theme';
 import { TEXT } from '../ui/constants';
-import { PageId, Status, Artist, CalendarEvent, CalendarEventType } from '../domain/types';
+import { Artist, CalendarEvent, CalendarEventType } from '../domain/types';
 import { CalendarMenu } from '../components/CalendarMenu';
 import { buildCalendarEvents, EVENT_PRIORITY } from '../domain/logic';
 import { Icons, IconButton } from '../ui/IconButton';
@@ -26,7 +25,39 @@ export const CalendarPage: React.FC<Props> = ({ artists, onOpenArtist, onOpenCon
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [weekStart, setWeekStart] = useState<'sun' | 'mon'>('sun');
+  const [weekStart, setWeekStart] = useState<'sun' | 'mon'>('mon');
+
+  const [yearOpen, setYearOpen] = useState(false);
+  const [monthOpen, setMonthOpen] = useState(false);
+  const yearBtnRef = useRef<HTMLButtonElement | null>(null);
+  const monthBtnRef = useRef<HTMLButtonElement | null>(null);
+  const yearPopoverRef = useRef<HTMLDivElement | null>(null);
+  const monthPopoverRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!yearOpen && !monthOpen) return;
+
+    const onPointerDown = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as Node | null;
+      const insideYear =
+        (yearBtnRef.current && target && yearBtnRef.current.contains(target)) ||
+        (yearPopoverRef.current && target && yearPopoverRef.current.contains(target));
+      const insideMonth =
+        (monthBtnRef.current && target && monthBtnRef.current.contains(target)) ||
+        (monthPopoverRef.current && target && monthPopoverRef.current.contains(target));
+
+      if (!insideYear) setYearOpen(false);
+      if (!insideMonth) setMonthOpen(false);
+    };
+
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('touchstart', onPointerDown, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('touchstart', onPointerDown as any);
+    };
+  }, [yearOpen, monthOpen]);
+
   
   const [showAttended, setShowAttended] = useState(true);
   const [showSkipped, setShowSkipped] = useState(true);
@@ -49,20 +80,32 @@ export const CalendarPage: React.FC<Props> = ({ artists, onOpenArtist, onOpenCon
     return map;
   }, [allEvents]);
 
-  const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
-  const firstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
-
+  // --- 修正后的日历核心绘制逻辑 ---
   const calendarDays = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
-    const count = daysInMonth(year, month);
-    let startDay = firstDayOfMonth(year, month);
-    if (weekStart === 'mon') startDay = startDay === 0 ? 6 : startDay - 1;
+    
+    const count = new Date(year, month + 1, 0).getDate();
+    const firstDayIndex = new Date(year, month, 1).getDay();
+    
+    let startOffset = 0;
+    if (weekStart === 'sun') {
+      startOffset = firstDayIndex;
+    } else {
+      startOffset = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
+    }
+
     const days = [];
-    for (let i = 0; i < startDay; i++) days.push(null);
+    for (let i = 0; i < startOffset; i++) days.push(null);
     for (let i = 1; i <= count; i++) days.push(i);
+    
     return days;
   }, [currentDate, weekStart]);
+
+  const years = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 21 }, (_, i) => currentYear - 10 + i);
+  }, []);
 
   const handleDayClick = (day: number) => {
     const dateKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -109,10 +152,102 @@ export const CalendarPage: React.FC<Props> = ({ artists, onOpenArtist, onOpenCon
     >
       <div style={{ paddingBottom: '120px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <div style={{ fontSize: '24px', fontWeight: '900' }}>{currentDate.getFullYear()}年 {currentDate.getMonth() + 1}月</div>
+          {/* --- 年月选择器（方案A：胶囊按钮 + Popover） --- */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* Year */}
+            <div style={{ position: 'relative' }}>
+              <button
+                ref={yearBtnRef}
+                type="button"
+                onClick={() => {
+                  setYearOpen(v => !v);
+                  setMonthOpen(false);
+                }}
+                style={pickerBtnStyle}
+                aria-haspopup="dialog"
+                aria-expanded={yearOpen}
+              >
+                <span style={{ fontWeight: 900 }}>{currentDate.getFullYear()}年</span>
+                <span style={chevStyle}>▾</span>
+              </button>
+
+              {yearOpen && (
+                <div ref={yearPopoverRef} style={popoverStyle}>
+                  <div style={popoverHeaderStyle}>年を選択</div>
+                  <div style={popoverScrollStyle}>
+                    {years.map(y => {
+                      const active = y === currentDate.getFullYear();
+                      return (
+                        <button
+                          key={y}
+                          type="button"
+                          onClick={() => {
+                            setCurrentDate(new Date(y, currentDate.getMonth(), 1));
+                            setYearOpen(false);
+                          }}
+                          style={{
+                            ...popoverItemStyle,
+                            ...(active ? popoverItemActiveStyle : null),
+                          }}
+                        >
+                          {y}年
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Month */}
+            <div style={{ position: 'relative' }}>
+              <button
+                ref={monthBtnRef}
+                type="button"
+                onClick={() => {
+                  setMonthOpen(v => !v);
+                  setYearOpen(false);
+                }}
+                style={pickerBtnStyle}
+                aria-haspopup="dialog"
+                aria-expanded={monthOpen}
+              >
+                <span style={{ fontWeight: 900 }}>{currentDate.getMonth() + 1}月</span>
+                <span style={chevStyle}>▾</span>
+              </button>
+
+              {monthOpen && (
+                <div ref={monthPopoverRef} style={{ ...popoverStyle, width: 248 }}>
+                  <div style={popoverHeaderStyle}>月を選択</div>
+                  <div style={monthGridStyle}>
+                    {Array.from({ length: 12 }, (_, i) => {
+                      const active = i === currentDate.getMonth();
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => {
+                            setCurrentDate(new Date(currentDate.getFullYear(), i, 1));
+                            setMonthOpen(false);
+                          }}
+                          style={{
+                            ...monthCellStyle,
+                            ...(active ? monthCellActiveStyle : null),
+                          }}
+                        >
+                          {i + 1}月
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))} style={navBtnStyle}>◀</button>
-            <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))} style={navBtnStyle}>▶</button>
+            <button onClick={() => { setYearOpen(false); setMonthOpen(false); setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)); }} style={navBtnStyle}>◀</button>
+            <button onClick={() => { setYearOpen(false); setMonthOpen(false); setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1)); }} style={navBtnStyle}>▶</button>
           </div>
         </div>
 
@@ -124,11 +259,15 @@ export const CalendarPage: React.FC<Props> = ({ artists, onOpenArtist, onOpenCon
           boxShadow: '0 4px 12px rgba(0,0,0,0.03)' 
         }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px' }}>
-            {(weekStart === 'sun' ? [TEXT.CALENDAR.WEEK_SUN, TEXT.CALENDAR.WEEK_MON, TEXT.CALENDAR.WEEK_TUE, TEXT.CALENDAR.WEEK_WED, TEXT.CALENDAR.WEEK_THU, TEXT.CALENDAR.WEEK_FRI, TEXT.CALENDAR.WEEK_SAT] : [TEXT.CALENDAR.WEEK_MON, TEXT.CALENDAR.WEEK_TUE, TEXT.CALENDAR.WEEK_WED, TEXT.CALENDAR.WEEK_THU, TEXT.CALENDAR.WEEK_FRI, TEXT.CALENDAR.WEEK_SAT, TEXT.CALENDAR.WEEK_SUN]).map(l => (
+            {(weekStart === 'sun' 
+              ? [TEXT.CALENDAR.WEEK_SUN, TEXT.CALENDAR.WEEK_MON, TEXT.CALENDAR.WEEK_TUE, TEXT.CALENDAR.WEEK_WED, TEXT.CALENDAR.WEEK_THU, TEXT.CALENDAR.WEEK_FRI, TEXT.CALENDAR.WEEK_SAT] 
+              : [TEXT.CALENDAR.WEEK_MON, TEXT.CALENDAR.WEEK_TUE, TEXT.CALENDAR.WEEK_WED, TEXT.CALENDAR.WEEK_THU, TEXT.CALENDAR.WEEK_FRI, TEXT.CALENDAR.WEEK_SAT, TEXT.CALENDAR.WEEK_SUN]
+            ).map(l => (
               <div key={l} style={weekLabelStyle}>{l}</div>
             ))}
+            
             {calendarDays.map((day, idx) => {
-              if (day === null) return <div key={idx} />;
+              if (day === null) return <div key={`empty-${idx}`} />;
               
               const dateKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
               const events = eventMap.get(dateKey) || [];
@@ -247,12 +386,108 @@ export const CalendarPage: React.FC<Props> = ({ artists, onOpenArtist, onOpenCon
   );
 };
 
-const navBtnStyle = { width: '40px', height: '40px', borderRadius: '50%', border: 'none', background: '#F3F4F6', cursor: 'pointer', fontWeight: 'bold' };
-// Added React.CSSProperties to fix TextAlign assignment error
+const navBtnStyle: React.CSSProperties = { width: '40px', height: '40px', borderRadius: '50%', border: 'none', background: '#F3F4F6', color: '#111827', WebkitTextFillColor: '#111827', cursor: 'pointer', fontWeight: 900, fontSize: '18px', lineHeight: 1 };
 const weekLabelStyle: React.CSSProperties = { textAlign: 'center', fontSize: '11px', fontWeight: '700', color: theme.colors.textSecondary, paddingBottom: '8px' };
 const dayCellStyle: React.CSSProperties = { 
   minHeight: '52px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '12px', cursor: 'pointer', position: 'relative', transition: 'all 0.1s ease', padding: '4px 0' 
 };
 const eventCardStyle: React.CSSProperties = { 
   background: 'white', borderRadius: '24px', padding: '12px 16px', border: '1px solid rgba(0,0,0,0.04)', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' 
+};
+const pickerBtnStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '8px',
+  padding: '8px 12px',
+  borderRadius: '9999px',
+  border: '1px solid rgba(0,0,0,0.06)',
+  background: 'rgba(255,255,255,0.88)',
+  boxShadow: '0 4px 14px rgba(0,0,0,0.04)',
+  fontSize: 'clamp(16px, 3.2vw, 20px)',
+  fontWeight: 900,
+  color: '#111827',
+  WebkitTextFillColor: '#111827',
+  cursor: 'pointer',
+  outline: 'none',
+  lineHeight: 1,
+  backdropFilter: 'blur(10px)',
+  WebkitBackdropFilter: 'blur(10px)',
+};
+
+const chevStyle: React.CSSProperties = {
+  fontSize: '18px',
+  color: 'rgba(17,24,39,0.55)',
+  transform: 'translateY(1px)',
+};
+
+const popoverStyle: React.CSSProperties = {
+  position: 'absolute',
+  top: 'calc(100% + 10px)',
+  left: 0,
+  width: 220,
+  borderRadius: '18px',
+  border: '1px solid rgba(0,0,0,0.06)',
+  background: 'rgba(255,255,255,0.92)',
+  boxShadow: '0 18px 46px rgba(0,0,0,0.10)',
+  overflow: 'hidden',
+  zIndex: 80,
+  backdropFilter: 'blur(16px)',
+  WebkitBackdropFilter: 'blur(16px)',
+};
+
+const popoverHeaderStyle: React.CSSProperties = {
+  padding: '10px 12px',
+  fontSize: '12px',
+  fontWeight: 800,
+  letterSpacing: '0.06em',
+  color: 'rgba(17,24,39,0.55)',
+  borderBottom: '1px solid rgba(0,0,0,0.06)',
+};
+
+const popoverScrollStyle: React.CSSProperties = {
+  maxHeight: '240px',
+  overflowY: 'auto',
+  padding: '6px',
+};
+
+const popoverItemStyle: React.CSSProperties = {
+  width: '100%',
+  textAlign: 'left',
+  padding: '10px 10px',
+  borderRadius: '14px',
+  border: 'none',
+  background: 'transparent',
+  cursor: 'pointer',
+  fontSize: '16px',
+  fontWeight: 800,
+  color: '#111827',
+};
+
+const popoverItemActiveStyle: React.CSSProperties = {
+  background: 'rgba(83, 190, 232, 0.12)',
+  boxShadow: 'inset 0 0 0 2px rgba(83, 190, 232, 0.35)',
+};
+
+const monthGridStyle: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(3, 1fr)',
+  gap: '8px',
+  padding: '10px',
+};
+
+const monthCellStyle: React.CSSProperties = {
+  padding: '10px 0',
+  borderRadius: '14px',
+  border: '1px solid rgba(0,0,0,0.06)',
+  background: 'rgba(255,255,255,0.7)',
+  cursor: 'pointer',
+  fontSize: '14px',
+  fontWeight: 900,
+  color: '#111827',
+};
+
+const monthCellActiveStyle: React.CSSProperties = {
+  background: 'rgba(83, 190, 232, 0.12)',
+  border: '1px solid rgba(83, 190, 232, 0.35)',
+  boxShadow: '0 10px 22px rgba(83, 190, 232, 0.18)',
 };

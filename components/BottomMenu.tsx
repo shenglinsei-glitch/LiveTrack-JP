@@ -12,6 +12,7 @@ interface BottomMenuProps {
   onExport: () => void;
   onImport: () => void;
   onAddArtist: () => void;
+  onClearAllTrackingNotices?: () => void;
   currentSort: 'manual' | 'status';
   onSetSort: (mode: 'manual' | 'status') => void;
   globalSettings?: GlobalSettings;
@@ -24,6 +25,7 @@ export const BottomMenu: React.FC<BottomMenuProps> = ({
   onExport, 
   onImport,
   onAddArtist,
+  onClearAllTrackingNotices,
   currentSort,
   onSetSort,
   globalSettings,
@@ -112,6 +114,10 @@ export const BottomMenu: React.FC<BottomMenuProps> = ({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <MenuButton label={TEXT.BUTTONS.EXPORT} icon={<Icons.Upload />} onClick={onExport} />
               <MenuButton label={TEXT.BUTTONS.IMPORT} icon={<Icons.Download />} onClick={onImport} />
+              <MenuButton
+                label="追跡通知をすべてクリア"
+                onClick={() => { onClearAllTrackingNotices?.(); onClose(); }}
+              />
             </div>
           </section>
         </div>

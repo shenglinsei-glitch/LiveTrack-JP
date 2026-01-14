@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { PageId, Artist, Tour, DisplaySettings, Status, GlobalSettings, SiteLink, TrackingStatus, TrackingErrorType, Concert } from './domain/types';
 import { Layout } from './components/Layout';
 import { ArtistListPage } from './pages/ArtistListPage';
@@ -30,34 +30,114 @@ const STORAGE_KEYS = {
 };
 
 /**
- * Robust Persistence Wrapper
+ * Robust Persistence Wrapper (non-blocking)
+ * - Throttles repeated errors (prevents alert loops)
+ * - Surfaces errors to UI via callback instead of window.alert
  */
-const safeSave = (key: string, data: any) => {
+/**
+ * Robust Persistence Wrapper (non-blocking + diagnostics)
+ * - Prevents alert loops
+ * - Throttles repeated errors
+ * - On QuotaExceeded, shows a storage usage summary (many times it's NOT images, but other keys under the same origin)
+ * - Once a key hits QuotaExceeded, we temporarily block further saves for that key (until reload) to stop repeated banners.
+ */
+const _persistErrorThrottle: Record<string, number> = {};
+const _persistBlockedKeys = new Set<string>();
+
+const _estimateBytes = (s: string) => (s ? s.length * 2 : 0); // UTF-16 rough estimate
+const _formatBytes = (b: number) => {
+  const kb = 1024, mb = kb * 1024;
+  if (b >= mb) return `${(b / mb).toFixed(2)} MB`;
+  if (b >= kb) return `${(b / kb).toFixed(1)} KB`;
+  return `${b} B`;
+};
+
+const _summarizeLocalStorage = () => {
   try {
-    // Basic Sanitation: Remove potential circular refs or functions
-    const serialized = JSON.stringify(data);
-    
-    // Quota Awareness: LocalStorage on mobile is usually ~5MB.
-    // If saving Artists, check if we're ballooning due to Base64
-    if (key === STORAGE_KEYS.ARTISTS && serialized.length > 4 * 1024 * 1024) {
-      console.warn("Storage warning: Data size is large. Images might be causing issues.");
+    const rows: { key: string; bytes: number }[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k) continue;
+      const v = localStorage.getItem(k) || '';
+      rows.push({ key: k, bytes: _estimateBytes(k) + _estimateBytes(v) });
     }
-    
+    rows.sort((a, b) => b.bytes - a.bytes);
+    const total = rows.reduce((acc, r) => acc + r.bytes, 0);
+    return { total, top: rows.slice(0, 6) };
+  } catch {
+    return { total: 0, top: [] as { key: string; bytes: number }[] };
+  }
+};
+
+const safeSave = (key: string, data: any, onError?: (message: string) => void) => {
+  // If this key already hit QuotaExceeded, stop trying until reload.
+  if (_persistBlockedKeys.has(key)) return false;
+
+  try {
+    const serialized = JSON.stringify(data);
+
+    // Soft warning (not an error): artists payload getting large.
+    if (key === STORAGE_KEYS.ARTISTS && serialized.length > 4 * 1024 * 1024) {
+      console.warn("Storage warning: Artists payload is large (>4MB).");
+    }
+
     localStorage.setItem(key, serialized);
+    return true;
   } catch (err: any) {
     console.error(`Persistence Error for key [${key}]:`, err);
-    
+
+    const now = Date.now();
+    const last = _persistErrorThrottle[key] || 0;
+    if (now - last < 10_000) return false; // 10s throttle
+    _persistErrorThrottle[key] = now;
+
     let userMsg = "データの保存に失敗しました。";
-    if (err.name === 'QuotaExceededError' || err.code === 22) {
-      userMsg += "\nストレージ容量が不足しています。アルバムの画像を削除するか、URLでの指定に切り替えてください。";
+    const isQuota = err?.name === 'QuotaExceededError' || err?.code === 22;
+
+    if (isQuota) {
+      // Block further attempts for this key to avoid endless banners.
+      _persistBlockedKeys.add(key);
+
+      const { total, top } = _summarizeLocalStorage();
+      userMsg += "\nストレージ容量が不足しています（同じサイト/同じ localhost の他データも合算されます）。";
+      if (top.length) {
+        userMsg += `\n\n現在の localStorage 使用量（概算）: ${_formatBytes(total)}\n主な内訳:`;
+        for (const r of top) {
+          userMsg += `\n- ${r.key}: ${_formatBytes(r.bytes)}`;
+        }
+        userMsg += "\n\n対処: 不要なキーを削除するか、DevTools → Application → Storage → Clear site data を実行してください。";
+        userMsg += "\n（他アプリのデータが混ざる場合は、別ポートで起動するのも有効です）";
+      } else {
+        userMsg += "\n対処: DevTools → Application → Storage → Clear site data を実行してください。";
+      }
     } else if (err instanceof TypeError) {
       userMsg += "\nデータの形式に問題があります。";
     } else {
-      userMsg += `\nエラー: ${err.message || "不明な理由"}`;
+      userMsg += `\nエラー: ${err?.message || "不明な理由"}`;
     }
-    
-    // UI Feedback is mandatory per requirement
-    window.alert(userMsg);
+
+    onError?.(userMsg);
+    return false;
+  }
+};
+
+
+const normalizeUrl = (raw: string): string => {
+  const v = (raw || '').trim();
+  if (!v) return '';
+  if (v.startsWith('http://') || v.startsWith('https://')) return v;
+  return `https://${v}`;
+};
+
+const fetchWithTimeout = async (url: string, timeoutMs: number) => {
+  const controller = new AbortController();
+  const t = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    // NOTE: no-cors makes the response opaque, but it still tells us "reachable vs network error".
+    await fetch(url, { method: 'GET', mode: 'no-cors', cache: 'no-store', signal: controller.signal });
+    return true;
+  } finally {
+    window.clearTimeout(t);
   }
 };
 
@@ -96,31 +176,112 @@ export default function App() {
     } catch { return []; }
   });
 
+
+  const [persistError, setPersistError] = useState<string | null>(null);
+
+const trackingLockRef = useRef(false);
+const [isTracking, setIsTracking] = useState(false);
+
   // Effect-based persistence with error handling
   useEffect(() => {
-    safeSave(STORAGE_KEYS.ARTISTS, artists);
+    safeSave(STORAGE_KEYS.ARTISTS, artists, setPersistError);
   }, [artists]);
 
   useEffect(() => {
-    safeSave(STORAGE_KEYS.GLOBAL_SETTINGS, globalSettings);
+    safeSave(STORAGE_KEYS.GLOBAL_SETTINGS, globalSettings, setPersistError);
   }, [globalSettings]);
 
   useEffect(() => {
-    safeSave(STORAGE_KEYS.DISPLAY_SETTINGS, displaySettings);
+    safeSave(STORAGE_KEYS.DISPLAY_SETTINGS, displaySettings, setPersistError);
   }, [displaySettings]);
 
   useEffect(() => {
-    safeSave(STORAGE_KEYS.ARTIST_SORT, artistSortMode);
+    safeSave(STORAGE_KEYS.ARTIST_SORT, artistSortMode, setPersistError);
   }, [artistSortMode]);
 
   useEffect(() => {
-    safeSave(STORAGE_KEYS.CONCERT_SORT, concertSortMode);
+    safeSave(STORAGE_KEYS.CONCERT_SORT, concertSortMode, setPersistError);
   }, [concertSortMode]);
 
   const hasGlobalConcertAlert = useMemo(() => {
     const now = new Date();
     return artists.some(a => a.tours.some(t => t.concerts.some(c => !!getDueAction(c, now))));
   }, [artists]);
+
+
+const runTrackingAll = useCallback(async (reason: 'manual' | 'auto' = 'manual') => {
+  if (trackingLockRef.current) return;
+  trackingLockRef.current = true;
+  setIsTracking(true);
+
+  const now = new Date();
+  const nowIso = now.toISOString();
+
+  try {
+    const snapshot = artists;
+    const targets: Array<{ artistId: string; linkIndex: number; url: string }> = [];
+
+    snapshot.forEach((artist) => {
+      (artist.links || []).forEach((link, idx) => {
+        if (!link?.autoTrack) return;
+        if (reason === 'auto' && !shouldTriggerAutoTrack(link.lastCheckedAt, globalSettings, now)) return;
+        const url = normalizeUrl(link.url);
+        if (!url) return;
+        targets.push({ artistId: artist.id, linkIndex: idx, url });
+      });
+    });
+
+    if (targets.length === 0) return;
+
+    console.log(`[LiveTrack] Tracking started (${reason}). targets=`, targets.length);
+
+    const results = new Map<string, { ok: boolean; error?: TrackingErrorType }>();
+
+    for (const t of targets) {
+      const key = `${t.artistId}::${t.linkIndex}`;
+      try {
+        const ok = await fetchWithTimeout(t.url, 12000);
+        results.set(key, { ok });
+      } catch (e: any) {
+        results.set(key, { ok: false, error: '接続できませんでした' });
+      }
+    }
+
+    setArtists((prev) =>
+      prev.map((artist) => {
+        const nextLinks = (artist.links || []).map((link, idx) => {
+          const key = `${artist.id}::${idx}`;
+          if (!results.has(key)) return link;
+
+          const r = results.get(key)!;
+          const next: SiteLink = {
+            ...link,
+            lastCheckedAt: nowIso,
+            trackingStatus: (r.ok ? 'success' : 'failed') as TrackingStatus,
+            errorMessage: r.ok ? undefined : (r.error || '情報を取得できませんでした'),
+          };
+          if (r.ok) next.lastSuccessAt = nowIso;
+          return next;
+        });
+        return { ...artist, links: nextLinks };
+      })
+    );
+
+    console.log(`[LiveTrack] Tracking finished. updated=`, results.size);
+  } finally {
+    setIsTracking(false);
+    trackingLockRef.current = false;
+  }
+}, [artists, globalSettings]);
+
+// Auto tracking: check once per minute and only run when due.
+useEffect(() => {
+  const timer = window.setInterval(() => {
+    runTrackingAll('auto');
+  }, 60 * 1000);
+  return () => window.clearInterval(timer);
+}, [runTrackingAll]);
+
 
   const runAutoAdvance = useCallback(() => {
     const now = new Date();
@@ -132,6 +293,11 @@ export default function App() {
       }))
     })));
   }, []);
+
+const handleRefreshAll = useCallback(() => {
+  runAutoAdvance();
+  runTrackingAll('manual');
+}, [runAutoAdvance, runTrackingAll]);
 
   useEffect(() => {
     runAutoAdvance();
@@ -196,7 +362,7 @@ export default function App() {
             artists={artists} 
             onOpenArtist={(id) => navigateToArtistDetail(id, 'ARTIST_LIST')} 
             onOpenArtistEditor={() => navigateToArtistEditor()} 
-            onRefreshAll={runAutoAdvance} 
+            onRefreshAll={handleRefreshAll} 
             onImportData={setArtists} 
             globalSettings={globalSettings} 
             onUpdateGlobalSettings={setGlobalSettings}
@@ -212,7 +378,7 @@ export default function App() {
             onOpenArtist={(id) => navigateToArtistDetail(id, 'CONCERT_LIST')} 
             onOpenConcert={(aid, tid, cid) => navigateToConcertHome(aid, tid, cid, 'CONCERT_LIST')} 
             onCreateConcert={() => setIsArtistPickerOpen(true)} 
-            onRefreshAll={runAutoAdvance} 
+            onRefreshAll={handleRefreshAll} 
             onUpdateConcert={updateConcert} 
             sortMode={concertSortMode}
             onSetSort={setConcertSortMode}
@@ -224,7 +390,7 @@ export default function App() {
             artists={artists} 
             onOpenArtist={(id) => navigateToArtistDetail(id, 'CALENDAR')} 
             onOpenConcert={(aid, tid, cid) => navigateToConcertHome(aid, tid, cid, 'CALENDAR')} 
-            onRefreshAll={runAutoAdvance} 
+            onRefreshAll={handleRefreshAll} 
           />
         );
       case 'ARTIST_DETAIL': {
@@ -304,6 +470,31 @@ export default function App() {
 
   return (
     <div className="app-root">
+    {persistError && (
+      <div style={{ position: 'fixed', top: '14px', left: '50%', transform: 'translateX(-50%)', zIndex: 4000, width: 'min(560px, calc(100vw - 24px))' }}>
+        <GlassCard padding="14px" style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+          <div style={{ flex: 1, fontSize: '12px', lineHeight: 1.35, color: theme.colors.text }}>
+            <div style={{ fontWeight: 900, marginBottom: '6px' }}>保存エラー</div>
+            <div style={{ whiteSpace: 'pre-wrap', color: theme.colors.textSecondary }}>{persistError}</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPersistError(null)}
+            style={{
+              border: 'none',
+              background: 'rgba(0,0,0,0.06)',
+              borderRadius: '10px',
+              padding: '8px 10px',
+              fontSize: '12px',
+              fontWeight: 800,
+              cursor: 'pointer'
+            }}
+          >
+            閉じる
+          </button>
+        </GlassCard>
+      </div>
+    )}
       <Layout currentPath={nav.path} onNavigate={p => setNav({ path: p })} hasConcertAlert={hasGlobalConcertAlert}>
         {renderPage()}
       </Layout>

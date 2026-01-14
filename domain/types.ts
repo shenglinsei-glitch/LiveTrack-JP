@@ -16,7 +16,7 @@ export type TrackingErrorType =
   | 'アクセスが制限されています'
   | '情報を取得できませんでした';
 
-export type TrackingStatus = 'success' | 'failed';
+export type TrackingStatus = 'success' | 'failed' | 'hit';
 
 export type DueAction = 
   | 'ASK_BUY_AT_SALE'
@@ -50,6 +50,9 @@ export interface SiteLink {
   autoTrack: boolean;
   lastCheckedAt?: string;
   lastSuccessAt?: string;
+  matchedKeywords?: string[]; // merged global keyword hits
+  lastHitAt?: string; // ISO
+  acknowledgedAt?: string; // ISO; show notice only when lastHitAt > acknowledgedAt
   trackingStatus?: TrackingStatus;
   errorMessage?: TrackingErrorType;
 }
