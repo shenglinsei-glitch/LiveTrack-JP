@@ -1,4 +1,3 @@
-
 import { Artist, Concert, Status, TICKET_TRACK_STATUSES, TOUR_ACTIVE_STATUSES, PageId, GlobalSettings, DueAction, CalendarEvent, CalendarEventType } from './types';
 import { TEXT } from '../ui/constants';
 
@@ -251,13 +250,21 @@ export const calcArtistStatus = (artist: Artist): {
   const allConcerts = artist.tours.flatMap(t => t.concerts);
   const hasActiveTour = allConcerts.some(c => TOUR_ACTIVE_STATUSES.includes(c.status));
   let main: string = TEXT.ARTIST_STATUS.MAIN_NONE;
-  if (hasActiveTour) main = TEXT.ARTIST_STATUS.MAIN_TOURING;
-  else if (artist.autoTrackConcerts) main = TEXT.ARTIST_STATUS.MAIN_TRACKING;
+
+  if (hasActiveTour) {
+    main = TEXT.ARTIST_STATUS.MAIN_TOURING;
+  } else if (artist.autoTrackConcerts || artist.autoTrackTickets) {
+    // 检查是否有任意链接开启自动追踪，或者全局开启
+    const hasAnyLinkEnabled = (artist.links || []).some(l => l.autoTrack);
+    if (hasAnyLinkEnabled || artist.autoTrackConcerts) {
+      main = TEXT.ARTIST_STATUS.MAIN_TRACKING;
+    }
+  }
   
   const sub = main === TEXT.ARTIST_STATUS.MAIN_TOURING ? pickArtistSubStatus(allConcerts) : null;
   
-  // 计算后缀 (可)/(不可)
-  const trackSuffix = (main === TEXT.ARTIST_STATUS.MAIN_TRACKING || main === TEXT.ARTIST_STATUS.MAIN_TOURING) 
+  // 严格控制：只有主状态为“公演追跡中”时才显示后缀
+  const trackSuffix = (main === TEXT.ARTIST_STATUS.MAIN_TRACKING) 
     ? getTrackSuffix(artist) 
     : "";
 
