@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { BottomMenu } from '../components/BottomMenu';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { IconButton, Icons } from '../ui/IconButton';
@@ -16,11 +16,11 @@ interface Props {
   onImportData: (data: Artist[]) => void;
   globalSettings: GlobalSettings;
   onUpdateGlobalSettings: (settings: GlobalSettings) => void;
-  onAcknowledgeArtistTrackingNotices: (artistId: string) => void;
-  onClearAllTrackingNotices: () => void;
   sortMode: 'manual' | 'status';
   onSetSort: (mode: 'manual' | 'status') => void;
   onUpdateOrder: (newArtists: Artist[]) => void;
+  onAcknowledgeArtistTracking: (artistId: string) => void;
+  onClearAllTrackingNotices: () => void;
 }
 
 const ArtistRowCard: React.FC<{ 
@@ -125,94 +125,56 @@ const ArtistRowCard: React.FC<{
             letterSpacing: '0.05em',
             textTransform: 'uppercase'
           }}>
-            {status.main}
+            {/* 修改点：这里追加显示了 trackSuffix */}
+            {status.main}{status.trackSuffix}
             {status.sub && (
               <span style={{ color: theme.colors.textWeak, marginLeft: '8px', fontWeight: '400' }}>
                 / {TEXT.STATUS[status.sub]}
               </span>
             )}
           </div>
+
+        {noticeKeywords && noticeKeywords.length > 0 && (
+          <div style={{
+            marginTop: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '10px',
+            minWidth: 0
+          }}>
+            <div style={{
+              fontSize: '12px',
+              color: theme.colors.textSecondary,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              minWidth: 0
+            }}>
+              検出キーワード：{noticeKeywords.join('・')}
+            </div>
+            {onAcknowledgeNotice && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onAcknowledgeNotice(); }}
+                style={{
+                  flexShrink: 0,
+                  border: 'none',
+                  background: 'rgba(83, 190, 232, 0.12)',
+                  color: theme.colors.primary,
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  padding: '6px 10px',
+                  borderRadius: '9999px',
+                  cursor: 'pointer'
+                }}
+              >
+                確認
+              </button>
+            )}
+          </div>
+        )}
+
         </div>
-
-        {noticeKeywords && noticeKeywords.length > 0 && (
-          <div style={{
-            marginTop: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '10px',
-            minWidth: 0
-          }}>
-            <div style={{
-              fontSize: '12px',
-              color: theme.colors.textSecondary,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              minWidth: 0
-            }}>
-              検出キーワード：{noticeKeywords.join('・')}
-            </div>
-            {onAcknowledgeNotice && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onAcknowledgeNotice(); }}
-                style={{
-                  flexShrink: 0,
-                  border: 'none',
-                  background: 'rgba(83, 190, 232, 0.12)',
-                  color: theme.colors.primary,
-                  fontSize: '11px',
-                  fontWeight: 800,
-                  padding: '6px 10px',
-                  borderRadius: '9999px',
-                  cursor: 'pointer'
-                }}
-              >
-                確認
-              </button>
-            )}
-          </div>
-        )}
-
-        {noticeKeywords && noticeKeywords.length > 0 && (
-          <div style={{
-            marginTop: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '10px',
-            minWidth: 0
-          }}>
-            <div style={{
-              fontSize: '12px',
-              color: theme.colors.textSecondary,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              minWidth: 0
-            }}>
-              検出キーワード：{noticeKeywords.join('・')}
-            </div>
-            {onAcknowledgeNotice && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onAcknowledgeNotice(); }}
-                style={{
-                  flexShrink: 0,
-                  border: 'none',
-                  background: 'rgba(83, 190, 232, 0.12)',
-                  color: theme.colors.primary,
-                  fontSize: '11px',
-                  fontWeight: 800,
-                  padding: '6px 10px',
-                  borderRadius: '9999px',
-                  cursor: 'pointer'
-                }}
-              >
-                確認
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
       <div style={{ color: theme.colors.textLabel, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -238,11 +200,11 @@ export const ArtistListPage: React.FC<Props> = ({
   onImportData,
   globalSettings,
   onUpdateGlobalSettings,
-  onAcknowledgeArtistTrackingNotices,
-  onClearAllTrackingNotices,
   sortMode,
   onSetSort,
-  onUpdateOrder
+  onUpdateOrder,
+  onAcknowledgeArtistTracking,
+  onClearAllTrackingNotices
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
@@ -260,24 +222,18 @@ export const ArtistListPage: React.FC<Props> = ({
     return sortArtistsForDisplay(artists, sortMode);
   }, [artists, sortMode]);
 
-  const getNoticeKeywords = useCallback((artist: Artist): string[] => {
-    const out: string[] = [];
-    const seen = new Set<string>();
-    (artist.links || []).forEach((l) => {
-      const hasPending =
-        (l.matchedKeywords && l.matchedKeywords.length > 0) &&
-        (!!l.lastHitAt) &&
-        (!l.acknowledgedAt || (l.lastHitAt > l.acknowledgedAt));
-      if (!hasPending) return;
-      (l.matchedKeywords || []).forEach((k) => {
-        if (!seen.has(k)) {
-          seen.add(k);
-          out.push(k);
-        }
-      });
-    });
-    return out;
-  }, []);
+
+  const getNoticeKeywords = (artist: Artist): string[] => {
+    const keywords = new Set<string>();
+    for (const link of artist.links || []) {
+      if (!link.matchedKeywords || link.matchedKeywords.length === 0) continue;
+      if (!link.lastHitAt) continue;
+      const ack = link.acknowledgedAt;
+      if (ack && new Date(ack).getTime() >= new Date(link.lastHitAt).getTime()) continue;
+      for (const k of link.matchedKeywords) keywords.add(k);
+    }
+    return Array.from(keywords);
+  };
 
   const handleRefresh = () => {
     if (refreshState !== 'idle') return;
@@ -441,12 +397,12 @@ export const ArtistListPage: React.FC<Props> = ({
               key={artist.id} 
               artist={artist} 
               onClick={() => onOpenArtist(artist.id)} 
-              noticeKeywords={getNoticeKeywords(artist)}
-              onAcknowledgeNotice={() => onAcknowledgeArtistTrackingNotices(artist.id)}
               draggable={sortMode === 'manual'}
               onDragStart={() => handleDragStart(index)}
               onDragEnter={() => handleDragEnter(index)}
               onDragEnd={handleDragEnd}
+              noticeKeywords={getNoticeKeywords(artist)}
+              onAcknowledgeNotice={() => onAcknowledgeArtistTracking(artist.id)}
             />
           ))
         )}
@@ -472,11 +428,11 @@ export const ArtistListPage: React.FC<Props> = ({
         onAddArtist={onOpenArtistEditor}
         onExport={handleExport} 
         onImport={handleImportClick}
-        onClearAllTrackingNotices={onClearAllTrackingNotices}
         currentSort={sortMode}
         onSetSort={onSetSort}
         globalSettings={globalSettings}
         onUpdateGlobalSettings={onUpdateGlobalSettings}
+        onClearTrackingNotices={onClearAllTrackingNotices}
       />
       <ConfirmDialog 
         isOpen={isImportConfirmOpen} 

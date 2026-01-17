@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { GlassCard } from '../ui/GlassCard';
 import { theme } from '../ui/theme';
@@ -8,11 +9,11 @@ interface CalendarMenuProps {
   isOpen: boolean;
   onClose: () => void;
   weekStart: 'sun' | 'mon';
-  setWeekStart: (val: 'sun' | 'mon') => void;
+  setWeekStart: (start: 'sun' | 'mon') => void;
   showAttended: boolean;
-  setShowAttended: (val: boolean) => void;
+  setShowAttended: (show: boolean) => void;
   showSkipped: boolean;
-  setShowSkipped: (val: boolean) => void;
+  setShowSkipped: (show: boolean) => void;
 }
 
 export const CalendarMenu: React.FC<CalendarMenuProps> = ({ 
@@ -42,23 +43,57 @@ export const CalendarMenu: React.FC<CalendarMenuProps> = ({
       <GlassCard className="fade-in">
         <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
           <section>
-            <h4 style={{ fontSize: '12px', color: theme.colors.textSecondary, marginBottom: theme.spacing.sm, fontWeight: 'bold' }}>週の開始日</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <MenuButton 
-                label="日曜日" 
-                active={weekStart === 'sun'} 
+            <h4 style={{ fontSize: '12px', color: theme.colors.textSecondary, marginBottom: theme.spacing.sm, fontWeight: 'bold' }}>
+              週の開始日
+            </h4>
+            <div style={{ 
+              display: 'flex', 
+              gap: '4px', 
+              background: 'rgba(0,0,0,0.05)', 
+              padding: '4px', 
+              borderRadius: '10px' 
+            }}>
+              <button
                 onClick={() => setWeekStart('sun')}
-              />
-              <MenuButton 
-                label="月曜日" 
-                active={weekStart === 'mon'} 
+                style={{
+                  flex: 1,
+                  border: 'none',
+                  background: weekStart === 'sun' ? 'white' : 'transparent',
+                  color: weekStart === 'sun' ? theme.colors.primary : theme.colors.textSecondary,
+                  fontSize: '11px',
+                  fontWeight: '800',
+                  padding: '8px 0',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  boxShadow: weekStart === 'sun' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                  transition: 'all 0.2s'
+                }}
+              >
+                日曜日
+              </button>
+              <button
                 onClick={() => setWeekStart('mon')}
-              />
+                style={{
+                  flex: 1,
+                  border: 'none',
+                  background: weekStart === 'mon' ? 'white' : 'transparent',
+                  color: weekStart === 'mon' ? theme.colors.primary : theme.colors.textSecondary,
+                  fontSize: '11px',
+                  fontWeight: '800',
+                  padding: '8px 0',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  boxShadow: weekStart === 'mon' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                  transition: 'all 0.2s'
+                }}
+              >
+                月曜日
+              </button>
             </div>
           </section>
 
           <section style={{ borderTop: `0.5px solid rgba(0,0,0,0.1)`, paddingTop: theme.spacing.md }}>
-            <h4 style={{ fontSize: '12px', color: theme.colors.textSecondary, marginBottom: theme.spacing.sm, fontWeight: 'bold' }}>表示切替</h4>
+            <h4 style={{ fontSize: '12px', color: theme.colors.textSecondary, marginBottom: theme.spacing.sm, fontWeight: 'bold' }}>表示設定</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <MenuButton 
                 label={TEXT.MENU.SHOW_ATTENDED} 

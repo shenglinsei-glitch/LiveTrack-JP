@@ -21,6 +21,19 @@ const typeColorMap: Record<CalendarEventType, string> = {
   [TEXT.CALENDAR.EVENT_SALE]: theme.colors.status['発売前'],
 };
 
+// 日历点颜色：公演日（EVENT_CONCERT）需要按「参加确定度」区分，而不是一律用参戦予定色
+const CONCERT_DOT_COLOR_UNDECIDED = '#377D99';
+const CONCERT_DOT_COLOR_SKIPPED = '#6B7280';
+
+const getConcertDotColor = (status: string): string => {
+  // 兼容：数据里可能存在「見送」或「見送り」两种写法
+  if (status === '参戦予定' || status === '参戦済み') return theme.colors.status['参戦予定'];
+  if (status === '抽選中' || status === '発売前' || status === '検討中') return CONCERT_DOT_COLOR_UNDECIDED;
+  if (status === '見送' || status === '見送り') return CONCERT_DOT_COLOR_SKIPPED;
+  // fallback：未知状态时，按未确定参加处理
+  return CONCERT_DOT_COLOR_UNDECIDED;
+};
+
 export const CalendarPage: React.FC<Props> = ({ artists, onOpenArtist, onOpenConcert, onRefreshAll }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
@@ -106,6 +119,12 @@ export const CalendarPage: React.FC<Props> = ({ artists, onOpenArtist, onOpenCon
     const currentYear = new Date().getFullYear();
     return Array.from({ length: 21 }, (_, i) => currentYear - 10 + i);
   }, []);
+
+  const todayKey = useMemo(() => {
+    const t = new Date();
+    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+  }, []);
+
 
   const handleDayClick = (day: number) => {
     const dateKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -273,23 +292,33 @@ export const CalendarPage: React.FC<Props> = ({ artists, onOpenArtist, onOpenCon
               const events = eventMap.get(dateKey) || [];
               const isSelected = selectedDateKey === dateKey;
 
-              let primaryDotColor = null;
+              const isToday = dateKey === todayKey;
+              const cellStyle: React.CSSProperties = {
+                ...dayCellStyle,
+                background: isSelected ? 'rgba(83, 190, 232, 0.18)' : isToday ? 'rgba(83, 190, 232, 0.1)' : 'transparent',
+                border: isSelected ? '2px solid #53BEE8' : isToday ? '2px solid rgba(83, 190, 232, 0.55)' : 'none',
+                boxShadow: isSelected ? '0 10px 24px rgba(83, 190, 232, 0.18)' : 'none',
+              };
+
+
+              let primaryDotColor: string | null = null;
               if (events.length > 0) {
                 const sorted = [...events].sort((a, b) => EVENT_PRIORITY[a.type] - EVENT_PRIORITY[b.type]);
-                primaryDotColor = typeColorMap[sorted[0].type];
+                const primary = sorted[0];
+                if (primary.type === TEXT.CALENDAR.EVENT_CONCERT) {
+                  primaryDotColor = getConcertDotColor(primary.status);
+                } else {
+                  primaryDotColor = typeColorMap[primary.type];
+                }
               }
-              
+
               return (
                 <div 
                   key={day} 
                   onClick={() => handleDayClick(day)} 
-                  style={{ 
-                    ...dayCellStyle,
-                    background: isSelected ? 'rgba(83, 190, 232, 0.1)' : 'transparent', 
-                    border: isSelected ? '2px solid #53BEE8' : 'none', 
-                  }}
+                  style={cellStyle}
                 >
-                  <span style={{ fontSize: '15px', fontWeight: isSelected ? '800' : '600', marginBottom: '4px' }}>{day}</span>
+                  <span style={{ fontSize: '15px', fontWeight: isSelected ? '800' : isToday ? '800' : '600', marginBottom: '4px' }}>{day}</span>
                   <div style={{ height: '6px', display: 'flex', alignItems: 'center', gap: '2px', justifyContent: 'center' }}>
                     {primaryDotColor && (
                       <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: primaryDotColor }} />

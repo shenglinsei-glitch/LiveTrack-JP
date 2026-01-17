@@ -1,21 +1,23 @@
-import { Artist, Concert, Status, TICKET_TRACK_STATUSES, TOUR_ACTIVE_STATUSES, DueAction, CalendarEvent, CalendarEventType, GlobalSettings } from './types';
+
+import { Artist, Concert, Status, TICKET_TRACK_STATUSES, TOUR_ACTIVE_STATUSES, PageId, GlobalSettings, DueAction, CalendarEvent, CalendarEventType } from './types';
 import { TEXT } from '../ui/constants';
 
 /**
  * ===== Date Parsing Rules =====
- * 修复：确保所有日期字符串在解析前都经过标准化，避免 iOS 和时区导致的一天偏差
+ * iOS Safari compatibility: replaces '-' with '/' for broad support
  */
 export const parseConcertDate = (dateStr: string | null | undefined, type: 'CONCERT' | 'NORMAL'): Date | null => {
   if (!dateStr || dateStr === TEXT.GLOBAL.TBD) return null;
   
-  // 标准化格式：2023-10-27 -> 2023/10/27 (iOS 兼容性最好)
+  // Standardize format for iOS: "2023-10-27" -> "2023/10/27"
   const standardizedStr = dateStr.replace(/-/g, '/');
   
   const d = new Date(standardizedStr);
   if (isNaN(d.getTime())) {
+    // Fallback parsing for manual extraction if Date still fails
     try {
       const parts = dateStr.split(' ');
-      const dateParts = parts[0].split(/[-/]/).map(Number);
+      const dateParts = parts[0].split('-').map(Number);
       if (parts.length > 1) {
         const timeParts = parts[1].split(':').map(Number);
         return new Date(dateParts[0], dateParts[1] - 1, dateParts[2], timeParts[0], timeParts[1] || 0);
@@ -29,9 +31,15 @@ export const parseConcertDate = (dateStr: string | null | undefined, type: 'CONC
     }
   }
 
-  // 如果没有具体时间，手动设置小时避免时区漂移导致日期变动
-  if (!dateStr.includes(':')) {
-    d.setHours(12, 0, 0, 0);
+  // If input was just date, enforce specific hours
+  if (!dateStr.includes(' ')) {
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    const day = d.getDate();
+    if (type === 'CONCERT') {
+      return new Date(y, m, day, 21, 0, 0);
+    }
+    return new Date(y, m, day, 12, 0, 0);
   }
 
   return d;
@@ -48,21 +56,10 @@ export const EVENT_PRIORITY: Record<CalendarEventType, number> = {
   [TEXT.CALENDAR.EVENT_SALE]: 4,
 };
 
-/**
- * 修复：提取 dateKey 时，统一输出为 YYYY-MM-DD 格式，确保与日历组件匹配
- */
 const extractDateAndTime = (str: string | null | undefined): { date: string; time?: string } | null => {
   if (!str || str === TEXT.GLOBAL.TBD) return null;
   const parts = str.split(' ');
-  const datePart = parts[0].replace(/\//g, '-'); 
-  
-  const [y, m, d] = datePart.split('-');
-  const normalizedDate = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-  
-  return { 
-    date: normalizedDate, 
-    time: parts[1] ? parts[1].substring(0, 5) : undefined 
-  };
+  return { date: parts[0], time: parts[1] ? parts[1].substring(0, 5) : undefined };
 };
 
 export const buildCalendarEvents = (artists: Artist[], settings: { showAttended: boolean; showSkipped: boolean }): CalendarEvent[] => {
@@ -76,6 +73,7 @@ export const buildCalendarEvents = (artists: Artist[], settings: { showAttended:
 
         const title = `${artist.name} / ${tour.name}`;
 
+        // A) 公演
         const cInfo = extractDateAndTime(concert.concertAt || concert.date);
         if (cInfo) {
           events.push({
@@ -90,7 +88,8 @@ export const buildCalendarEvents = (artists: Artist[], settings: { showAttended:
           });
         }
 
-        if (concert.status === '抽選中' && concert.resultAt) {
+        // B) 抽選結果
+        if (concert.status === '抽選中') {
           const rInfo = extractDateAndTime(concert.resultAt);
           if (rInfo) {
             events.push({
@@ -100,13 +99,14 @@ export const buildCalendarEvents = (artists: Artist[], settings: { showAttended:
               artistId: artist.id,
               tourId: tour.id,
               concertId: concert.id,
-              title: `[结果] ${title}`,
+              title,
               status: concert.status,
             });
           }
         }
 
-        if (concert.status === '発売前' && concert.saleAt) {
+        // C) 発売開始
+        if (concert.status === '発売前') {
           const sInfo = extractDateAndTime(concert.saleAt);
           if (sInfo) {
             events.push({
@@ -116,13 +116,14 @@ export const buildCalendarEvents = (artists: Artist[], settings: { showAttended:
               artistId: artist.id,
               tourId: tour.id,
               concertId: concert.id,
-              title: `[售票] ${title}`,
+              title,
               status: concert.status,
             });
           }
         }
 
-        if (concert.status === '検討中' && concert.deadlineAt) {
+        // D) 申込締切
+        if (concert.status === '検討中') {
           const dInfo = extractDateAndTime(concert.deadlineAt);
           if (dInfo) {
             events.push({
@@ -132,7 +133,7 @@ export const buildCalendarEvents = (artists: Artist[], settings: { showAttended:
               artistId: artist.id,
               tourId: tour.id,
               concertId: concert.id,
-              title: `[截止] ${title}`,
+              title,
               status: concert.status,
             });
           }
@@ -144,7 +145,6 @@ export const buildCalendarEvents = (artists: Artist[], settings: { showAttended:
   return events;
 };
 
-// 保持其余导出函数不变
 export const getDueAction = (concert: Concert, now: Date = new Date()): DueAction | null => {
   const saleTime = parseConcertDate(concert.saleAt, 'NORMAL');
   const deadlineTime = parseConcertDate(concert.deadlineAt, 'NORMAL');
@@ -226,17 +226,42 @@ const pickArtistSubStatus = (concerts: Concert[]): Status | null => {
   return candidates[0] ?? null;
 };
 
+/**
+ * 辅助函数：根据 links 的判定能力生成后缀
+ * 优先级：存在 supported →（可），否则存在 unsupported →（不可），否则空
+ */
+const getTrackSuffix = (artist: Artist): string => {
+  const activeLinks = (artist.links || []).filter(l => l.autoTrack);
+  if (activeLinks.length === 0) return "";
+  
+  const hasSupported = activeLinks.some(l => l.trackCapability === 'supported');
+  if (hasSupported) return "（可）";
+  
+  const hasUnsupported = activeLinks.some(l => l.trackCapability === 'unsupported');
+  if (hasUnsupported) return "（不可）";
+  
+  return "";
+};
+
 export const calcArtistStatus = (artist: Artist): {
   main: string;
   sub: Status | null;
+  trackSuffix: string;
 } => {
   const allConcerts = artist.tours.flatMap(t => t.concerts);
   const hasActiveTour = allConcerts.some(c => TOUR_ACTIVE_STATUSES.includes(c.status));
   let main: string = TEXT.ARTIST_STATUS.MAIN_NONE;
   if (hasActiveTour) main = TEXT.ARTIST_STATUS.MAIN_TOURING;
   else if (artist.autoTrackConcerts) main = TEXT.ARTIST_STATUS.MAIN_TRACKING;
+  
   const sub = main === TEXT.ARTIST_STATUS.MAIN_TOURING ? pickArtistSubStatus(allConcerts) : null;
-  return { main, sub };
+  
+  // 计算后缀 (可)/(不可)
+  const trackSuffix = (main === TEXT.ARTIST_STATUS.MAIN_TRACKING || main === TEXT.ARTIST_STATUS.MAIN_TOURING) 
+    ? getTrackSuffix(artist) 
+    : "";
+
+  return { main, sub, trackSuffix };
 };
 
 export const sortArtistsForDisplay = (artists: Artist[], sortMode: 'manual' | 'status'): Artist[] => {

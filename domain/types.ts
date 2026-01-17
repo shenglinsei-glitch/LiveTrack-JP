@@ -1,4 +1,3 @@
-
 export type Status = 
   | '発売前' 
   | '検討中' 
@@ -44,6 +43,7 @@ export interface CalendarEvent {
   status: Status;
 }
 
+// --- 已经更新 SiteLink 接口，增加判定相关字段 ---
 export interface SiteLink {
   name: string;
   url: string;
@@ -55,6 +55,15 @@ export interface SiteLink {
   acknowledgedAt?: string; // ISO; show notice only when lastHitAt > acknowledgedAt
   trackingStatus?: TrackingStatus;
   errorMessage?: TrackingErrorType;
+  
+  /** * URL 判定结果
+   * supported: 可判定 (详情页/详情文章)
+   * unsupported: 不可判定 (分页列表页/社交媒体)
+   * unjudged: 未判定
+   */
+  trackCapability?: 'supported' | 'unsupported' | 'unjudged';
+  /** ISO 格式的判定执行时间 */
+  trackCapabilityCheckedAt?: string;
 }
 
 export interface Concert {

@@ -12,7 +12,7 @@ interface BottomMenuProps {
   onExport: () => void;
   onImport: () => void;
   onAddArtist: () => void;
-  onClearAllTrackingNotices?: () => void;
+  onClearTrackingNotices?: () => void;
   currentSort: 'manual' | 'status';
   onSetSort: (mode: 'manual' | 'status') => void;
   globalSettings?: GlobalSettings;
@@ -25,7 +25,7 @@ export const BottomMenu: React.FC<BottomMenuProps> = ({
   onExport, 
   onImport,
   onAddArtist,
-  onClearAllTrackingNotices,
+  onClearTrackingNotices,
   currentSort,
   onSetSort,
   globalSettings,
@@ -112,12 +112,11 @@ export const BottomMenu: React.FC<BottomMenuProps> = ({
           <section style={{ borderTop: `0.5px solid rgba(0,0,0,0.1)`, paddingTop: theme.spacing.md }}>
             <h4 style={{ fontSize: '12px', color: theme.colors.textSecondary, marginBottom: theme.spacing.sm, fontWeight: 'bold' }}>{TEXT.MENU.DATA_MANAGEMENT}</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {onClearTrackingNotices && (
+                <MenuButton label="追跡通知をすべてクリア" onClick={() => { onClearTrackingNotices(); onClose(); }} />
+              )}
               <MenuButton label={TEXT.BUTTONS.EXPORT} icon={<Icons.Upload />} onClick={onExport} />
               <MenuButton label={TEXT.BUTTONS.IMPORT} icon={<Icons.Download />} onClick={onImport} />
-              <MenuButton
-                label="追跡通知をすべてクリア"
-                onClick={() => { onClearAllTrackingNotices?.(); onClose(); }}
-              />
             </div>
           </section>
         </div>

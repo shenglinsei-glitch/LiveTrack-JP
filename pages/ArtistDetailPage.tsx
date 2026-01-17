@@ -238,7 +238,10 @@ export const ArtistDetailPage: React.FC<Props> = ({
                     filter: 'blur(1px)'
                   }}
                 />
-                <span style={{ fontSize: '13px', fontWeight: '800', color: theme.colors.textMain }}>{status.main}</span>
+                <span style={{ fontSize: '13px', fontWeight: '800', color: theme.colors.textMain }}>
+                  {/* 修改点：这里追加显示了 trackSuffix */}
+                  {status.main}{status.trackSuffix}
+                </span>
               </div>
             </div>
           </div>
