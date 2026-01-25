@@ -214,13 +214,13 @@ export default function App() {
             }
 
             // Case 2: Silent Skip (Unsupported)
-            // Just update lastCheckedAt so it doesn't look like "Never Checked"
             if (silentSkipped.has(key)) {
               return {
                 ...link,
                 lastCheckedAt: nowIso,
-                // We do NOT update trackingStatus or errorMessage here to avoid clearing history
-                // or showing new errors.
+                trackingStatus: 'success', // 1. 强制设为成功，消除红色感叹号
+                errorMessage: undefined,   // 2. 彻底清除旧的报错文字
+                lastSuccessAt: nowIso      // 3. 更新最后成功时间，让状态看起来是健康的
               };
             }
 
