@@ -229,7 +229,7 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
   };
 
   const handleAddConcert = () => {
-    const nc: Concert = { id: generateId(), date: 'TBD', venue: '', price: 0, saleLink: '', status: '発売前', isParticipated: false, images: [] };
+    const nc: Concert = { id: generateId(), date: 'TBD', venue: '', price: 0, saleLink: '', status: '発売前', isParticipated: false, imageIds: [] };
     setFormData(prev => ({ ...prev, concerts: [...prev.concerts, nc] }));
     setExpandedConcertId(nc.id);
   };

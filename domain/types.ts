@@ -74,7 +74,10 @@ export interface Concert {
   saleLink: string;
   status: Status;
   isParticipated: boolean;
-  images: string[]; 
+  imageIds: string[];
+  
+  // Legacy / import-export compatibility (do NOT persist large URL arrays in localStorage)
+  images?: string[]; 
   
   // New Fields for Status Progression
   saleAt?: string | null;        // YYYY-MM-DD or YYYY-MM-DD HH:mm

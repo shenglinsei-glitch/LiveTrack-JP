@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { PageId, Artist, Tour, DisplaySettings, Status, GlobalSettings, SiteLink, TrackingStatus, TrackingErrorType, Concert } from './domain/types';
 import { Layout } from './components/Layout';
@@ -28,38 +29,22 @@ const STORAGE_KEYS = {
   CONCERT_SORT: 'livetrack_jp_concert_sort'
 };
 
-/**
- * Robust Persistence Wrapper
- */
 const safeSave = (key: string, data: any) => {
   try {
-    // Basic Sanitation: Remove potential circular refs or functions
     const serialized = JSON.stringify(data);
-    
-    // Quota Awareness: LocalStorage on mobile is usually ~5MB.
-    // If saving Artists, check if we're ballooning due to Base64
     if (key === STORAGE_KEYS.ARTISTS && serialized.length > 4 * 1024 * 1024) {
-      console.warn("Storage warning: Data size is large. Images might be causing issues.");
+      console.warn("Storage warning: Data size is large.");
     }
-    
     localStorage.setItem(key, serialized);
   } catch (err: any) {
     console.error(`Persistence Error for key [${key}]:`, err);
-    
     let userMsg = "データの保存に失敗しました。";
     if (err.name === 'QuotaExceededError' || err.code === 22) {
-      userMsg += "\nストレージ容量が不足しています。アルバムの画像を削除するか、URLでの指定に切り替えてください。";
-    } else if (err instanceof TypeError) {
-      userMsg += "\nデータの形式に問題があります。";
-    } else {
-      userMsg += `\nエラー: ${err.message || "不明な理由"}`;
+      userMsg += "\nストレージ容量が不足しています。";
     }
-    
-    // UI Feedback is mandatory per requirement
     window.alert(userMsg);
   }
 };
-
 
 const normalizeUrl = (raw: string): string => {
   const v = (raw || '').trim();
@@ -72,7 +57,6 @@ const fetchWithTimeout = async (url: string, timeoutMs: number) => {
   const controller = new AbortController();
   const t = window.setTimeout(() => controller.abort(), timeoutMs);
   try {
-    // NOTE: no-cors makes the response opaque, but it still tells us "reachable vs network error".
     await fetch(url, { method: 'GET', mode: 'no-cors', cache: 'no-store', signal: controller.signal });
     return true;
   } finally {
@@ -83,6 +67,8 @@ const fetchWithTimeout = async (url: string, timeoutMs: number) => {
 export default function App() {
   const [nav, setNav] = useState<NavContext>({ path: 'ARTIST_LIST' });
   const [isArtistPickerOpen, setIsArtistPickerOpen] = useState(false);
+  const [isTracking, setIsTracking] = useState(false);
+  const trackingLockRef = useRef(false);
   
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(() => {
     try {
@@ -115,83 +101,47 @@ export default function App() {
     } catch { return []; }
   });
 
-
-  const trackingLockRef = useRef(false);
-  const [isTracking, setIsTracking] = useState(false);
-
-  // Effect-based persistence with error handling
-  useEffect(() => {
-    safeSave(STORAGE_KEYS.ARTISTS, artists);
-  }, [artists]);
-
-  useEffect(() => {
-    safeSave(STORAGE_KEYS.GLOBAL_SETTINGS, globalSettings);
-  }, [globalSettings]);
-
-  useEffect(() => {
-    safeSave(STORAGE_KEYS.DISPLAY_SETTINGS, displaySettings);
-  }, [displaySettings]);
-
-  useEffect(() => {
-    safeSave(STORAGE_KEYS.ARTIST_SORT, artistSortMode);
-  }, [artistSortMode]);
-
-  useEffect(() => {
-    safeSave(STORAGE_KEYS.CONCERT_SORT, concertSortMode);
-  }, [concertSortMode]);
+  useEffect(() => { safeSave(STORAGE_KEYS.ARTISTS, artists); }, [artists]);
+  useEffect(() => { safeSave(STORAGE_KEYS.GLOBAL_SETTINGS, globalSettings); }, [globalSettings]);
+  useEffect(() => { safeSave(STORAGE_KEYS.DISPLAY_SETTINGS, displaySettings); }, [displaySettings]);
+  useEffect(() => { safeSave(STORAGE_KEYS.ARTIST_SORT, artistSortMode); }, [artistSortMode]);
+  useEffect(() => { safeSave(STORAGE_KEYS.CONCERT_SORT, concertSortMode); }, [concertSortMode]);
 
   const hasGlobalConcertAlert = useMemo(() => {
     const now = new Date();
     return artists.some(a => a.tours.some(t => t.concerts.some(c => !!getDueAction(c, now))));
   }, [artists]);
 
-  // Modified runTrackingAll to respect trackCapability
   const runTrackingAll = useCallback(async (reason: 'manual' | 'auto' = 'manual') => {
     if (trackingLockRef.current) return;
     trackingLockRef.current = true;
     setIsTracking(true);
-
     const now = new Date();
     const nowIso = now.toISOString();
 
     try {
       const snapshot = artists;
       const targets: Array<{ artistId: string; linkIndex: number; url: string }> = [];
-      // Set to track links that should be skipped silently (unsupported)
-      const silentSkipped = new Set<string>(); // Format: "artistId::linkIndex"
 
       snapshot.forEach((artist) => {
         (artist.links || []).forEach((link, idx) => {
           if (!link?.autoTrack) return;
           if (reason === 'auto' && !shouldTriggerAutoTrack(link.lastCheckedAt, globalSettings, now)) return;
-          
-          // --- NEW LOGIC: Silent Skip for Unsupported URLs ---
-          if (link.trackCapability === 'unsupported') {
-            console.log(`[LiveTrack] Silent skip for unsupported URL: ${link.url}`);
-            silentSkipped.add(`${artist.id}::${idx}`);
-            return;
-          }
-          // ---------------------------------------------------
-
           const url = normalizeUrl(link.url);
-          if (!url) return;
-          targets.push({ artistId: artist.id, linkIndex: idx, url });
+          if (url) targets.push({ artistId: artist.id, linkIndex: idx, url });
         });
       });
 
-      // Prepare results map
-      const results = new Map<string, { ok: boolean; error?: TrackingErrorType }>();
+      if (targets.length === 0) return;
 
-      if (targets.length > 0) {
-        console.log(`[LiveTrack] Tracking started (${reason}). targets=`, targets.length);
-        for (const t of targets) {
-          const key = `${t.artistId}::${t.linkIndex}`;
-          try {
-            const ok = await fetchWithTimeout(t.url, 12000);
-            results.set(key, { ok });
-          } catch (e: any) {
-            results.set(key, { ok: false, error: '接続できませんでした' });
-          }
+      const results = new Map<string, { ok: boolean; error?: TrackingErrorType }>();
+      for (const t of targets) {
+        const key = `${t.artistId}::${t.linkIndex}`;
+        try {
+          const ok = await fetchWithTimeout(t.url, 12000);
+          results.set(key, { ok });
+        } catch (e) {
+          results.set(key, { ok: false, error: '接続できませんでした' });
         }
       }
 
@@ -199,52 +149,30 @@ export default function App() {
         prev.map((artist) => {
           const nextLinks = (artist.links || []).map((link, idx) => {
             const key = `${artist.id}::${idx}`;
-            
-            // Case 1: Real Fetch Result
-            if (results.has(key)) {
-              const r = results.get(key)!;
-              const next: SiteLink = {
-                ...link,
-                lastCheckedAt: nowIso,
-                trackingStatus: (r.ok ? 'success' : 'failed') as TrackingStatus,
-                errorMessage: r.ok ? undefined : (r.error || '情報を取得できませんでした'),
-              };
-              if (r.ok) next.lastSuccessAt = nowIso;
-              return next;
-            }
-
-            // Case 2: Silent Skip (Unsupported)
-            if (silentSkipped.has(key)) {
-              return {
-                ...link,
-                lastCheckedAt: nowIso,
-                trackingStatus: 'success', // 1. 强制设为成功，消除红色感叹号
-                errorMessage: undefined,   // 2. 彻底清除旧的报错文字
-                lastSuccessAt: nowIso      // 3. 更新最后成功时间，让状态看起来是健康的
-              };
-            }
-
-            return link;
+            if (!results.has(key)) return link;
+            const r = results.get(key)!;
+            const next: SiteLink = {
+              ...link,
+              lastCheckedAt: nowIso,
+              trackingStatus: (r.ok ? 'success' : 'failed') as TrackingStatus,
+              errorMessage: r.ok ? undefined : (r.error || '情報を取得できませんでした'),
+            };
+            if (r.ok) next.lastSuccessAt = nowIso;
+            return next;
           });
           return { ...artist, links: nextLinks };
         })
       );
-
-      console.log(`[LiveTrack] Tracking finished. updated=${results.size + silentSkipped.size}`);
     } finally {
       setIsTracking(false);
       trackingLockRef.current = false;
     }
   }, [artists, globalSettings]);
 
-  // Auto tracking: check once per minute and only run when due.
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      runTrackingAll('auto');
-    }, 60 * 1000);
+    const timer = window.setInterval(() => runTrackingAll('auto'), 60 * 1000);
     return () => window.clearInterval(timer);
   }, [runTrackingAll]);
-
 
   const runAutoAdvance = useCallback(() => {
     const now = new Date();
@@ -262,9 +190,7 @@ export default function App() {
     runTrackingAll('manual');
   }, [runAutoAdvance, runTrackingAll]);
 
-  useEffect(() => {
-    runAutoAdvance();
-  }, [nav.path, runAutoAdvance]);
+  useEffect(() => { runAutoAdvance(); }, [nav.path, runAutoAdvance]);
 
   const navigateToArtistList = () => setNav({ path: 'ARTIST_LIST' });
   const navigateToArtistDetail = (artistId: string, from?: PageId) => setNav({ path: 'ARTIST_DETAIL', artistId, from });
@@ -280,10 +206,6 @@ export default function App() {
     navigateToArtistDetail(updated.id, nav.from);
   };
 
-  const handleUpdateArtistOrder = (newArtists: Artist[]) => {
-    setArtists(newArtists.map((a, i) => ({ ...a, order: i })));
-  };
-
   const updateConcert = (artistId: string, tourId: string, concertId: string, updates: Partial<Concert>) => {
     setArtists(prev => prev.map(a => {
       if (a.id !== artistId) return a;
@@ -291,10 +213,7 @@ export default function App() {
         ...a,
         tours: a.tours.map(t => {
           if (t.id !== tourId) return t;
-          return {
-            ...t,
-            concerts: t.concerts.map(c => c.id === concertId ? { ...c, ...updates } : c)
-          };
+          return { ...t, concerts: t.concerts.map(c => c.id === concertId ? { ...c, ...updates } : c) };
         })
       };
     }));
@@ -312,14 +231,6 @@ export default function App() {
     navigateToArtistDetail(artistId, nav.from);
   };
 
-  const deleteTour = (artistId: string, tourId: string) => {
-    setArtists(prev => prev.map(artist => artist.id !== artistId ? artist : { ...artist, tours: artist.tours.filter(t => t.id !== tourId) }));
-    navigateToArtistDetail(artistId, nav.from);
-  };
-
-  /**
-   * Handlers for Tracking Notices
-   */
   const handleAcknowledgeArtistTracking = useCallback((artistId: string) => {
     const nowIso = new Date().toISOString();
     setArtists(prev => prev.map(artist => {
@@ -359,7 +270,7 @@ export default function App() {
             onUpdateGlobalSettings={setGlobalSettings}
             sortMode={artistSortMode}
             onSetSort={setArtistSortMode}
-            onUpdateOrder={handleUpdateArtistOrder}
+            onUpdateOrder={(newList) => setArtists(newList.map((a, i) => ({ ...a, order: i })))}
             onAcknowledgeArtistTracking={handleAcknowledgeArtistTracking}
             onClearAllTrackingNotices={handleClearAllTrackingNotices}
           />
@@ -420,7 +331,7 @@ export default function App() {
             concert={concert} 
             onBack={() => navigateToArtistDetail(artist.id, nav.from)} 
             onOpenConcertEditor={navigateToConcertEditor} 
-            onUpdateConcertAlbum={(aid, tid, cid, imgs) => updateConcert(aid, tid, cid, { images: imgs })} 
+            onUpdateConcertAlbum={(aid, tid, cid, imgs) => updateConcert(aid, tid, cid, { imageIds: imgs })} 
           />
         );
       }
@@ -429,17 +340,8 @@ export default function App() {
           artistId={nav.artistId} 
           artist={artists.find(a => a.id === nav.artistId)} 
           onSave={upsertArtist} 
-          onCancel={() => {
-            if (nav.artistId) {
-              navigateToArtistDetail(nav.artistId, nav.from);
-            } else {
-              navigateToArtistList();
-            }
-          }} 
-          onDeleteArtist={id => { 
-            setArtists(p => p.filter(a => a.id !== id)); 
-            navigateToArtistList(); 
-          }} 
+          onCancel={() => nav.artistId ? navigateToArtistDetail(nav.artistId, nav.from) : navigateToArtistList()} 
+          onDeleteArtist={id => { setArtists(p => p.filter(a => a.id !== id)); navigateToArtistList(); }} 
         />
       );
       case 'CONCERT_EDITOR': {
@@ -453,7 +355,7 @@ export default function App() {
             allArtists={artists} 
             onSave={t => upsertTour(artist.id, t)} 
             onCancel={() => navigateToArtistDetail(artist.id, nav.from)} 
-            onDeleteTour={deleteTour} 
+            onDeleteTour={(aid, tid) => { setArtists(p => p.map(a => a.id !== aid ? a : { ...a, tours: a.tours.filter(tour => tour.id !== tid) })); navigateToArtistDetail(aid, nav.from); }} 
           />
         );
       }

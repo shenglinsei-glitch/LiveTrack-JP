@@ -1,5 +1,7 @@
-import { Artist, Concert, Status, TICKET_TRACK_STATUSES, TOUR_ACTIVE_STATUSES, PageId, GlobalSettings, DueAction, CalendarEvent, CalendarEventType } from './types';
+
+import { Artist, Concert, Status, TICKET_TRACK_STATUSES, TOUR_ACTIVE_STATUSES, GlobalSettings, DueAction, CalendarEvent, CalendarEventType } from './types';
 import { TEXT } from '../ui/constants';
+import { bulkPutImageUrls, bulkGetImageUrls } from './imageStore';
 
 /**
  * ===== Date Parsing Rules =====
@@ -13,7 +15,6 @@ export const parseConcertDate = (dateStr: string | null | undefined, type: 'CONC
   
   const d = new Date(standardizedStr);
   if (isNaN(d.getTime())) {
-    // Fallback parsing for manual extraction if Date still fails
     try {
       const parts = dateStr.split(' ');
       const dateParts = parts[0].split('-').map(Number);
@@ -30,7 +31,6 @@ export const parseConcertDate = (dateStr: string | null | undefined, type: 'CONC
     }
   }
 
-  // If input was just date, enforce specific hours
   if (!dateStr.includes(' ')) {
     const y = d.getFullYear();
     const m = d.getMonth();
@@ -43,10 +43,6 @@ export const parseConcertDate = (dateStr: string | null | undefined, type: 'CONC
 
   return d;
 };
-
-/**
- * ===== Calendar Logic =====
- */
 
 export const EVENT_PRIORITY: Record<CalendarEventType, number> = {
   [TEXT.CALENDAR.EVENT_CONCERT]: 1,
@@ -72,7 +68,6 @@ export const buildCalendarEvents = (artists: Artist[], settings: { showAttended:
 
         const title = `${artist.name} / ${tour.name}`;
 
-        // A) 公演
         const cInfo = extractDateAndTime(concert.concertAt || concert.date);
         if (cInfo) {
           events.push({
@@ -87,7 +82,6 @@ export const buildCalendarEvents = (artists: Artist[], settings: { showAttended:
           });
         }
 
-        // B) 抽選結果
         if (concert.status === '抽選中') {
           const rInfo = extractDateAndTime(concert.resultAt);
           if (rInfo) {
@@ -104,7 +98,6 @@ export const buildCalendarEvents = (artists: Artist[], settings: { showAttended:
           }
         }
 
-        // C) 発売開始
         if (concert.status === '発売前') {
           const sInfo = extractDateAndTime(concert.saleAt);
           if (sInfo) {
@@ -121,7 +114,6 @@ export const buildCalendarEvents = (artists: Artist[], settings: { showAttended:
           }
         }
 
-        // D) 申込締切
         if (concert.status === '検討中') {
           const dInfo = extractDateAndTime(concert.deadlineAt);
           if (dInfo) {
@@ -225,10 +217,6 @@ const pickArtistSubStatus = (concerts: Concert[]): Status | null => {
   return candidates[0] ?? null;
 };
 
-/**
- * 辅助函数：根据 links 的判定能力生成后缀
- * 优先级：存在 supported →（可），否则存在 unsupported →（不可），否则空
- */
 const getTrackSuffix = (artist: Artist): string => {
   const activeLinks = (artist.links || []).filter(l => l.autoTrack);
   if (activeLinks.length === 0) return "";
@@ -253,18 +241,12 @@ export const calcArtistStatus = (artist: Artist): {
 
   if (hasActiveTour) {
     main = TEXT.ARTIST_STATUS.MAIN_TOURING;
-  } else if (artist.autoTrackConcerts || artist.autoTrackTickets) {
-    // 检查是否有任意链接开启自动追踪，或者全局开启
-    const hasAnyLinkEnabled = (artist.links || []).some(l => l.autoTrack);
-    if (hasAnyLinkEnabled || artist.autoTrackConcerts) {
-      main = TEXT.ARTIST_STATUS.MAIN_TRACKING;
-    }
+  } else if (artist.autoTrackConcerts || artist.autoTrackTickets || (artist.links || []).some(l => l.autoTrack)) {
+    main = TEXT.ARTIST_STATUS.MAIN_TRACKING;
   }
   
   const sub = main === TEXT.ARTIST_STATUS.MAIN_TOURING ? pickArtistSubStatus(allConcerts) : null;
-  
-  // 严格控制：只有主状态为“公演追跡中”时才显示后缀
-  const trackSuffix = (main === TEXT.ARTIST_STATUS.MAIN_TRACKING) 
+  const trackSuffix = (main === TEXT.ARTIST_STATUS.MAIN_TRACKING || main === TEXT.ARTIST_STATUS.MAIN_TOURING) 
     ? getTrackSuffix(artist) 
     : "";
 
@@ -391,4 +373,46 @@ export const shouldTriggerAutoTrack = (lastCheckedAt: string | undefined, settin
   if (!lastCheckedAt) return true;
   const diffDays = (now.getTime() - new Date(lastCheckedAt.replace(/-/g, '/')).getTime()) / (1000 * 60 * 60 * 24);
   return diffDays >= settings.autoTrackIntervalDays;
+};
+
+export const migrateAlbumImagesToIndexedDB = async (artists: Artist[]): Promise<Artist[]> => {
+  const nextArtists: Artist[] = artists.map(a => ({ ...a, tours: a.tours.map(t => ({ ...t, concerts: t.concerts.map(c => ({ ...c })) })) }));
+  for (const artist of nextArtists) {
+    for (const tour of artist.tours) {
+      for (const concert of tour.concerts) {
+        const hasIds = Array.isArray((concert as any).imageIds) && (concert as any).imageIds.length > 0;
+        const legacyUrls = Array.isArray((concert as any).images) ? (concert as any).images as string[] : [];
+        if (!hasIds && legacyUrls.length > 0) {
+          const ids = await bulkPutImageUrls(legacyUrls);
+          (concert as any).imageIds = ids;
+        }
+        delete (concert as any).images;
+      }
+    }
+  }
+  return nextArtists;
+};
+
+export const expandAlbumImagesForExport = async (artists: Artist[]): Promise<any> => {
+  const allIds: string[] = [];
+  artists.forEach(a => a.tours.forEach(t => t.concerts.forEach(c => {
+    const ids = (c as any).imageIds as string[] | undefined;
+    if (ids && ids.length) allIds.push(...ids);
+  })));
+
+  const map = await bulkGetImageUrls(allIds);
+
+  return artists.map(a => ({
+    ...a,
+    tours: a.tours.map(t => ({
+      ...t,
+      concerts: t.concerts.map(c => {
+        const ids = (c as any).imageIds as string[] | undefined;
+        const images = ids ? ids.map(id => map[id]).filter(Boolean) : [];
+        const out: any = { ...c, images };
+        delete out.imageIds;
+        return out;
+      })
+    }))
+  }));
 };

@@ -6,7 +6,7 @@ import { PageShell } from '../ui/PageShell';
 import { theme } from '../ui/theme';
 import { TEXT } from '../ui/constants';
 import { PageId, Artist, GlobalSettings, Status } from '../domain/types';
-import { calcArtistStatus, sortArtistsForDisplay } from '../domain/logic';
+import { calcArtistStatus, sortArtistsForDisplay, expandAlbumImagesForExport } from '../domain/logic';
 
 interface Props {
   artists: Artist[];
@@ -269,9 +269,11 @@ export const ArtistListPage: React.FC<Props> = ({
     dragOverItem.current = null;
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     try {
-      const dataStr = JSON.stringify(artists, null, 2);
+      // Export should stay portable: expand concert album imageIds -> images(url[]) on the fly
+      const artistsForExport = await expandAlbumImagesForExport(artists);
+      const dataStr = JSON.stringify(artistsForExport, null, 2);
       const blob = new Blob([dataStr], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
