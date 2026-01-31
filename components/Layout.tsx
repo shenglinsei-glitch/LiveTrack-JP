@@ -2,45 +2,32 @@
 import React from 'react';
 import { theme } from '../ui/theme';
 import { PageId } from '../domain/types';
+import { Icons } from '../ui/IconButton';
 
 interface LayoutProps {
   children: React.ReactNode;
   currentPath: PageId;
   onNavigate: (path: PageId) => void;
+  onPlusClick?: () => void;
   hasConcertAlert?: boolean;
 }
 
 const NavIcons = {
-  Artists: () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-      <circle cx="9" cy="7" r="4"></circle>
-      <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
-      <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+  Exhibitions: Icons.Exhibitions,
+  Music: (props: any) => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M9 18V5l12-2v13" />
+      <circle cx="6" cy="18" r="3" />
+      <circle cx="18" cy="16" r="3" />
     </svg>
   ),
-  Concerts: () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"></path>
-      <path d="M13 5v2"></path>
-      <path d="M13 17v2"></path>
-      <path d="M13 11v2"></path>
-    </svg>
-  ),
-  Calendar: () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-      <line x1="16" y1="2" x2="16" y2="6"></line>
-      <line x1="8" y1="2" x2="8" y2="6"></line>
-      <line x1="3" y1="10" x2="21" y2="10"></line>
-    </svg>
-  )
+  Calendar: Icons.Calendar
 };
 
-export const Layout: React.FC<LayoutProps> = ({ children, currentPath, onNavigate, hasConcertAlert }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, currentPath, onNavigate, onPlusClick, hasConcertAlert }) => {
   const tabs: { id: PageId; label: string; icon: React.ReactNode; alert?: boolean }[] = [
-    { id: 'ARTIST_LIST', label: 'アーティスト', icon: <NavIcons.Artists /> },
-    { id: 'CONCERT_LIST', label: '公演', icon: <NavIcons.Concerts />, alert: hasConcertAlert },
+    { id: 'EXHIBITIONS', label: '展覧', icon: <NavIcons.Exhibitions /> },
+    { id: 'MUSIC', label: '音楽', icon: <NavIcons.Music />, alert: hasConcertAlert },
     { id: 'CALENDAR', label: 'カレンダー', icon: <NavIcons.Calendar /> },
   ];
 
@@ -51,7 +38,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPath, onNavigat
       minHeight: '100vh', 
       backgroundColor: theme.colors.background,
       color: theme.colors.text,
-      paddingBottom: isMainTab ? '64px' : '0',
+      paddingBottom: isMainTab ? '100px' : '0',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
       WebkitFontSmoothing: 'antialiased',
     }}>
@@ -60,68 +47,102 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPath, onNavigat
       </div>
 
       {isMainTab && (
-        <nav style={{
-          position: 'fixed',
-          bottom: 'calc(16px + env(safe-area-inset-bottom))',
-          left: '16px',
-          right: '92px',
-          height: '64px',
-          background: 'rgba(255, 255, 255, 0.7)',
-          backdropFilter: 'blur(24px)',
-          WebkitBackdropFilter: 'blur(24px)',
-          border: '1px solid rgba(15, 23, 42, 0.05)',
-          borderRadius: '32px',
-          boxShadow: '0 8px 30px rgba(15, 23, 42, 0.08)',
-          display: 'flex',
-          justifyContent: 'space-around',
-          alignItems: 'center',
-          zIndex: 100,
-        }}>
-          {tabs.map((tab) => {
-            const isActive = currentPath === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => onNavigate(tab.id)}
-                style={{
-                  border: 'none',
-                  background: 'none',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: isActive ? theme.colors.primary : '#9CA3AF',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                  outline: 'none',
-                  padding: '12px',
-                  position: 'relative'
-                }}
-              >
-                <span style={{ 
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transform: isActive ? 'scale(1.1)' : 'scale(1)',
-                  transition: 'transform 0.2s ease',
-                  fontWeight: isActive ? 'bold' : 'normal',
-                }}>{tab.icon}</span>
-                {tab.alert && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '12px',
-                    right: '12px',
-                    width: '8px',
-                    height: '8px',
-                    borderRadius: '50%',
-                    backgroundColor: theme.colors.error,
-                    border: '2px solid white'
-                  }} />
-                )}
-              </button>
-            );
-          })}
-        </nav>
+        <>
+          {/* Bottom Navigation Bar */}
+          <nav style={{
+            position: 'fixed',
+            bottom: 'calc(16px + env(safe-area-inset-bottom))',
+            left: '16px',
+            right: 'calc(16px + 64px + 16px)', // Margin + Button Width + Gap
+            height: '64px',
+            background: 'rgba(255, 255, 255, 0.7)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            border: '1px solid rgba(15, 23, 42, 0.05)',
+            borderRadius: '32px',
+            boxShadow: '0 8px 30px rgba(15, 23, 42, 0.08)',
+            display: 'flex',
+            justifyContent: 'space-around',
+            alignItems: 'center',
+            zIndex: 100,
+          }}>
+            {tabs.map((tab) => {
+              const isActive = currentPath === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => onNavigate(tab.id)}
+                  aria-label={tab.label}
+                  style={{
+                    border: 'none',
+                    background: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: isActive ? theme.colors.primary : '#9CA3AF',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                    outline: 'none',
+                    padding: '12px',
+                    position: 'relative',
+                    flex: 1
+                  }}
+                >
+                  <span style={{ 
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transform: isActive ? 'scale(1.15)' : 'scale(1)',
+                    transition: 'transform 0.2s ease',
+                  }}>{tab.icon}</span>
+                  {tab.alert && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '12px',
+                      right: '30%',
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      backgroundColor: theme.colors.error,
+                      border: '2px solid white'
+                    }} />
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+
+          {/* Floating Action Button */}
+          {onPlusClick && (
+            <button
+              onClick={onPlusClick}
+              style={{
+                position: 'fixed',
+                right: '16px',
+                bottom: 'calc(16px + env(safe-area-inset-bottom))',
+                width: '64px',
+                height: '64px',
+                borderRadius: '9999px',
+                background: theme.colors.primary,
+                color: 'white',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 8px 24px -6px rgba(83, 190, 232, 0.5)',
+                cursor: 'pointer',
+                zIndex: 110,
+                transition: 'transform 0.15s ease, opacity 0.15s ease',
+                outline: 'none',
+              }}
+              onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.92)')}
+              onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+              onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+            >
+              <Icons.Plus style={{ width: '28px', height: '28px' }} />
+            </button>
+          )}
+        </>
       )}
     </div>
   );

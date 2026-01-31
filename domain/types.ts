@@ -1,11 +1,13 @@
+
 export type Status = 
   | '発売前' 
   | '検討中' 
   | '抽選中' 
   | '参戦予定' 
   | '参戦済み' 
-  | '見送';
+  | '見送'; 
 
+// Fix: Corrected typo '见送' to '見送' to match the Status union type.
 export const TOUR_ACTIVE_STATUSES: Status[] = ['発売前', '検討中', '抽選中', '参戦予定', '見送'];
 export const TICKET_TRACK_STATUSES: Status[] = ['発売前', '検討中', '抽選中'];
 
@@ -30,7 +32,8 @@ export type CalendarEventType =
   | '公演' 
   | '抽選結果' 
   | '発売開始' 
-  | '申込締切';
+  | '申込締切'
+  | '展覧会';
 
 export interface CalendarEvent {
   dateKey: string;        // YYYY-MM-DD
@@ -43,48 +46,35 @@ export interface CalendarEvent {
   status: Status;
 }
 
-// --- 已经更新 SiteLink 接口，增加判定相关字段 ---
 export interface SiteLink {
   name: string;
   url: string;
   autoTrack: boolean;
   lastCheckedAt?: string;
   lastSuccessAt?: string;
-  matchedKeywords?: string[]; // merged global keyword hits
-  lastHitAt?: string; // ISO
-  acknowledgedAt?: string; // ISO; show notice only when lastHitAt > acknowledgedAt
+  matchedKeywords?: string[];
+  lastHitAt?: string;
+  acknowledgedAt?: string;
   trackingStatus?: TrackingStatus;
   errorMessage?: TrackingErrorType;
-  
-  /** * URL 判定结果
-   * supported: 可判定 (详情页/详情文章)
-   * unsupported: 不可判定 (分页列表页/社交媒体)
-   * unjudged: 未判定
-   */
   trackCapability?: 'supported' | 'unsupported' | 'unjudged';
-  /** ISO 格式的判定执行时间 */
   trackCapabilityCheckedAt?: string;
 }
 
 export interface Concert {
   id: string;
-  date: string; // Display Date (Legacy, keep for UI fallback)
+  date: string;
   venue: string;
   price: number;
   saleLink: string;
   status: Status;
   isParticipated: boolean;
   imageIds: string[];
-  
-  // Legacy / import-export compatibility (do NOT persist large URL arrays in localStorage)
   images?: string[]; 
-  
-  // New Fields for Status Progression
-  saleAt?: string | null;        // YYYY-MM-DD or YYYY-MM-DD HH:mm
-  deadlineAt?: string | null;    // YYYY-MM-DD or YYYY-MM-DD HH:mm
-  resultAt?: string | null;      // YYYY-MM-DD or YYYY-MM-DD HH:mm
-  concertAt?: string | null;     // YYYY-MM-DD or YYYY-MM-DD HH:mm
-  
+  saleAt?: string | null;
+  deadlineAt?: string | null;
+  resultAt?: string | null;
+  concertAt?: string | null;
   lotteryName?: string | null;
   lotteryResult?: 'WON' | 'LOST' | null;
 }
@@ -95,7 +85,7 @@ export interface Tour {
   imageUrl: string;
   memo?: string;
   concerts: Concert[];
-  officialUrl?: string; // Tour official website
+  officialUrl?: string;
 }
 
 export interface Artist {
@@ -106,7 +96,59 @@ export interface Artist {
   autoTrackConcerts: boolean;
   autoTrackTickets: boolean;
   tours: Tour[];
-  order?: number; // Added for manual sorting
+  order?: number;
+}
+
+// --- Exhibition Types ---
+export type ExhibitionTicketStatus = 'none' | 'reserved' | 'bought' | 'visited';
+export type ExhibitionTicketSalesStatus = 'none' | 'before_sale' | 'not_purchased' | 'purchased';
+export type ExhibitionOverallStatus = 'preparing' | 'running' | 'visited' | 'ended_not_visited';
+
+export interface ExhibitionArtist {
+  name: string;
+  note?: string;
+}
+
+export interface Exhibition {
+  id: string;
+  title: string;
+  imageUrl?: string;
+  startDate: string; // YYYY-MM-DD
+  endDate: string;   // YYYY-MM-DD
+  
+  // Basic & Venue
+  websiteUrl?: string;
+  area?: string;      // e.g. 新宿区
+  venueName?: string; // e.g. 森美術館
+  venue?: string;     // legacy backup
+  
+  // Opening Hours
+  weekdayStartTime?: string; // HH:mm
+  weekdayEndTime?: string;   // HH:mm
+  holidaySameAsWeekday: boolean;
+  holidayStartTime?: string;
+  holidayEndTime?: string;
+
+  // Pricing
+  weekdayPrice?: number;
+  holidayPrice?: number;
+  holidayPriceSameAsWeekday: boolean;
+
+  // Ticket & Status
+  ticketSalesStatus: ExhibitionTicketSalesStatus;
+  saleStartAt?: string;
+  needsReservation: boolean;
+  reservationStartAt?: string;
+  reservationEndAt?: string;
+  
+  // Visit Tracking
+  visitedAt?: string; // YYYY-MM-DD HH:mm
+  exhibitionStatus: ExhibitionOverallStatus;
+
+  // Content
+  description?: string;
+  artists?: ExhibitionArtist[];
+  imageIds?: string[];
 }
 
 export interface GlobalSettings {
@@ -119,7 +161,10 @@ export interface DisplaySettings {
 }
 
 export type PageId = 
-  | 'ARTIST_LIST' 
+  | 'EXHIBITIONS'  
+  | 'EXHIBITION_DETAIL'
+  | 'MUSIC'        
+  | 'ARTIST_LIST'  
   | 'CONCERT_LIST' 
   | 'CALENDAR' 
   | 'ARTIST_DETAIL' 

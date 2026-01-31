@@ -1,5 +1,5 @@
 
-import { Artist, Concert, Status, TICKET_TRACK_STATUSES, TOUR_ACTIVE_STATUSES, GlobalSettings, DueAction, CalendarEvent, CalendarEventType } from './types';
+import { Artist, Concert, Status, TICKET_TRACK_STATUSES, TOUR_ACTIVE_STATUSES, GlobalSettings, DueAction, CalendarEvent, CalendarEventType, Exhibition } from './types';
 import { TEXT } from '../ui/constants';
 import { bulkPutImageUrls, bulkGetImageUrls } from './imageStore';
 
@@ -49,6 +49,8 @@ export const EVENT_PRIORITY: Record<CalendarEventType, number> = {
   [TEXT.CALENDAR.EVENT_RESULT]: 2,
   [TEXT.CALENDAR.EVENT_DEADLINE]: 3,
   [TEXT.CALENDAR.EVENT_SALE]: 4,
+  // Fix: Added missing '展覧会' property to Record
+  ['展覧会']: 5,
 };
 
 const extractDateAndTime = (str: string | null | undefined): { date: string; time?: string } | null => {
@@ -415,4 +417,35 @@ export const expandAlbumImagesForExport = async (artists: Artist[]): Promise<any
       })
     }))
   }));
+};
+
+/**
+ * Prepares a unified data object containing both artists and exhibitions
+ * with all image data expanded for backup.
+ */
+export const prepareFullDataForExport = async (artists: Artist[], exhibitions: Exhibition[]): Promise<any> => {
+  // 1. Expand Artist Images
+  const artistsExpanded = await expandAlbumImagesForExport(artists);
+
+  // 2. Expand Exhibition Images
+  const exIds: string[] = [];
+  exhibitions.forEach(ex => {
+    if (ex.imageIds && ex.imageIds.length) exIds.push(...ex.imageIds);
+  });
+  
+  const exImageMap = await bulkGetImageUrls(exIds);
+  
+  const exhibitionsExpanded = exhibitions.map(ex => {
+    const images = ex.imageIds ? ex.imageIds.map(id => exImageMap[id]).filter(Boolean) : [];
+    const out: any = { ...ex, images };
+    delete out.imageIds;
+    return out;
+  });
+
+  return {
+    artists: artistsExpanded,
+    exhibitions: exhibitionsExpanded,
+    version: '1.0',
+    exportedAt: new Date().toISOString()
+  };
 };

@@ -5,16 +5,17 @@ import { theme } from './theme';
 interface PageShellProps {
   children: React.ReactNode;
   header?: React.ReactNode;
+  disablePadding?: boolean;
 }
 
-export const PageShell: React.FC<PageShellProps> = ({ children, header }) => {
+export const PageShell: React.FC<PageShellProps> = ({ children, header, disablePadding }) => {
   return (
     <div style={{
       maxWidth: '1200px',
       margin: '0 auto',
       paddingLeft: theme.spacing.lg,
       paddingRight: theme.spacing.lg,
-      paddingTop: theme.spacing.pageTop,
+      paddingTop: disablePadding ? 0 : theme.spacing.pageTop,
       display: 'flex',
       flexDirection: 'column',
     }}>

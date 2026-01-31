@@ -7,7 +7,7 @@
 
   <!-- PWA Primary Tags -->
   <meta name="theme-color" content="#53BEE8" />
-  <link rel="manifest" href="/manifest.json" />
+  <link rel="manifest" href="/manifest.webmanifest" />
 
   <!-- iOS Specific Tags -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -31,23 +31,9 @@
     }
     * { box-sizing: border-box; }
   </style>
-
-  <script type="importmap">
-    {
-      "imports": {
-        "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-        "react/": "https://esm.sh/react@^19.2.3/",
-        "react": "https://esm.sh/react@^19.2.3"
-      }
-    }
-  </script>
-
-  <link rel="stylesheet" href="/index.css" />
-<link rel="stylesheet" href="/index.css">
 </head>
 <body>
   <div id="root"></div>
-  <!-- 只保留一次，且不要写 /LiveTrack-JP/ 前缀 -->
   <script type="module" src="/index.tsx"></script>
 </body>
 </html>

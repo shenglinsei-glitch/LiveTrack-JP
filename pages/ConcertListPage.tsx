@@ -1,12 +1,12 @@
+
 import React, { useState, useMemo } from 'react';
 import { PageShell } from '../ui/PageShell';
-import { IconButton, Icons } from '../ui/IconButton';
+import { Icons } from '../ui/IconButton';
 import { theme } from '../ui/theme';
 import { TEXT } from '../ui/constants';
-import { PageId, Concert, Status, Artist, DueAction } from '../domain/types';
+import { Concert, Status, Artist, DueAction } from '../domain/types';
 import { ConcertMenu } from '../components/ConcertMenu';
 import { sortPerformancesForDisplay, sortPerformancesByLotteryDate, getDueAction, applyDecision } from '../domain/logic';
-import { GlassCard } from '../ui/GlassCard';
 
 interface Props {
   artists: Artist[];
@@ -17,6 +17,9 @@ interface Props {
   onUpdateConcert: (artistId: string, tourId: string, concertId: string, updates: Partial<Concert>) => void;
   sortMode: 'status' | 'lottery';
   onSetSort: (mode: 'status' | 'lottery') => void;
+  isMenuOpenExternally?: boolean;
+  onMenuClose?: () => void;
+  hideHeader?: boolean;
 }
 
 interface ConcertWithMetadata extends Concert {
@@ -289,9 +292,11 @@ export const ConcertListPage: React.FC<Props> = ({
   onRefreshAll, 
   onUpdateConcert,
   sortMode,
-  onSetSort
+  onSetSort,
+  isMenuOpenExternally,
+  onMenuClose,
+  hideHeader
 }) => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showAttended, setShowAttended] = useState(true);
   const [showSkipped, setShowSkipped] = useState(true);
 
@@ -313,12 +318,14 @@ export const ConcertListPage: React.FC<Props> = ({
   }, [allConcerts, showAttended, showSkipped, sortMode]);
 
   return (
-    <PageShell header={
+    <PageShell header={hideHeader ? null : (
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '8px' }}>
         <h1 style={{ fontSize: '32px', fontWeight: '900', color: '#111827', margin: 0, letterSpacing: '-0.025em' }}>{TEXT.GLOBAL.APP_TITLE} <span style={{ color: '#53BEE8' }}>JP</span></h1>
         <button onClick={onRefreshAll} style={{ padding: '12px', borderRadius: '9999px', background: 'white', border: '1px solid #F3F4F6', color: '#9CA3AF', cursor: 'pointer', outline: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icons.Refresh /></button>
       </div>
-    }>
+    )}
+    disablePadding={hideHeader}
+    >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '120px' }}>
         {processedConcerts.length === 0 ? (
           <div style={{ padding: '80px 20px', textAlign: 'center', color: theme.colors.textWeak, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px' }}>
@@ -345,8 +352,17 @@ export const ConcertListPage: React.FC<Props> = ({
           ))
         )}
       </div>
-      <IconButton icon={isMenuOpen ? <Icons.X /> : <Icons.Plus />} primary size={64} onClick={() => setIsMenuOpen(!isMenuOpen)} style={{ position: 'fixed', right: '16px', bottom: 'calc(16px + env(safe-area-inset-bottom))', zIndex: 110, boxShadow: '0 8px 24px -6px rgba(83, 190, 232, 0.5)' }} />
-      <ConcertMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} onAddConcert={onCreateConcert} showAttended={showAttended} onToggleAttended={() => setShowAttended(!showAttended)} showSkipped={showSkipped} onToggleSkipped={() => setShowSkipped(!showSkipped)} sortMode={sortMode} onSetSort={onSetSort} />
+      <ConcertMenu 
+        isOpen={!!isMenuOpenExternally} 
+        onClose={() => onMenuClose?.()} 
+        onAddConcert={onCreateConcert} 
+        showAttended={showAttended} 
+        onToggleAttended={() => setShowAttended(!showAttended)} 
+        showSkipped={showSkipped} 
+        onToggleSkipped={() => setShowSkipped(!showSkipped)} 
+        sortMode={sortMode} 
+        onSetSort={onSetSort} 
+      />
     </PageShell>
   );
 };

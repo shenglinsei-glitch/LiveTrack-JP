@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { PageId, Artist, Tour, DisplaySettings, Status, GlobalSettings, SiteLink, TrackingStatus, TrackingErrorType, Concert } from './domain/types';
+import { PageId, Artist, Tour, DisplaySettings, Status, GlobalSettings, SiteLink, TrackingStatus, TrackingErrorType, Concert, Exhibition } from './domain/types';
 import { Layout } from './components/Layout';
 import { ArtistListPage } from './pages/ArtistListPage';
 import { ConcertListPage } from './pages/ConcertListPage';
@@ -9,20 +9,27 @@ import { ArtistDetailPage } from './pages/ArtistDetailPage';
 import { ConcertHomePage } from './pages/ConcertHomePage';
 import { ArtistEditorPage } from './pages/ArtistEditorPage';
 import { ConcertEditorPage } from './pages/ConcertEditorPage';
+import { MusicPage } from './pages/MusicPage';
+import { ExhibitionsPage } from './pages/ExhibitionsPage';
+import { ExhibitionDetailPage } from './pages/ExhibitionDetailPage';
 import { GlassCard } from './ui/GlassCard';
 import { theme } from './ui/theme';
-import { shouldTriggerAutoTrack, getTrackTargetConcerts, getDueAction, autoAdvanceConcertStatus } from './domain/logic';
+import { shouldTriggerAutoTrack, getTrackTargetConcerts, getDueAction, autoAdvanceConcertStatus, prepareFullDataForExport } from './domain/logic';
+import dayjs from 'dayjs';
 
 type NavContext = { 
   path: PageId; 
   artistId?: string; 
   tourId?: string; 
   concertId?: string; 
+  exhibitionId?: string; 
   from?: PageId;
+  edit?: boolean; // Navigation flag to start in edit mode
 };
 
 const STORAGE_KEYS = {
   ARTISTS: 'livetrack_jp_artists',
+  EXHIBITIONS: 'livetrack_jp_exhibitions',
   GLOBAL_SETTINGS: 'livetrack_jp_global_settings',
   DISPLAY_SETTINGS: 'livetrack_jp_display_settings',
   ARTIST_SORT: 'livetrack_jp_artist_sort',
@@ -32,9 +39,6 @@ const STORAGE_KEYS = {
 const safeSave = (key: string, data: any) => {
   try {
     const serialized = JSON.stringify(data);
-    if (key === STORAGE_KEYS.ARTISTS && serialized.length > 4 * 1024 * 1024) {
-      console.warn("Storage warning: Data size is large.");
-    }
     localStorage.setItem(key, serialized);
   } catch (err: any) {
     console.error(`Persistence Error for key [${key}]:`, err);
@@ -65,10 +69,17 @@ const fetchWithTimeout = async (url: string, timeoutMs: number) => {
 };
 
 export default function App() {
-  const [nav, setNav] = useState<NavContext>({ path: 'ARTIST_LIST' });
+  const [nav, setNav] = useState<NavContext>({ path: 'EXHIBITIONS' });
   const [isArtistPickerOpen, setIsArtistPickerOpen] = useState(false);
   const [isTracking, setIsTracking] = useState(false);
   const trackingLockRef = useRef(false);
+  
+  const [isArtistMenuOpen, setIsArtistMenuOpen] = useState(false);
+  const [isConcertMenuOpen, setIsConcertMenuOpen] = useState(false);
+  const [isCalendarMenuOpen, setIsCalendarMenuOpen] = useState(false);
+  const [isExhibitionMenuOpen, setIsExhibitionMenuOpen] = useState(false);
+
+  const [musicActiveTab, setMusicActiveTab] = useState('artists');
   
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(() => {
     try {
@@ -101,7 +112,15 @@ export default function App() {
     } catch { return []; }
   });
 
+  const [exhibitions, setExhibitions] = useState<Exhibition[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.EXHIBITIONS);
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+
   useEffect(() => { safeSave(STORAGE_KEYS.ARTISTS, artists); }, [artists]);
+  useEffect(() => { safeSave(STORAGE_KEYS.EXHIBITIONS, exhibitions); }, [exhibitions]);
   useEffect(() => { safeSave(STORAGE_KEYS.GLOBAL_SETTINGS, globalSettings); }, [globalSettings]);
   useEffect(() => { safeSave(STORAGE_KEYS.DISPLAY_SETTINGS, displaySettings); }, [displaySettings]);
   useEffect(() => { safeSave(STORAGE_KEYS.ARTIST_SORT, artistSortMode); }, [artistSortMode]);
@@ -192,11 +211,62 @@ export default function App() {
 
   useEffect(() => { runAutoAdvance(); }, [nav.path, runAutoAdvance]);
 
-  const navigateToArtistList = () => setNav({ path: 'ARTIST_LIST' });
+  // Unified Export Logic
+  const handleExportAll = async () => {
+    try {
+      const fullData = await prepareFullDataForExport(artists, exhibitions);
+      const dataStr = JSON.stringify(fullData, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const date = new Date().toISOString().split('T')[0];
+      link.href = url;
+      link.download = `LiveTrack_JP_Full_Backup_${date}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Unified Export failed:', error);
+      window.alert('エクスポートに失敗しました。');
+    }
+  };
+
+  // Unified Import Logic
+  const handleImportAll = (importedData: any) => {
+    // Handle both old single-array format and new unified object format
+    if (Array.isArray(importedData)) {
+      setArtists(importedData);
+    } else if (importedData && typeof importedData === 'object') {
+      if (importedData.artists) setArtists(importedData.artists);
+      if (importedData.exhibitions) setExhibitions(importedData.exhibitions);
+    }
+  };
+
+  const navigateToArtistList = () => setNav({ path: 'MUSIC' });
   const navigateToArtistDetail = (artistId: string, from?: PageId) => setNav({ path: 'ARTIST_DETAIL', artistId, from });
   const navigateToArtistEditor = (artistId?: string) => setNav({ path: 'ARTIST_EDITOR', artistId });
   const navigateToConcertEditor = (artistId: string, tourId?: string) => setNav({ path: 'CONCERT_EDITOR', artistId, tourId });
   const navigateToConcertHome = (artistId: string, tourId: string, concertId: string, from?: PageId) => setNav({ path: 'CONCERT_HOME', artistId, tourId, concertId, from });
+  
+  const navigateToExhibitionDetail = (exhibitionId: string, edit?: boolean) => setNav({ path: 'EXHIBITION_DETAIL', exhibitionId, edit });
+
+  const addNewExhibition = () => {
+    const newEx: Exhibition = {
+      id: Math.random().toString(36).substr(2, 9),
+      title: '新規展覧会',
+      startDate: dayjs().format('YYYY-MM-DD'),
+      endDate: dayjs().add(1, 'month').format('YYYY-MM-DD'),
+      exhibitionStatus: 'preparing',
+      ticketSalesStatus: 'none',
+      holidaySameAsWeekday: true,
+      holidayPriceSameAsWeekday: true,
+      needsReservation: false,
+      imageIds: []
+    };
+    setExhibitions(prev => [...prev, newEx]);
+    navigateToExhibitionDetail(newEx.id, true);
+  };
 
   const upsertArtist = (updated: Artist) => {
     setArtists(prev => {
@@ -256,45 +326,94 @@ export default function App() {
     })));
   }, []);
 
+  const handlePlusClick = useCallback(() => {
+    if (nav.path === 'EXHIBITIONS') {
+      setIsExhibitionMenuOpen(true);
+    } else if (nav.path === 'MUSIC') {
+      if (musicActiveTab === 'artists') {
+        setIsArtistMenuOpen(true);
+      } else {
+        setIsConcertMenuOpen(true);
+      }
+    } else if (nav.path === 'CALENDAR') {
+      setIsCalendarMenuOpen(true);
+    }
+  }, [nav.path, musicActiveTab]);
+
   const renderPage = () => {
     switch (nav.path) {
-      case 'ARTIST_LIST': 
+      case 'EXHIBITIONS':
         return (
-          <ArtistListPage 
+          <ExhibitionsPage 
+            exhibitions={exhibitions}
+            onUpdateExhibitions={setExhibitions}
+            onOpenDetail={navigateToExhibitionDetail}
+            isMenuOpenExternally={isExhibitionMenuOpen}
+            onMenuClose={() => setIsExhibitionMenuOpen(false)}
+            onAddNew={addNewExhibition}
+            onExport={handleExportAll}
+            onImport={handleImportAll}
+          />
+        );
+      case 'EXHIBITION_DETAIL': {
+        const exhibition = exhibitions.find(e => e.id === nav.exhibitionId);
+        if (!exhibition) return null;
+        return (
+          <ExhibitionDetailPage
+            exhibition={exhibition}
+            allExhibitions={exhibitions}
+            onUpdateExhibition={(updated) => {
+              setExhibitions(prev => prev.map(e => e.id === updated.id ? updated : e));
+            }}
+            onDeleteExhibition={(id) => {
+              setExhibitions(prev => prev.filter(e => e.id !== id));
+              setNav({ path: 'EXHIBITIONS' });
+            }}
+            onBack={() => setNav({ path: 'EXHIBITIONS' })}
+            initialEditMode={nav.edit}
+          />
+        );
+      }
+      case 'MUSIC':
+        return (
+          <MusicPage 
+            activeTab={musicActiveTab}
+            onTabChange={setMusicActiveTab}
             artists={artists} 
-            onOpenArtist={(id) => navigateToArtistDetail(id, 'ARTIST_LIST')} 
+            onOpenArtist={(id) => navigateToArtistDetail(id, 'MUSIC')} 
             onOpenArtistEditor={() => navigateToArtistEditor()} 
             onRefreshAll={handleRefreshAll} 
-            onImportData={setArtists} 
+            onImportData={handleImportAll} // Updated to unified
             globalSettings={globalSettings} 
             onUpdateGlobalSettings={setGlobalSettings}
-            sortMode={artistSortMode}
-            onSetSort={setArtistSortMode}
+            artistSortMode={artistSortMode}
+            onSetArtistSort={setArtistSortMode}
             onUpdateOrder={(newList) => setArtists(newList.map((a, i) => ({ ...a, order: i })))}
             onAcknowledgeArtistTracking={handleAcknowledgeArtistTracking}
             onClearAllTrackingNotices={handleClearAllTrackingNotices}
-          />
-        );
-      case 'CONCERT_LIST': 
-        return (
-          <ConcertListPage 
-            artists={artists} 
-            onOpenArtist={(id) => navigateToArtistDetail(id, 'CONCERT_LIST')} 
-            onOpenConcert={(aid, tid, cid) => navigateToConcertHome(aid, tid, cid, 'CONCERT_LIST')} 
+            onOpenConcert={(aid, tid, cid) => navigateToConcertHome(aid, tid, cid, 'MUSIC')} 
             onCreateConcert={() => setIsArtistPickerOpen(true)} 
-            onRefreshAll={handleRefreshAll} 
             onUpdateConcert={updateConcert} 
-            sortMode={concertSortMode}
+            concertSortMode={concertSortMode}
             onSetSort={setConcertSortMode}
+            isArtistMenuOpen={isArtistMenuOpen}
+            onArtistMenuClose={() => setIsArtistMenuOpen(false)}
+            isConcertMenuOpen={isConcertMenuOpen}
+            onConcertMenuClose={() => setIsConcertMenuOpen(false)}
+            onExport={handleExportAll} // Pass unified export
           />
         );
       case 'CALENDAR': 
         return (
           <CalendarPage 
             artists={artists} 
+            exhibitions={exhibitions}
             onOpenArtist={(id) => navigateToArtistDetail(id, 'CALENDAR')} 
             onOpenConcert={(aid, tid, cid) => navigateToConcertHome(aid, tid, cid, 'CALENDAR')} 
-            onRefreshAll={handleRefreshAll} 
+            onOpenExhibition={(id) => navigateToExhibitionDetail(id)}
+            onRefreshAll={handleRefreshAll}
+            isMenuOpenExternally={isCalendarMenuOpen}
+            onMenuClose={() => setIsCalendarMenuOpen(false)}
           />
         );
       case 'ARTIST_DETAIL': {
@@ -310,8 +429,7 @@ export default function App() {
             onOpenConcertHome={(aid, tid, cid) => navigateToConcertHome(aid, tid, cid, nav.from)} 
             onChangeSettings={s => setDisplaySettings(p => ({...p, ...s}))} 
             onBack={() => {
-              if (nav.from === 'CONCERT_LIST') setNav({ path: 'CONCERT_LIST' });
-              else if (nav.from === 'CALENDAR') setNav({ path: 'CALENDAR' });
+              if (nav.from === 'CALENDAR') setNav({ path: 'CALENDAR' });
               else navigateToArtistList();
             }} 
           />
@@ -365,7 +483,12 @@ export default function App() {
 
   return (
     <div className="app-root">
-      <Layout currentPath={nav.path} onNavigate={p => setNav({ path: p })} hasConcertAlert={hasGlobalConcertAlert}>
+      <Layout 
+        currentPath={nav.path} 
+        onNavigate={p => setNav({ path: p })} 
+        onPlusClick={handlePlusClick}
+        hasConcertAlert={hasGlobalConcertAlert}
+      >
         {renderPage()}
       </Layout>
       {isArtistPickerOpen && (

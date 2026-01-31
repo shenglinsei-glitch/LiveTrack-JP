@@ -1,11 +1,12 @@
+
 import React, { useState, useMemo, useRef } from 'react';
 import { BottomMenu } from '../components/BottomMenu';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { IconButton, Icons } from '../ui/IconButton';
+import { Icons } from '../ui/IconButton';
 import { PageShell } from '../ui/PageShell';
 import { theme } from '../ui/theme';
 import { TEXT } from '../ui/constants';
-import { PageId, Artist, GlobalSettings, Status } from '../domain/types';
+import { Artist, GlobalSettings, Status } from '../domain/types';
 import { calcArtistStatus, sortArtistsForDisplay, expandAlbumImagesForExport } from '../domain/logic';
 
 interface Props {
@@ -21,6 +22,11 @@ interface Props {
   onUpdateOrder: (newArtists: Artist[]) => void;
   onAcknowledgeArtistTracking: (artistId: string) => void;
   onClearAllTrackingNotices: () => void;
+  isMenuOpenExternally?: boolean;
+  onMenuClose?: () => void;
+  hideHeader?: boolean;
+  // Fix: Added optional onExport prop to allow overriding local export with unified one
+  onExport?: () => void;
 }
 
 const ArtistRowCard: React.FC<{ 
@@ -125,7 +131,6 @@ const ArtistRowCard: React.FC<{
             letterSpacing: '0.05em',
             textTransform: 'uppercase'
           }}>
-            {/* 修改点：这里追加显示了 trackSuffix */}
             {status.main}{status.trackSuffix}
             {status.sub && (
               <span style={{ color: theme.colors.textWeak, marginLeft: '8px', fontWeight: '400' }}>
@@ -204,9 +209,13 @@ export const ArtistListPage: React.FC<Props> = ({
   onSetSort,
   onUpdateOrder,
   onAcknowledgeArtistTracking,
-  onClearAllTrackingNotices
+  onClearAllTrackingNotices,
+  isMenuOpenExternally,
+  onMenuClose,
+  hideHeader,
+  // Use destructured onExport prop
+  onExport
 }) => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
   const [stagedImportData, setStagedImportData] = useState<Artist[] | null>(null);
   const [refreshState, setRefreshState] = useState<'idle' | 'refreshing' | 'completed'>('idle');
@@ -271,7 +280,6 @@ export const ArtistListPage: React.FC<Props> = ({
 
   const handleExport = async () => {
     try {
-      // Export should stay portable: expand concert album imageIds -> images(url[]) on the fly
       const artistsForExport = await expandAlbumImagesForExport(artists);
       const dataStr = JSON.stringify(artistsForExport, null, 2);
       const blob = new Blob([dataStr], { type: 'application/json' });
@@ -284,14 +292,14 @@ export const ArtistListPage: React.FC<Props> = ({
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      setIsMenuOpen(false);
+      onMenuClose?.();
     } catch (error) {
       console.error('Export failed:', error);
     }
   };
 
   const handleImportClick = () => {
-    setIsMenuOpen(false);
+    onMenuClose?.();
     fileInputRef.current?.click();
   };
 
@@ -325,7 +333,7 @@ export const ArtistListPage: React.FC<Props> = ({
 
   return (
     <PageShell
-      header={
+      header={hideHeader ? null : (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '8px' }}>
           <h1 style={{ fontSize: '32px', fontWeight: '900', color: '#111827', margin: 0, letterSpacing: '-0.025em' }}>
             {TEXT.GLOBAL.APP_TITLE} <span style={{ color: '#53BEE8' }}>JP</span>
@@ -355,7 +363,8 @@ export const ArtistListPage: React.FC<Props> = ({
             )}
           </button>
         </div>
-      }
+      )}
+      disablePadding={hideHeader}
     >
       <input 
         type="file" 
@@ -410,25 +419,12 @@ export const ArtistListPage: React.FC<Props> = ({
         )}
       </div>
 
-      <IconButton 
-        icon={isMenuOpen ? <Icons.X /> : <Icons.Plus />} 
-        primary 
-        size={64} 
-        onClick={() => setIsMenuOpen(!isMenuOpen)} 
-        style={{ 
-          position: 'fixed', 
-          right: '16px', 
-          bottom: 'calc(16px + env(safe-area-inset-bottom))', 
-          zIndex: 110,
-          boxShadow: '0 8px 24px -6px rgba(83, 190, 232, 0.5)'
-        }} 
-      />
-
       <BottomMenu 
-        isOpen={isMenuOpen} 
-        onClose={() => setIsMenuOpen(false)} 
+        isOpen={!!isMenuOpenExternally} 
+        onClose={() => onMenuClose?.()} 
         onAddArtist={onOpenArtistEditor}
-        onExport={handleExport} 
+        // Fix: Use the passed onExport prop if available, otherwise fallback to local handler
+        onExport={onExport || handleExport} 
         onImport={handleImportClick}
         currentSort={sortMode}
         onSetSort={onSetSort}
