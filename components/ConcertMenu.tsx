@@ -4,6 +4,7 @@ import { GlassCard } from '../ui/GlassCard';
 import { theme } from '../ui/theme';
 import { Icons } from '../ui/IconButton';
 import { TEXT } from '../ui/constants';
+import { ConcertViewMode } from '../domain/types';
 
 interface ConcertMenuProps {
   isOpen: boolean;
@@ -15,6 +16,8 @@ interface ConcertMenuProps {
   onToggleSkipped: () => void;
   sortMode: 'status' | 'lottery';
   onSetSort: (mode: 'status' | 'lottery') => void;
+  viewMode: ConcertViewMode;
+  onSetViewMode: (mode: ConcertViewMode) => void;
 }
 
 export const ConcertMenu: React.FC<ConcertMenuProps> = ({ 
@@ -26,7 +29,9 @@ export const ConcertMenu: React.FC<ConcertMenuProps> = ({
   showSkipped,
   onToggleSkipped,
   sortMode,
-  onSetSort
+  onSetSort,
+  viewMode,
+  onSetViewMode
 }) => {
   if (!isOpen) return null;
 
@@ -52,6 +57,40 @@ export const ConcertMenu: React.FC<ConcertMenuProps> = ({
                 icon={<Icons.Plus />} 
                 onClick={() => { onAddConcert(); onClose(); }}
               />
+            </div>
+          </section>
+
+          <section style={{ borderTop: `0.5px solid rgba(0,0,0,0.1)`, paddingTop: theme.spacing.md }}>
+            <h4 style={{ fontSize: '12px', color: theme.colors.textSecondary, marginBottom: theme.spacing.sm, fontWeight: 'bold' }}>表示モード</h4>
+            <div style={{ 
+              display: 'flex', 
+              gap: '4px', 
+              background: 'rgba(0,0,0,0.05)', 
+              padding: '4px', 
+              borderRadius: '10px' 
+            }}>
+              <button
+                onClick={() => onSetViewMode('concert')}
+                style={{
+                  ...segmentedBtnStyle,
+                  background: viewMode === 'concert' ? 'white' : 'transparent',
+                  color: viewMode === 'concert' ? theme.colors.primary : theme.colors.textSecondary,
+                  boxShadow: viewMode === 'concert' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                }}
+              >
+                公演
+              </button>
+              <button
+                onClick={() => onSetViewMode('deadline')}
+                style={{
+                  ...segmentedBtnStyle,
+                  background: viewMode === 'deadline' ? 'white' : 'transparent',
+                  color: viewMode === 'deadline' ? theme.colors.primary : theme.colors.textSecondary,
+                  boxShadow: viewMode === 'deadline' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                }}
+              >
+                期限
+              </button>
             </div>
           </section>
 
@@ -92,6 +131,17 @@ export const ConcertMenu: React.FC<ConcertMenuProps> = ({
       </GlassCard>
     </div>
   );
+};
+
+const segmentedBtnStyle: React.CSSProperties = {
+  flex: 1,
+  border: 'none',
+  fontSize: '11px',
+  fontWeight: '800',
+  padding: '8px 0',
+  borderRadius: '8px',
+  cursor: 'pointer',
+  transition: 'all 0.2s'
 };
 
 const MenuButton = ({ label, active, primary, toggle, onClick, icon }: any) => (

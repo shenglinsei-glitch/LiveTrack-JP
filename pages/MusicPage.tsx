@@ -2,7 +2,7 @@
 import React from 'react';
 import { ArtistListPage } from './ArtistListPage';
 import { ConcertListPage } from './ConcertListPage';
-import { Artist, GlobalSettings, Concert } from '../domain/types';
+import { Artist, GlobalSettings, Concert, ConcertViewMode } from '../domain/types';
 import { theme } from '../ui/theme';
 import { TopCapsuleNav } from '../components/TopCapsuleNav';
 
@@ -31,6 +31,8 @@ interface MusicPageProps {
   onUpdateConcert: (artistId: string, tourId: string, concertId: string, updates: Partial<Concert>) => void;
   concertSortMode: 'status' | 'lottery';
   onSetSort: (mode: 'status' | 'lottery') => void;
+  concertViewMode: ConcertViewMode;
+  onSetConcertViewMode: (mode: ConcertViewMode) => void;
   isConcertMenuOpen: boolean;
   onConcertMenuClose: () => void;
 
@@ -81,6 +83,8 @@ export const MusicPage: React.FC<MusicPageProps> = (props) => {
             onUpdateConcert={props.onUpdateConcert}
             sortMode={props.concertSortMode}
             onSetSort={props.onSetSort}
+            viewMode={props.concertViewMode}
+            onSetViewMode={props.onSetConcertViewMode}
             isMenuOpenExternally={props.isConcertMenuOpen}
             onMenuClose={props.onConcertMenuClose}
             hideHeader={true}

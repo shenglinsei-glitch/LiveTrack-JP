@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { PageId, Artist, Tour, DisplaySettings, Status, GlobalSettings, SiteLink, TrackingStatus, TrackingErrorType, Concert, Exhibition } from './domain/types';
+import { PageId, Artist, Tour, DisplaySettings, Status, GlobalSettings, SiteLink, TrackingStatus, TrackingErrorType, Concert, Exhibition, ConcertViewMode } from './domain/types';
 import { Layout } from './components/Layout';
 import { ArtistListPage } from './pages/ArtistListPage';
 import { ConcertListPage } from './pages/ConcertListPage';
@@ -14,7 +14,7 @@ import { ExhibitionsPage } from './pages/ExhibitionsPage';
 import { ExhibitionDetailPage } from './pages/ExhibitionDetailPage';
 import { GlassCard } from './ui/GlassCard';
 import { theme } from './ui/theme';
-import { shouldTriggerAutoTrack, getTrackTargetConcerts, getDueAction, autoAdvanceConcertStatus, prepareFullDataForExport } from './domain/logic';
+import { shouldTriggerAutoTrack, getTrackTargetConcerts, getDueAction, autoAdvanceConcertStatus, prepareFullDataForExport, migrateAlbumImagesToIndexedDB, migrateExhibitionImagesToIndexedDB } from './domain/logic';
 import dayjs from 'dayjs';
 
 type NavContext = { 
@@ -33,7 +33,8 @@ const STORAGE_KEYS = {
   GLOBAL_SETTINGS: 'livetrack_jp_global_settings',
   DISPLAY_SETTINGS: 'livetrack_jp_display_settings',
   ARTIST_SORT: 'livetrack_jp_artist_sort',
-  CONCERT_SORT: 'livetrack_jp_concert_sort'
+  CONCERT_SORT: 'livetrack_jp_concert_sort',
+  CONCERT_VIEW_MODE: 'livetrack_jp_concert_view_mode'
 };
 
 const safeSave = (key: string, data: any) => {
@@ -105,6 +106,11 @@ export default function App() {
     return (saved as 'status' | 'lottery') || 'status';
   });
 
+  const [concertViewMode, setConcertViewMode] = useState<ConcertViewMode>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.CONCERT_VIEW_MODE);
+    return (saved as ConcertViewMode) || 'concert';
+  });
+
   const [artists, setArtists] = useState<Artist[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.ARTISTS);
@@ -125,6 +131,7 @@ export default function App() {
   useEffect(() => { safeSave(STORAGE_KEYS.DISPLAY_SETTINGS, displaySettings); }, [displaySettings]);
   useEffect(() => { safeSave(STORAGE_KEYS.ARTIST_SORT, artistSortMode); }, [artistSortMode]);
   useEffect(() => { safeSave(STORAGE_KEYS.CONCERT_SORT, concertSortMode); }, [concertSortMode]);
+  useEffect(() => { safeSave(STORAGE_KEYS.CONCERT_VIEW_MODE, concertViewMode); }, [concertViewMode]);
 
   const hasGlobalConcertAlert = useMemo(() => {
     const now = new Date();
@@ -234,13 +241,37 @@ export default function App() {
 
   // Unified Import Logic
   const handleImportAll = (importedData: any) => {
-    // Handle both old single-array format and new unified object format
-    if (Array.isArray(importedData)) {
-      setArtists(importedData);
-    } else if (importedData && typeof importedData === 'object') {
-      if (importedData.artists) setArtists(importedData.artists);
-      if (importedData.exhibitions) setExhibitions(importedData.exhibitions);
-    }
+    // Handle both old single-array format and new unified object format.
+    // Important: imported backups may contain legacy `images: string[]` (urls).
+    // We migrate those urls into IndexedDB and restore `imageIds` so the detail pages can render albums.
+
+    const artistsRaw: Artist[] | null = Array.isArray(importedData)
+      ? importedData
+      : (importedData?.artists ?? null);
+    const exhibitionsRaw: Exhibition[] | null = (!Array.isArray(importedData) && importedData?.exhibitions)
+      ? importedData.exhibitions
+      : null;
+
+    if (artistsRaw) setArtists(artistsRaw);
+    if (exhibitionsRaw) setExhibitions(exhibitionsRaw);
+
+    // Post-migrate in background (still on the main thread), then update state again.
+    (async () => {
+      try {
+        if (artistsRaw) {
+          const migratedArtists = await migrateAlbumImagesToIndexedDB(artistsRaw);
+          setArtists(migratedArtists);
+        }
+        if (exhibitionsRaw) {
+          const migratedExhibitions = await migrateExhibitionImagesToIndexedDB(exhibitionsRaw);
+          setExhibitions(migratedExhibitions);
+        }
+      } catch (e) {
+        console.error('Import image migration failed:', e);
+        // Keep the import successful even if image migration fails.
+        // (The user can still re-open pages; images may be missing.)
+      }
+    })();
   };
 
   const navigateToArtistList = () => setNav({ path: 'MUSIC' });
@@ -396,6 +427,8 @@ export default function App() {
             onUpdateConcert={updateConcert} 
             concertSortMode={concertSortMode}
             onSetSort={setConcertSortMode}
+            concertViewMode={concertViewMode}
+            onSetConcertViewMode={setConcertViewMode}
             isArtistMenuOpen={isArtistMenuOpen}
             onArtistMenuClose={() => setIsArtistMenuOpen(false)}
             isConcertMenuOpen={isConcertMenuOpen}

@@ -410,13 +410,38 @@ export const expandAlbumImagesForExport = async (artists: Artist[]): Promise<any
       ...t,
       concerts: t.concerts.map(c => {
         const ids = (c as any).imageIds as string[] | undefined;
-        const images = ids ? ids.map(id => map[id]).filter(Boolean) : [];
+        const legacyUrls = Array.isArray((c as any).images) ? ((c as any).images as string[]) : [];
+
+        // Prefer IndexedDB-resolved urls when ids exist, but never overwrite legacy urls with an empty array.
+        const resolved = ids ? ids.map(id => map[id]).filter(Boolean) : [];
+        const images = (resolved.length > 0)
+          ? resolved
+          : legacyUrls;
+
         const out: any = { ...c, images };
         delete out.imageIds;
         return out;
       })
     }))
   }));
+};
+
+/**
+ * Import-time helper: migrate Exhibition legacy `images` (url[]) into IndexedDB and store `imageIds`.
+ * Also removes the legacy `images` field to keep localStorage small.
+ */
+export const migrateExhibitionImagesToIndexedDB = async (exhibitions: Exhibition[]): Promise<Exhibition[]> => {
+  const next: Exhibition[] = exhibitions.map(ex => ({ ...ex }));
+  for (const ex of next) {
+    const hasIds = Array.isArray((ex as any).imageIds) && (ex as any).imageIds.length > 0;
+    const legacyUrls = Array.isArray((ex as any).images) ? ((ex as any).images as string[]) : [];
+    if (!hasIds && legacyUrls.length > 0) {
+      const ids = await bulkPutImageUrls(legacyUrls);
+      (ex as any).imageIds = ids;
+    }
+    delete (ex as any).images;
+  }
+  return next;
 };
 
 /**
@@ -436,7 +461,10 @@ export const prepareFullDataForExport = async (artists: Artist[], exhibitions: E
   const exImageMap = await bulkGetImageUrls(exIds);
   
   const exhibitionsExpanded = exhibitions.map(ex => {
-    const images = ex.imageIds ? ex.imageIds.map(id => exImageMap[id]).filter(Boolean) : [];
+    const ids = (ex as any).imageIds as string[] | undefined;
+    const legacyUrls = Array.isArray((ex as any).images) ? ((ex as any).images as string[]) : [];
+    const resolved = ids ? ids.map(id => exImageMap[id]).filter(Boolean) : [];
+    const images = (resolved.length > 0) ? resolved : legacyUrls;
     const out: any = { ...ex, images };
     delete out.imageIds;
     return out;

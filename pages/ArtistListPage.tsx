@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef } from 'react';
 import { BottomMenu } from '../components/BottomMenu';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -25,10 +24,134 @@ interface Props {
   isMenuOpenExternally?: boolean;
   onMenuClose?: () => void;
   hideHeader?: boolean;
-  // Fix: Added optional onExport prop to allow overriding local export with unified one
   onExport?: () => void;
 }
 
+// -------------------------------------------------------------------------
+// 样式 B：网格卡片 (状态优先模式)
+// -------------------------------------------------------------------------
+const ArtistGridCard: React.FC<{ 
+  artist: Artist; 
+  onClick: () => void; 
+}> = ({ artist, onClick }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const status = calcArtistStatus(artist);
+  
+  const dotColor = useMemo(() => {
+    if (status.main === TEXT.ARTIST_STATUS.MAIN_TOURING && status.sub) {
+      return theme.colors.status[status.sub as Status] || theme.colors.primary;
+    }
+    if (status.main === TEXT.ARTIST_STATUS.MAIN_TRACKING) {
+      return '#00E0FF';
+    }
+    return theme.colors.textLabel;
+  }, [status]);
+
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        background: 'white',
+        borderRadius: '24px',
+        border: '1px solid rgba(0, 0, 0, 0.04)',
+        display: 'flex',
+        flexDirection: 'column',
+        cursor: 'pointer',
+        boxShadow: isHovered ? '0 12px 24px -8px rgba(0,0,0,0.12)' : '0 4px 12px -2px rgba(0,0,0,0.03)',
+        transform: isHovered ? 'translateY(-4px)' : 'translateY(0)',
+        transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+        overflow: 'hidden',
+        position: 'relative',
+      }}
+    >
+      {/* 核心视觉：图片容器，设定 3:4 的纵横比 */}
+      <div style={{ position: 'relative', paddingTop: '133%', background: '#F3F4F6' }}>
+        {artist.imageUrl ? (
+          <img 
+            src={artist.imageUrl} 
+            style={{ 
+              position: 'absolute', 
+              top: 0, 
+              left: 0, 
+              width: '100%', 
+              height: '100%', 
+              objectFit: 'cover' 
+            }} 
+            alt={artist.name}
+          />
+        ) : (
+          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>
+            <span style={{ fontSize: '40px' }}>👤</span>
+          </div>
+        )}
+
+        {/* 视觉过渡层：参照展览页，使用弱化的底部渐变，不使用模糊，高度约 25% */}
+        <div style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: '35%', 
+          background: 'linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.2) 60%, transparent 100%)',
+          zIndex: 1,
+          pointerEvents: 'none'
+        }} />
+
+        {/* 内容信息：自然浮动在渐变层之上 */}
+        <div style={{ 
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          padding: '16px 14px 12px', 
+          zIndex: 2 
+        }}>
+          <div style={{
+            fontWeight: '900',
+            fontSize: '15px',
+            color: 'white',
+            marginBottom: '2px',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            textShadow: '0 1px 4px rgba(0,0,0,0.4)'
+          }}>
+            {artist.name}
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              background: dotColor,
+              boxShadow: `0 0 8px ${dotColor}aa`,
+              flexShrink: 0
+            }} />
+            <div style={{
+              fontSize: '11px',
+              fontWeight: '700',
+              color: 'rgba(255, 255, 255, 0.85)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+            }}>
+              {status.main}{status.trackSuffix}
+              {status.sub && ` / ${TEXT.STATUS[status.sub]}`}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// -------------------------------------------------------------------------
+// 样式 A：列表卡片 (手顺/列表模式)
+// -------------------------------------------------------------------------
 const ArtistRowCard: React.FC<{ 
   artist: Artist; 
   onClick: () => void; 
@@ -40,7 +163,6 @@ const ArtistRowCard: React.FC<{
   onAcknowledgeNotice?: () => void;
 }> = ({ artist, onClick, draggable, onDragStart, onDragEnter, onDragEnd, noticeKeywords, onAcknowledgeNotice }) => {
   const [isHovered, setIsHovered] = useState(false);
-  
   const status = calcArtistStatus(artist);
   
   const dotColor = useMemo(() => {
@@ -67,154 +189,48 @@ const ArtistRowCard: React.FC<{
         background: 'white',
         borderRadius: theme.radius.card,
         border: '1px solid rgba(0, 0, 0, 0.04)',
-        padding: '20px 24px',
+        padding: '16px 20px',
         display: 'flex',
         alignItems: 'center',
-        gap: '20px',
+        gap: '16px',
         cursor: draggable ? 'grabbing' : 'pointer',
-        boxShadow: isHovered 
-          ? '0 10px 20px -5px rgba(0, 0, 0, 0.06)' 
-          : '0 4px 12px -2px rgba(0, 0, 0, 0.03)',
-        transform: isHovered ? 'scale(1.015)' : 'scale(1)',
+        boxShadow: isHovered ? '0 8px 16px -4px rgba(0, 0, 0, 0.05)' : '0 2px 8px -1px rgba(0, 0, 0, 0.02)',
+        transform: isHovered ? 'scale(1.01)' : 'scale(1)',
         transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-        opacity: draggable && isHovered ? 0.7 : 1
       }}
     >
       <div style={{
-        width: '68px',
-        height: '68px',
-        borderRadius: '50%',
-        background: '#F3F4F6',
-        flexShrink: 0,
-        border: '3px solid white',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-        overflow: 'hidden',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
+        width: '56px', height: '56px', borderRadius: '50%', background: '#F3F4F6', flexShrink: 0,
+        border: '2px solid white', boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+        overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center'
       }}>
-        {artist.imageUrl ? (
-          <img src={artist.imageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        ) : (
-          <span style={{ fontSize: '24px', opacity: 0.2 }}>👤</span>
-        )}
+        {artist.imageUrl ? <img src={artist.imageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '20px', opacity: 0.2 }}>👤</span>}
       </div>
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{
-          fontWeight: '800',
-          fontSize: '19px',
-          color: isHovered ? theme.colors.primary : theme.colors.text,
-          marginBottom: '6px',
-          transition: 'color 0.2s ease'
-        }}>
-          {artist.name}
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{
-            width: '8px',
-            height: '8px',
-            borderRadius: '50%',
-            background: dotColor,    
-            boxShadow: status.main === TEXT.ARTIST_STATUS.MAIN_TRACKING
-              ? `0 0 12px ${dotColor}99`
-              : `0 0 12px ${dotColor}99`,
-            filter: status.main === TEXT.ARTIST_STATUS.MAIN_TRACKING
-              ? 'blur(1.5px)'
-              : 'blur(1.5px)'
-          }} />
-          <div style={{
-            fontSize: '11px',
-            fontWeight: '600',
-            color: theme.colors.textSecondary,
-            letterSpacing: '0.05em',
-            textTransform: 'uppercase'
-          }}>
-            {status.main}{status.trackSuffix}
-            {status.sub && (
-              <span style={{ color: theme.colors.textWeak, marginLeft: '8px', fontWeight: '400' }}>
-                / {TEXT.STATUS[status.sub]}
-              </span>
-            )}
+        <div style={{ fontWeight: '800', fontSize: '17px', color: theme.colors.text, marginBottom: '2px' }}>{artist.name}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: dotColor, boxShadow: `0 0 8px ${dotColor}99` }} />
+          <div style={{ fontSize: '11px', fontWeight: '600', color: theme.colors.textSecondary }}>
+            {status.main}{status.trackSuffix}{status.sub && <span style={{ color: theme.colors.textWeak, marginLeft: '6px' }}>/ {TEXT.STATUS[status.sub]}</span>}
           </div>
-
-        {noticeKeywords && noticeKeywords.length > 0 && (
-          <div style={{
-            marginTop: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '10px',
-            minWidth: 0
-          }}>
-            <div style={{
-              fontSize: '12px',
-              color: theme.colors.textSecondary,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              minWidth: 0
-            }}>
-              検出キーワード：{noticeKeywords.join('・')}
-            </div>
-            {onAcknowledgeNotice && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onAcknowledgeNotice(); }}
-                style={{
-                  flexShrink: 0,
-                  border: 'none',
-                  background: 'rgba(83, 190, 232, 0.12)',
-                  color: theme.colors.primary,
-                  fontSize: '11px',
-                  fontWeight: 800,
-                  padding: '6px 10px',
-                  borderRadius: '9999px',
-                  cursor: 'pointer'
-                }}
-              >
-                確認
-              </button>
-            )}
-          </div>
-        )}
-
         </div>
       </div>
 
-      <div style={{ color: theme.colors.textLabel, display: 'flex', alignItems: 'center', gap: '8px' }}>
-        {draggable && (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}>
-            <line x1="8" y1="9" x2="16" y2="9"></line>
-            <line x1="8" y1="15" x2="16" y2="15"></line>
-          </svg>
-        )}
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="9 18 15 12 9 6"></polyline>
-        </svg>
-      </div>
+      {draggable && (
+        <div style={{ color: theme.colors.textLabel }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="9" x2="16" y2="9"></line><line x1="8" y1="15" x2="16" y2="15"></line></svg>
+        </div>
+      )}
     </div>
   );
 };
 
 export const ArtistListPage: React.FC<Props> = ({ 
-  artists, 
-  onOpenArtist, 
-  onOpenArtistEditor, 
-  onRefreshAll,
-  onImportData,
-  globalSettings,
-  onUpdateGlobalSettings,
-  sortMode,
-  onSetSort,
-  onUpdateOrder,
-  onAcknowledgeArtistTracking,
-  onClearAllTrackingNotices,
-  isMenuOpenExternally,
-  onMenuClose,
-  hideHeader,
-  // Use destructured onExport prop
-  onExport
+  artists, onOpenArtist, onOpenArtistEditor, onRefreshAll, onImportData,
+  globalSettings, onUpdateGlobalSettings, sortMode, onSetSort, onUpdateOrder,
+  onAcknowledgeArtistTracking, onClearAllTrackingNotices, isMenuOpenExternally,
+  onMenuClose, hideHeader, onExport
 }) => {
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
   const [stagedImportData, setStagedImportData] = useState<Artist[] | null>(null);
@@ -225,12 +241,9 @@ export const ArtistListPage: React.FC<Props> = ({
   const dragOverItem = useRef<number | null>(null);
 
   const sortedArtists = useMemo(() => {
-    if (sortMode === 'manual') {
-      return [...artists].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-    }
+    if (sortMode === 'manual') return [...artists].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     return sortArtistsForDisplay(artists, sortMode);
   }, [artists, sortMode]);
-
 
   const getNoticeKeywords = (artist: Artist): string[] => {
     const keywords = new Set<string>();
@@ -246,26 +259,16 @@ export const ArtistListPage: React.FC<Props> = ({
 
   const handleRefresh = () => {
     if (refreshState !== 'idle') return;
-    
     setRefreshState('refreshing');
     onRefreshAll();
-    
     setTimeout(() => {
       setRefreshState('completed');
-      setTimeout(() => {
-        setRefreshState('idle');
-      }, 1200);
+      setTimeout(() => setRefreshState('idle'), 1200);
     }, 800);
   };
 
-  const handleDragStart = (index: number) => {
-    dragItem.current = index;
-  };
-
-  const handleDragEnter = (index: number) => {
-    dragOverItem.current = index;
-  };
-
+  const handleDragStart = (index: number) => { dragItem.current = index; };
+  const handleDragEnter = (index: number) => { dragOverItem.current = index; };
   const handleDragEnd = () => {
     if (dragItem.current !== null && dragOverItem.current !== null && dragItem.current !== dragOverItem.current) {
       const newList = [...sortedArtists];
@@ -278,169 +281,71 @@ export const ArtistListPage: React.FC<Props> = ({
     dragOverItem.current = null;
   };
 
-  const handleExport = async () => {
-    try {
-      const artistsForExport = await expandAlbumImagesForExport(artists);
-      const dataStr = JSON.stringify(artistsForExport, null, 2);
-      const blob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      const date = new Date().toISOString().split('T')[0];
-      link.href = url;
-      link.download = `LiveTrack_JP_Backup_${date}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      onMenuClose?.();
-    } catch (error) {
-      console.error('Export failed:', error);
-    }
-  };
-
-  const handleImportClick = () => {
-    onMenuClose?.();
-    fileInputRef.current?.click();
-  };
-
+  const handleImportClick = () => { onMenuClose?.(); fileInputRef.current?.click(); };
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const json = JSON.parse(e.target?.result as string);
-        if (Array.isArray(json)) {
-          setStagedImportData(json);
-          setIsImportConfirmOpen(true);
-        }
-      } catch (err) {
-        console.error('Import failed:', err);
-      }
+        if (Array.isArray(json)) { setStagedImportData(json); setIsImportConfirmOpen(true); }
+      } catch (err) { console.error('Import failed:', err); }
       if (fileInputRef.current) fileInputRef.current.value = '';
     };
     reader.readAsText(file);
-  };
-
-  const executeImport = () => {
-    if (stagedImportData) {
-      onImportData(stagedImportData);
-      setStagedImportData(null);
-    }
-    setIsImportConfirmOpen(false);
   };
 
   return (
     <PageShell
       header={hideHeader ? null : (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '8px' }}>
-          <h1 style={{ fontSize: '32px', fontWeight: '900', color: '#111827', margin: 0, letterSpacing: '-0.025em' }}>
+          <h1 style={{ fontSize: '32px', fontWeight: '900', color: '#111827', margin: 0 }}>
             {TEXT.GLOBAL.APP_TITLE} <span style={{ color: '#53BEE8' }}>JP</span>
           </h1>
-          <button 
-            onClick={handleRefresh} 
-            disabled={refreshState !== 'idle'}
-            style={{ 
-              padding: '12px', 
-              borderRadius: '9999px', 
-              background: 'white', 
-              border: refreshState === 'completed' ? `1px solid ${theme.colors.success}` : '1px solid #F3F4F6', 
-              color: refreshState === 'completed' ? theme.colors.success : (refreshState === 'refreshing' ? theme.colors.primary : '#9CA3AF'), 
-              boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)', 
-              cursor: refreshState === 'idle' ? 'pointer' : 'default', 
-              outline: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.3s ease'
-            }}
-          >
-            {refreshState === 'completed' ? (
-              <Icons.Check className="animate-pop-in" />
-            ) : (
-              <Icons.Refresh className={refreshState === 'refreshing' ? 'animate-spin' : ''} />
-            )}
+          <button onClick={handleRefresh} disabled={refreshState !== 'idle'} style={{ padding: '12px', borderRadius: '9999px', background: 'white', border: '1px solid #F3F4F6', color: refreshState === 'completed' ? theme.colors.success : '#9CA3AF', cursor: refreshState === 'idle' ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {refreshState === 'completed' ? <Icons.Check /> : <Icons.Refresh className={refreshState === 'refreshing' ? 'animate-spin' : ''} />}
           </button>
         </div>
       )}
       disablePadding={hideHeader}
     >
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        style={{ display: 'none' }} 
-        accept=".json" 
-        onChange={handleFileChange} 
-      />
+      <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".json" onChange={handleFileChange} />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '120px' }}>
+      <div style={{ paddingBottom: '120px' }}>
         {sortedArtists.length === 0 ? (
-          <div style={{ 
-            padding: '80px 20px', 
-            textAlign: 'center', 
-            color: theme.colors.textWeak,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '24px'
-          }}>
+          <div style={{ padding: '80px 20px', textAlign: 'center', color: theme.colors.textWeak, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px' }}>
             <div style={{ fontSize: '48px', opacity: 0.5 }}>👤</div>
             <div style={{ fontSize: '15px', fontWeight: '600' }}>{TEXT.GLOBAL.APP_SUBTITLE}</div>
-            <button 
-              onClick={onOpenArtistEditor}
-              style={{
-                padding: '12px 24px',
-                borderRadius: '12px',
-                background: theme.colors.primary,
-                color: 'white',
-                border: 'none',
-                fontWeight: 'bold',
-                cursor: 'pointer'
-              }}
-            >
-              ＋ {TEXT.BUTTONS.ADD}
-            </button>
+            <button onClick={onOpenArtistEditor} style={{ padding: '12px 24px', borderRadius: '12px', background: theme.colors.primary, color: 'white', border: 'none', fontWeight: 'bold' }}>＋ {TEXT.BUTTONS.ADD}</button>
           </div>
         ) : (
-          sortedArtists.map((artist, index) => (
-            <ArtistRowCard 
-              key={artist.id} 
-              artist={artist} 
-              onClick={() => onOpenArtist(artist.id)} 
-              draggable={sortMode === 'manual'}
-              onDragStart={() => handleDragStart(index)}
-              onDragEnter={() => handleDragEnter(index)}
-              onDragEnd={handleDragEnd}
-              noticeKeywords={getNoticeKeywords(artist)}
-              onAcknowledgeNotice={() => onAcknowledgeArtistTracking(artist.id)}
-            />
-          ))
+          <div style={
+            sortMode === 'status' 
+              ? { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '16px' }
+              : { display: 'flex', flexDirection: 'column', gap: '12px' }
+          }>
+            {sortedArtists.map((artist, index) => (
+              sortMode === 'status' ? (
+                <ArtistGridCard key={artist.id} artist={artist} onClick={() => onOpenArtist(artist.id)} />
+              ) : (
+                <ArtistRowCard 
+                  key={artist.id} artist={artist} onClick={() => onOpenArtist(artist.id)} 
+                  draggable={sortMode === 'manual'} onDragStart={() => handleDragStart(index)} onDragEnter={() => handleDragEnter(index)} onDragEnd={handleDragEnd}
+                  noticeKeywords={getNoticeKeywords(artist)} onAcknowledgeNotice={() => onAcknowledgeArtistTracking(artist.id)}
+                />
+              )
+            ))}
+          </div>
         )}
       </div>
 
       <BottomMenu 
-        isOpen={!!isMenuOpenExternally} 
-        onClose={() => onMenuClose?.()} 
-        onAddArtist={onOpenArtistEditor}
-        // Fix: Use the passed onExport prop if available, otherwise fallback to local handler
-        onExport={onExport || handleExport} 
-        onImport={handleImportClick}
-        currentSort={sortMode}
-        onSetSort={onSetSort}
-        globalSettings={globalSettings}
-        onUpdateGlobalSettings={onUpdateGlobalSettings}
-        onClearTrackingNotices={onClearAllTrackingNotices}
+        isOpen={!!isMenuOpenExternally} onClose={() => onMenuClose?.()} onAddArtist={onOpenArtistEditor}
+        onExport={onExport || (() => {})} onImport={handleImportClick} currentSort={sortMode} onSetSort={onSetSort}
+        globalSettings={globalSettings} onUpdateGlobalSettings={onUpdateGlobalSettings} onClearTrackingNotices={onClearAllTrackingNotices}
       />
-      <ConfirmDialog 
-        isOpen={isImportConfirmOpen} 
-        title={TEXT.ALERTS.IMPORT_CONFIRM_TITLE} 
-        message={TEXT.ALERTS.IMPORT_CONFIRM_MSG} 
-        confirmLabel={TEXT.BUTTONS.IMPORT} 
-        isDestructive 
-        onClose={() => { setIsImportConfirmOpen(false); setStagedImportData(null); }} 
-        onConfirm={executeImport} 
-      />
+      <ConfirmDialog isOpen={isImportConfirmOpen} title={TEXT.ALERTS.IMPORT_CONFIRM_TITLE} message={TEXT.ALERTS.IMPORT_CONFIRM_MSG} confirmLabel={TEXT.BUTTONS.IMPORT} isDestructive onClose={() => { setIsImportConfirmOpen(false); setStagedImportData(null); }} onConfirm={() => { if (stagedImportData) onImportData(stagedImportData); setIsImportConfirmOpen(false); }} />
     </PageShell>
   );
 };

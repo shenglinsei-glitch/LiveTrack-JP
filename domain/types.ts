@@ -13,7 +13,7 @@ export const TICKET_TRACK_STATUSES: Status[] = ['発売前', '検討中', '抽�
 
 export type TrackingErrorType = 
   | '接続できませんでした'
-  | 'ページの内容が変わりました'
+  | '页面的内容が変わりました'
   | 'アクセスが制限されています'
   | '情報を取得できませんでした';
 
@@ -159,6 +159,8 @@ export interface DisplaySettings {
   showAttended: boolean;
   showSkipped: boolean;
 }
+
+export type ConcertViewMode = 'concert' | 'deadline';
 
 export type PageId = 
   | 'EXHIBITIONS'  
