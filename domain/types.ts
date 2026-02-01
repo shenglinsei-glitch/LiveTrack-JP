@@ -162,6 +162,15 @@ export interface DisplaySettings {
 
 export type ConcertViewMode = 'concert' | 'deadline';
 
+// Concert list page (local UI state)
+// NOTE: These types are additive and do not affect existing persisted data.
+export type ConcertListSortKey = 'date' | 'artist' | 'status_group';
+
+export interface ConcertListFilters {
+  // If empty / undefined => show all statuses.
+  statuses?: Status[];
+}
+
 export type PageId = 
   | 'EXHIBITIONS'  
   | 'EXHIBITION_DETAIL'

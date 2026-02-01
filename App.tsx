@@ -252,6 +252,20 @@ export default function App() {
       ? importedData.exhibitions
       : null;
 
+    // Guard: if payload shape is not recognized, do nothing but surface a clear message.
+    if (!artistsRaw && !exhibitionsRaw) {
+      window.alert('インポートに失敗しました：データ形式が不正です（artists / exhibitions が見つかりません）。');
+      return;
+    }
+
+    // Helpful guard: if the user accidentally picked an empty backup, make it obvious.
+    const artistCount = Array.isArray(artistsRaw) ? artistsRaw.length : 0;
+    const exhibitionCount = Array.isArray(exhibitionsRaw) ? exhibitionsRaw.length : 0;
+    if (artistCount === 0 && exhibitionCount === 0) {
+      const ok = window.confirm('このバックアップには artists / exhibitions が 0 件です。\nこのまま上書きインポートしますか？');
+      if (!ok) return;
+    }
+
     if (artistsRaw) setArtists(artistsRaw);
     if (exhibitionsRaw) setExhibitions(exhibitionsRaw);
 
