@@ -51,12 +51,12 @@ export const ExhibitionMenu: React.FC<ExhibitionMenuProps> = ({
             <h4 style={{ fontSize: '12px', color: theme.colors.textSecondary, marginBottom: theme.spacing.sm, fontWeight: 'bold' }}>{TEXT.MENU.DATA_MANAGEMENT}</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <MenuButton 
-                label="データをエクスポート" 
+                label="書き出す" 
                 icon={<Icons.Upload />} 
                 onClick={() => { onExport(); onClose(); }} 
               />
               <MenuButton 
-                label="データをインポート" 
+                label="読み込む" 
                 icon={<Icons.Download />} 
                 onClick={() => { onImport(); onClose(); }} 
               />

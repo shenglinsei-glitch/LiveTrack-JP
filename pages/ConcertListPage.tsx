@@ -3,8 +3,9 @@ import { PageShell } from '../ui/PageShell';
 import { Icons } from '../ui/IconButton';
 import { theme } from '../ui/theme';
 import { TEXT } from '../ui/constants';
-import { Artist, Concert, ConcertViewMode, Status } from '../domain/types';
-import { ConcertMenu, ConcertListSortKey } from '../components/ConcertMenu';
+import { Artist, Concert, ConcertListSortKey, ConcertViewMode, DueAction, Status } from '../domain/types';
+import { applyDecision, getDueAction } from '../domain/logic';
+import { ConcertMenu } from '../components/ConcertMenu';
 
 interface Props {
   artists: Artist[];
@@ -14,7 +15,7 @@ interface Props {
   onRefreshAll: () => void;
   onUpdateConcert: (artistId: string, tourId: string, concertId: string, updates: Partial<Concert>) => void;
 
-  // kept for backward compatibility with parent; unused in this page now
+  // legacy props (kept for parent compatibility)
   sortMode: 'status' | 'lottery';
   onSetSort: (mode: 'status' | 'lottery') => void;
 
@@ -49,34 +50,58 @@ type StatusGroupItem = {
   items: TourGroupItem[] | ConcertWithMetadata[];
 };
 
-// -------------------------------------------------------------------------
-// Helpers
-// -------------------------------------------------------------------------
+// --- Helpers for compact single-line date/time display (mobile-friendly) ---
 const normalizeDateTimeText = (v?: string) => (v || '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
 
 const formatCompactDateTime = (v?: string, includeYear: boolean = false) => {
   const s = normalizeDateTimeText(v);
   if (!s) return '';
+
   const mDate = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/);
   if (mDate) {
+    const yy = mDate[1];
     const mm = String(parseInt(mDate[2], 10));
     const dd = String(parseInt(mDate[3], 10));
-    const prefix = includeYear ? `${mDate[1]}/` : '';
-    if (mDate[4] && mDate[5]) return `${prefix}${mm}/${dd} ${mDate[4]}:${mDate[5]}`;
+    const hh = mDate[4];
+    const min = mDate[5];
+    const prefix = includeYear ? `${yy}/` : '';
+    if (hh && min) return `${prefix}${mm}/${dd} ${hh}:${min}`;
     return `${prefix}${mm}/${dd}`;
   }
+
+  const mSlash = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?/);
+  if (mSlash) {
+    const yy = mSlash[1];
+    const mm = String(parseInt(mSlash[2], 10));
+    const dd = String(parseInt(mSlash[3], 10));
+    const hh = mSlash[4];
+    const min = mSlash[5];
+    const prefix = includeYear ? `${yy}/` : '';
+    if (hh && min) return `${prefix}${mm}/${dd} ${String(parseInt(hh, 10)).padStart(2, '0')}:${min}`;
+    return `${prefix}${mm}/${dd}`;
+  }
+
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    const mm = String(d.getMonth() + 1);
+    const dd = String(d.getDate());
+    const hh = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return `${includeYear ? d.getFullYear() + '/' : ''}${mm}/${dd} ${hh}:${min}`;
+  }
+
   return s;
 };
 
 const parseDateLoose = (v?: string): Date | null => {
   const s = normalizeDateTimeText(v);
-  if (!s || s === TEXT.GLOBAL.TBD) return null;
-  // iOS safe: replace '-' with '/'
+  if (!s || s === TEXT?.GLOBAL?.TBD) return null;
+
+  // iOS safer
   const standardized = s.replace(/-/g, '/');
   const d = new Date(standardized);
   if (!isNaN(d.getTime())) return d;
 
-  // Fallback for "YYYY-MM-DD HH:mm" like strings
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2}))?/);
   if (!m) return null;
   const y = parseInt(m[1], 10);
@@ -89,7 +114,8 @@ const parseDateLoose = (v?: string): Date | null => {
 };
 
 const badgeBgFromColor = (color: string) => {
-  return typeof color === 'string' && color.startsWith('#') ? `${color}22` : 'rgba(0,0,0,0.06)';
+  if (typeof color === 'string' && color.startsWith('#') && color.length === 7) return `${color}22`;
+  return 'rgba(0,0,0,0.06)';
 };
 
 const ALL_STATUSES: Status[] = ['発売前', '検討中', '抽選中', '参戦予定', '参戦済み', '見送'] as Status[];
@@ -106,7 +132,6 @@ const getPrimaryDateStr = (c: ConcertWithMetadata, viewMode: ConcertViewMode) =>
     if (c.status === '抽選中') return c.resultAt || '';
     if (c.status === '検討中') return c.deadlineAt || '';
     if (c.status === '発売前') return c.saleAt || '';
-    // fallback
     return c.concertAt || c.date || '';
   }
   return c.concertAt || c.date || '';
@@ -142,21 +167,196 @@ const groupTours = (concerts: ConcertWithMetadata[], viewMode: ConcertViewMode, 
     const sorted = [...arr].sort((a, b) => compareByDate(a, b, viewMode));
     groups.push({ type: 'tour_group', tourId: tourKey, status: (status || sorted[0].status) as Status, concerts: sorted });
   });
-  // order by earliest date in group
   groups.sort((g1, g2) => compareByDate(g1.concerts[0], g2.concerts[0], viewMode));
   return groups;
 };
 
 // -------------------------------------------------------------------------
+// ActionPanel (restored from old ConcertListPage.tsx)
+// -------------------------------------------------------------------------
+const smallInputStyle: React.CSSProperties = {
+  padding: '8px',
+  borderRadius: '8px',
+  border: '1px solid rgba(0,0,0,0.1)',
+  fontSize: '13px',
+  outline: 'none',
+};
+
+const primaryBtnStyle: React.CSSProperties = {
+  flex: 1,
+  padding: '10px',
+  borderRadius: '10px',
+  background: theme.colors.primary,
+  color: 'white',
+  border: 'none',
+  fontWeight: 'bold',
+  fontSize: '13px',
+  cursor: 'pointer',
+};
+
+const secondaryBtnStyle: React.CSSProperties = {
+  flex: 1,
+  padding: '10px',
+  borderRadius: '10px',
+  background: 'rgba(0,0,0,0.05)',
+  border: 'none',
+  fontWeight: 'bold',
+  fontSize: '13px',
+  cursor: 'pointer',
+};
+
+const dangerBtnStyle: React.CSSProperties = {
+  flex: 1,
+  padding: '10px',
+  borderRadius: '10px',
+  background: 'rgba(247, 137, 63, 0.1)',
+  color: theme.colors.error,
+  border: 'none',
+  fontWeight: 'bold',
+  fontSize: '13px',
+  cursor: 'pointer',
+};
+
+const ActionPanel: React.FC<{
+  concert: ConcertWithMetadata;
+  dueAction: DueAction;
+  onAction: (decision: 'BUY' | 'CONSIDER' | 'SKIP' | 'WON' | 'LOST', payload?: any) => void;
+  onOpenEditor: () => void;
+}> = ({ concert, dueAction, onAction, onOpenEditor }) => {
+  const [lotteryName, setLotteryName] = useState(concert.lotteryName || '');
+  const [resultAt, setResultAt] = useState(concert.resultAt || '');
+  const [concertAt, setConcertAt] = useState(concert.concertAt || '');
+
+  const renderContent = () => {
+    switch (dueAction) {
+      case 'ASK_BUY_AT_SALE':
+      case 'ASK_BUY_AT_DEADLINE':
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 'bold', color: theme.colors.error }}>
+              {TEXT?.ALERTS?.TICKET_SALE_PERIOD ?? 'チケット申込の時期です'}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <input
+                type="text"
+                placeholder="抽選名 (FC先行等)"
+                value={lotteryName}
+                onChange={(e) => setLotteryName(e.target.value)}
+                style={smallInputStyle}
+              />
+              {/* old behavior: date input (even if stored string includes time) */}
+              <input type="date" value={resultAt} onChange={(e) => setResultAt(e.target.value)} style={smallInputStyle} />
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => onAction('BUY', { lotteryName, resultAt })} style={primaryBtnStyle}>
+                購入・申込
+              </button>
+              {dueAction === 'ASK_BUY_AT_SALE' && (
+                <button onClick={() => onAction('CONSIDER')} style={secondaryBtnStyle}>
+                  検討
+                </button>
+              )}
+              <button onClick={() => onAction('SKIP')} style={dangerBtnStyle}>
+                見送
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'ASK_RESULT':
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 'bold', color: theme.colors.error }}>
+              {TEXT?.ALERTS?.RESULT_ANNOUNCED ?? '抽選結果が出ました'}
+            </div>
+            {!concert.concertAt && (
+              <input
+                type="date"
+                value={concertAt}
+                onChange={(e) => setConcertAt(e.target.value)}
+                style={smallInputStyle}
+                placeholder="公演日時"
+              />
+            )}
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => onAction('WON', { concertAt: concertAt || concert.date })}
+                style={primaryBtnStyle}
+              >
+                {TEXT?.BUTTONS?.WON ?? '当選'}
+              </button>
+              <button onClick={() => onAction('LOST')} style={dangerBtnStyle}>
+                {TEXT?.BUTTONS?.LOST ?? '落選'}
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'NEED_SET_DEADLINE_AT':
+      case 'NEED_SET_RESULT_AT':
+      case 'NEED_SET_CONCERT_AT':
+      case 'NEED_SET_SALE_AT':
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 'bold', color: theme.colors.textSecondary }}>
+              {TEXT?.ALERTS?.NEED_DATE_SETTING ?? '日付設定が必要です'}
+            </div>
+            <button onClick={onOpenEditor} style={secondaryBtnStyle}>
+              詳細編集を開く
+            </button>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div
+      style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(0,0,0,0.05)' }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {renderContent()}
+    </div>
+  );
+};
+
+// -------------------------------------------------------------------------
 // Cards
 // -------------------------------------------------------------------------
-const MilestoneRowCard: React.FC<{ concert: ConcertWithMetadata; onClick: () => void; viewMode: ConcertViewMode }> = ({
-  concert,
-  onClick,
-  viewMode,
-}) => {
+const MilestoneRowCard: React.FC<{
+  concert: ConcertWithMetadata;
+  onClick: () => void;
+  viewMode: ConcertViewMode;
+  onUpdate: (updates: Partial<Concert>) => void;
+  onOpenEditor: () => void;
+}> = ({ concert, onClick, viewMode, onUpdate, onOpenEditor }) => {
   const statusColor = theme.colors.status[concert.status as Status] || theme.colors.primary;
   const displayImage = concert.tourImageUrl || concert.artistImageUrl;
+
+  const dueAction = useMemo(() => {
+    if (viewMode !== 'deadline') return null;
+    return getDueAction(concert);
+  }, [concert, viewMode]);
+
+  const handleAction = useCallback(
+    (decision: any, payload: any) => {
+      const updated = applyDecision(concert, decision, payload);
+      // pass back as Partial (we forward to onUpdateConcert)
+      onUpdate({
+        status: updated.status,
+        saleAt: updated.saleAt ?? null,
+        deadlineAt: updated.deadlineAt ?? null,
+        resultAt: updated.resultAt ?? null,
+        concertAt: updated.concertAt ?? null,
+        lotteryName: updated.lotteryName ?? null,
+        lotteryResult: updated.lotteryResult ?? null,
+        isParticipated: updated.isParticipated,
+      });
+    },
+    [concert, onUpdate]
+  );
 
   const displayMeta = useMemo(() => {
     if (viewMode === 'deadline') {
@@ -167,74 +367,102 @@ const MilestoneRowCard: React.FC<{ concert: ConcertWithMetadata; onClick: () => 
     return { type: '公演日', val: concert.concertAt || concert.date || '' };
   }, [concert, viewMode]);
 
+  const normalized = normalizeDateTimeText(displayMeta.val);
+  const value =
+    normalized === TEXT.GLOBAL.COMMON_NOT_REGISTERED ? normalized : formatCompactDateTime(normalized, true) || normalized;
+
   return (
     <div
       onClick={onClick}
       style={{
         background: 'white',
         borderRadius: '24px',
-        border: '1px solid rgba(0, 0, 0, 0.04)',
+        border: dueAction ? `2px solid ${theme.colors.error}` : '1px solid rgba(0, 0, 0, 0.04)',
         padding: '14px 18px',
         display: 'flex',
-        alignItems: 'center',
-        gap: '14px',
+        flexDirection: 'column',
         cursor: 'pointer',
         boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
         transition: 'all 0.2s',
       }}
     >
-      <div
-        style={{
-          width: '48px',
-          height: '48px',
-          borderRadius: '50%',
-          background: '#F3F4F6',
-          flexShrink: 0,
-          overflow: 'hidden',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        {displayImage ? (
-          <img src={displayImage} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        ) : (
-          <span style={{ fontSize: '18px', opacity: 0.2 }}>🎟️</span>
-        )}
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div style={{ fontSize: '12px', color: theme.colors.textSecondary, fontWeight: '700' }}>{concert.artistName}</div>
-          <div
-            style={{
-              fontSize: '10px',
-              fontWeight: '800',
-              color: statusColor,
-              background: badgeBgFromColor(statusColor),
-              padding: '2px 8px',
-              borderRadius: '9999px',
-            }}
-          >
-            {TEXT.STATUS[concert.status]}
-          </div>
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
         <div
           style={{
-            fontWeight: '800',
-            fontSize: '15px',
-            color: theme.colors.text,
-            whiteSpace: 'nowrap',
+            width: '48px',
+            height: '48px',
+            borderRadius: '50%',
+            background: '#F3F4F6',
+            flexShrink: 0,
             overflow: 'hidden',
-            textOverflow: 'ellipsis',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
-          {concert.tourName}
+          {displayImage ? (
+            <img src={displayImage} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <span style={{ fontSize: '18px', opacity: 0.2 }}>🎟️</span>
+          )}
         </div>
-        <div style={{ fontSize: '12px', color: theme.colors.textSecondary }}>
-          <span style={{ fontWeight: '800', color: theme.colors.textMain }}>{displayMeta.type}:</span>{' '}
-          {formatCompactDateTime(displayMeta.val, true) || displayMeta.val}
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+            <div style={{ fontSize: '12px', color: theme.colors.textSecondary, fontWeight: '700', minWidth: 0 }}>
+              <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{concert.artistName}</div>
+            </div>
+            <div
+              style={{
+                fontSize: '10px',
+                fontWeight: '800',
+                color: statusColor,
+                background: badgeBgFromColor(statusColor),
+                padding: '2px 8px',
+                borderRadius: '9999px',
+                border: '1px solid rgba(0,0,0,0.06)',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              {concert.status === '見送' && concert.lotteryResult === 'LOST' ? (TEXT?.BUTTONS?.LOST ?? '落選') : TEXT.STATUS[concert.status]}
+            </div>
+          </div>
+
+          <div
+            style={{
+              fontWeight: '800',
+              fontSize: '15px',
+              color: theme.colors.text,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              marginTop: 2,
+            }}
+          >
+            {concert.tourName}
+          </div>
+
+          <div
+            style={{
+              fontSize: '12px',
+              color: theme.colors.textSecondary,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              marginTop: 2,
+            }}
+            title={`${displayMeta.type}：${value}`}
+          >
+            <span style={{ fontWeight: '800', color: theme.colors.textMain }}>{displayMeta.type}：</span> {value}
+          </div>
         </div>
       </div>
+
+      {/* Restored: dueAction panel in deadline view */}
+      {dueAction && (
+        <ActionPanel concert={concert} dueAction={dueAction} onAction={handleAction} onOpenEditor={onOpenEditor} />
+      )}
     </div>
   );
 };
@@ -364,10 +592,14 @@ const TourGroupCard: React.FC<{
               return (
                 <div
                   key={c.id}
-                  onClick={isParticipated ? (e) => {
-                    e.stopPropagation();
-                    onOpenConcert(c.artistId, c.tourId, c.id);
-                  } : undefined}
+                  onClick={
+                    isParticipated
+                      ? (e) => {
+                          e.stopPropagation();
+                          onOpenConcert(c.artistId, c.tourId, c.id);
+                        }
+                      : undefined
+                  }
                   style={{
                     display: 'flex',
                     alignItems: 'baseline',
@@ -380,7 +612,6 @@ const TourGroupCard: React.FC<{
                   }}
                 >
                   <div style={{ fontSize: 13, fontWeight: 900, minWidth: 74, color: 'white' }}>
-                    {/* FIX: 公演表示モードでは年を表示（年跨ぎでも混ざらない） */}
                     {formatCompactDateTime(c.concertAt || c.date, true)}
                   </div>
                   <div
@@ -400,7 +631,12 @@ const TourGroupCard: React.FC<{
                   </div>
                   {isParticipated ? (
                     <Icons.ChevronLeft
-                      style={{ transform: 'rotate(180deg)', width: 14, color: 'rgba(255,255,255,0.6)', alignSelf: 'center' }}
+                      style={{
+                        transform: 'rotate(180deg)',
+                        width: 14,
+                        color: 'rgba(255,255,255,0.6)',
+                        alignSelf: 'center',
+                      }}
                     />
                   ) : (
                     <div style={{ width: 14 }} />
@@ -460,10 +696,9 @@ export const ConcertListPage: React.FC<Props> = ({
   onMenuClose,
   hideHeader,
 }) => {
-  // backward compat
+  // legacy props kept (not used here)
   void sortMode;
   void onSetSort;
-  void onUpdateConcert;
 
   const STORAGE_KEY = 'ltjp_concert_list_prefs_v3';
 
@@ -543,7 +778,7 @@ export const ConcertListPage: React.FC<Props> = ({
             ...concert,
             artistName: artist.name,
             artistId: artist.id,
-            artistImageUrl: artist.imageUrl || artist.avatar || '',
+            artistImageUrl: (artist as any).avatar || artist.imageUrl || '',
             tourName: tour.name,
             tourId: tour.id,
             tourImageUrl: tour.imageUrl || '',
@@ -577,11 +812,9 @@ export const ConcertListPage: React.FC<Props> = ({
 
     return statuses.map((s) => {
       const arr = [...(byStatus.get(s) || [])];
-      // In group mode we always sort within group by date (primary date depends on view mode)
       arr.sort((a, b) => compareByDate(a, b, viewMode));
 
       if (viewMode === 'concert') {
-        // FIX: 同一公演（Tour）内の複数日程をまとめて表示（従来の挙動に戻す）
         const tours = groupTours(arr, viewMode, s);
         return { type: 'status_group', status: s, items: tours };
       }
@@ -593,18 +826,15 @@ export const ConcertListPage: React.FC<Props> = ({
     if (sortKey === 'status_group') return [];
 
     if (viewMode === 'concert') {
-      // Always show tour-group cards in concert view
       const tours = groupTours(filteredConcerts, viewMode);
       if (sortKey === 'artist') {
         tours.sort((a, b) => compareByArtist(a.concerts[0], b.concerts[0], viewMode));
         return tours;
       }
-      // date
       tours.sort((a, b) => compareByDate(a.concerts[0], b.concerts[0], viewMode));
       return tours;
     }
 
-    // deadline view = show each concert row
     const arr = [...filteredConcerts];
     if (sortKey === 'artist') arr.sort((a, b) => compareByArtist(a, b, viewMode));
     else arr.sort((a, b) => compareByDate(a, b, viewMode));
@@ -681,8 +911,7 @@ export const ConcertListPage: React.FC<Props> = ({
                 }}
               >
                 <div style={{ fontSize: 12, fontWeight: 900, color: theme.colors.textSecondary }}>
-                  {TEXT.STATUS[group.status]}{' '}
-                  <span style={{ opacity: 0.6 }}>({(group.items as any[]).length})</span>
+                  {TEXT.STATUS[group.status]} <span style={{ opacity: 0.6 }}>({(group.items as any[]).length})</span>
                 </div>
               </div>
 
@@ -711,7 +940,13 @@ export const ConcertListPage: React.FC<Props> = ({
                     key={`${group.status}-${c.id}`}
                     concert={c}
                     viewMode={viewMode}
-                    onClick={() => onOpenArtist(c.artistId)}
+                    onClick={() => {
+                      // preserve old behavior: participated => open concert; otherwise open artist
+                      if (c.status === '参戦予定' || c.status === '参戦済み') onOpenConcert(c.artistId, c.tourId, c.id);
+                      else onOpenArtist(c.artistId);
+                    }}
+                    onUpdate={(updates) => onUpdateConcert(c.artistId, c.tourId, c.id, updates)}
+                    onOpenEditor={() => onOpenConcert(c.artistId, c.tourId, c.id)}
                   />
                 );
               })}
@@ -738,7 +973,19 @@ export const ConcertListPage: React.FC<Props> = ({
             }
 
             const c = item as ConcertWithMetadata;
-            return <MilestoneRowCard key={c.id} concert={c} viewMode={viewMode} onClick={() => onOpenArtist(c.artistId)} />;
+            return (
+              <MilestoneRowCard
+                key={c.id}
+                concert={c}
+                viewMode={viewMode}
+                onClick={() => {
+                  if (c.status === '参戦予定' || c.status === '参戦済み') onOpenConcert(c.artistId, c.tourId, c.id);
+                  else onOpenArtist(c.artistId);
+                }}
+                onUpdate={(updates) => onUpdateConcert(c.artistId, c.tourId, c.id, updates)}
+                onOpenEditor={() => onOpenConcert(c.artistId, c.tourId, c.id)}
+              />
+            );
           })
         )}
       </div>

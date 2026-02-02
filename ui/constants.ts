@@ -80,7 +80,7 @@ export const TEXT = {
     TICKET_SALE_PERIOD: 'チケット販売・締切期間です',
     RESULT_ANNOUNCED: '抽選結果が出ている時間です',
     NEED_DATE_SETTING: '日時の設定が必要です',
-    IMPORT_CONFIRM_TITLE: 'データをインポート',
+    IMPORT_CONFIRM_TITLE: 'データを読み込む',
     IMPORT_CONFIRM_MSG: '選択されたファイルで現在のすべてのデータが上書きされます。よろしいですか？',
     DELETE_ARTIST_TITLE: 'アーティストを削除しますか？',
     DELETE_ARTIST_MSG: 'このアーティストに紐づくすべてのデータが完全に削除されます。',

@@ -178,7 +178,7 @@ export const ExhibitionsPage: React.FC<ExhibitionsPageProps> = ({
 
       <ConfirmDialog 
         isOpen={isImportConfirmOpen} 
-        title="データをインポート" 
+        title="データを読み込む" 
         message="選択されたファイルで現在のすべてのデータが上書きされます。よろしいですか？" 
         confirmLabel="読み込む" 
         isDestructive 
