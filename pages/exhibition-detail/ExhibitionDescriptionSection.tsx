@@ -1,12 +1,8 @@
-
 import React, { useState } from 'react';
 import { theme } from '../../ui/theme';
 import { GlassCard } from '../../ui/GlassCard';
 import { Exhibition, ExhibitionArtist } from '../../domain/types';
-import { Input, Button, Divider } from 'antd';
 import { Icons } from '../../ui/IconButton';
-
-const { TextArea } = Input;
 
 interface Props {
   exhibition: Exhibition;
@@ -15,142 +11,164 @@ interface Props {
   onUpdateDescription: (description: string) => void;
 }
 
-export const ExhibitionDescriptionSection: React.FC<Props> = ({ 
-  exhibition, 
-  isEditMode, 
-  onUpdateArtists, 
-  onUpdateDescription 
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '10px 12px',
+  borderRadius: 10,
+  border: '1px solid rgba(0,0,0,0.08)',
+  background: 'white',
+  fontSize: 14,
+  outline: 'none'
+};
+
+export const ExhibitionDescriptionSection: React.FC<Props> = ({
+  exhibition,
+  isEditMode,
+  onUpdateArtists,
+  onUpdateDescription
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const artists = exhibition.artists || [];
 
-  const handleAddArtist = () => {
-    onUpdateArtists([...artists, { name: '' }]);
-  };
-
-  const handleRemoveArtist = (index: number) => {
-    onUpdateArtists(artists.filter((_, i) => i !== index));
-  };
-
-  const handleUpdateArtist = (index: number, patch: Partial<ExhibitionArtist>) => {
-    onUpdateArtists(artists.map((a, i) => i === index ? { ...a, ...patch } : a));
-  };
+  const handleAddArtist = () => onUpdateArtists([...artists, { name: '' }]);
+  const handleRemoveArtist = (index: number) => onUpdateArtists(artists.filter((_, i) => i !== index));
+  const handleUpdateArtist = (index: number, patch: Partial<ExhibitionArtist>) =>
+    onUpdateArtists(artists.map((a, i) => (i === index ? { ...a, ...patch } : a)));
 
   const SubTitle = ({ title }: { title: string }) => (
-    <div style={{ 
-      fontSize: '13px', 
-      fontWeight: '800', 
-      color: theme.colors.primary, 
-      marginBottom: '8px',
-      marginTop: '16px'
-    }}>
+    <div style={{ fontSize: 13, fontWeight: 800, color: theme.colors.primary, marginBottom: 8, marginTop: 16 }}>
       {title}
     </div>
   );
 
   return (
     <GlassCard padding="20px">
-      <div 
+      <div
         onClick={() => !isEditMode && setIsExpanded(!isExpanded)}
-        style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
           cursor: isEditMode ? 'default' : 'pointer',
-          marginBottom: (isExpanded || isEditMode) ? '12px' : '0'
+          marginBottom: isExpanded || isEditMode ? 12 : 0
         }}
       >
-        <h3 style={{ fontSize: '16px', fontWeight: '900', margin: 0, color: theme.colors.primary }}>展覧会について</h3>
+        <h3 style={{ fontSize: 16, fontWeight: 900, margin: 0, color: theme.colors.primary }}>展覧会について</h3>
         {!isEditMode && (
-          <Icons.ChevronLeft 
-            style={{ 
-              width: 20, 
-              height: 20, 
-              transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)', 
+          <Icons.ChevronLeft
+            style={{
+              width: 20,
+              height: 20,
+              transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
               transform: isExpanded ? 'rotate(270deg)' : 'rotate(180deg)',
               color: theme.colors.textSecondary
-            }} 
+            }}
           />
         )}
       </div>
 
       {(isExpanded || isEditMode) && (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          
-          {/* Artists Part */}
+          {/* Artists */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <SubTitle title="作家" />
             {isEditMode && (
-              <Button type="link" onClick={handleAddArtist} icon={<Icons.Plus style={{ width: 14 }} />} style={{ fontWeight: 'bold', padding: 0, color: 'rgb(156, 163, 175)' }}>
+              <button
+                type="button"
+                onClick={handleAddArtist}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  fontWeight: 900,
+                  padding: 0,
+                  color: 'rgb(156, 163, 175)',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
+              >
+                <Icons.Plus style={{ width: 14 }} />
                 追加
-              </Button>
+              </button>
             )}
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {artists.length === 0 && !isEditMode && (
-              <div style={{ color: '#9CA3AF', fontSize: '14px' }}>未登録</div>
-            )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {artists.length === 0 && !isEditMode && <div style={{ color: '#9CA3AF', fontSize: 14 }}>未登録</div>}
+
             {artists.map((artist, idx) => (
-              <div key={idx} style={{ 
-                padding: isEditMode ? '0' : '8px 12px', 
-                background: isEditMode ? 'transparent' : 'rgba(0,0,0,0.02)', 
-                borderRadius: '10px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '2px'
-              }}>
+              <div
+                key={idx}
+                style={{
+                  padding: isEditMode ? 0 : '8px 12px',
+                  background: isEditMode ? 'transparent' : 'rgba(0,0,0,0.02)',
+                  borderRadius: 10,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2
+                }}
+              >
                 {isEditMode ? (
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <Input 
-                        placeholder="作家名" 
-                        value={artist.name} 
-                        onChange={e => handleUpdateArtist(idx, { name: e.target.value })} 
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <input
+                        placeholder="作家名"
+                        value={artist.name}
+                        onChange={(e) => handleUpdateArtist(idx, { name: e.target.value })}
+                        style={inputStyle}
                       />
-                      <Input 
-                        placeholder="備考" 
-                        size="small"
-                        value={artist.note} 
-                        onChange={e => handleUpdateArtist(idx, { note: e.target.value })} 
+                      <input
+                        placeholder="備考"
+                        value={artist.note ?? ''}
+                        onChange={(e) => handleUpdateArtist(idx, { note: e.target.value })}
+                        style={{ ...inputStyle, padding: '8px 10px', fontSize: 12 }}
                       />
                     </div>
-                    <Button 
-                      danger 
-                      type="text" 
-                      icon={<Icons.Trash style={{ width: 16 }} />} 
-                      onClick={() => handleRemoveArtist(idx)} 
-                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveArtist(idx)}
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 12,
+                        border: '1px solid rgba(0,0,0,0.08)',
+                        background: 'rgba(255,255,255,0.9)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: theme.colors.error
+                      }}
+                      aria-label="remove"
+                    >
+                      <Icons.Trash style={{ width: 16 }} />
+                    </button>
                   </div>
                 ) : (
                   <>
-                    <div style={{ fontSize: '14px', fontWeight: '800' }}>{artist.name}</div>
-                    {artist.note && <div style={{ fontSize: '12px', color: theme.colors.textSecondary }}>{artist.note}</div>}
+                    <div style={{ fontSize: 14, fontWeight: 800 }}>{artist.name}</div>
+                    {artist.note && <div style={{ fontSize: 12, color: theme.colors.textSecondary }}>{artist.note}</div>}
                   </>
                 )}
               </div>
             ))}
           </div>
 
-          <Divider style={{ margin: '16px 0', opacity: 0.05 }} />
+          <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', margin: '16px 0' }} />
 
-          {/* Description Part */}
+          {/* Description */}
           <SubTitle title="展覧会紹介" />
           {isEditMode ? (
-            <TextArea 
-              rows={6} 
-              value={exhibition.description} 
-              onChange={e => onUpdateDescription(e.target.value)}
+            <textarea
+              rows={6}
+              value={exhibition.description ?? ''}
+              onChange={(e) => onUpdateDescription(e.target.value)}
               placeholder="展覧会の内容、見どころなどを入力..."
-              style={{ borderRadius: '12px' }}
+              style={{ ...inputStyle, resize: 'vertical', minHeight: 120, borderRadius: 12 }}
             />
           ) : (
-            <div style={{ 
-              fontSize: '15px', 
-              lineHeight: '1.8', 
-              color: theme.colors.textMain, 
-              whiteSpace: 'pre-wrap' 
-            }}>
+            <div style={{ fontSize: 15, lineHeight: '1.8', color: theme.colors.textMain, whiteSpace: 'pre-wrap' }}>
               {exhibition.description || '紹介文がありません。'}
             </div>
           )}

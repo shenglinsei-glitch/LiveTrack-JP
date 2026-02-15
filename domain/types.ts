@@ -77,6 +77,23 @@ export interface Concert {
   concertAt?: string | null;
   lotteryName?: string | null;
   lotteryResult?: 'WON' | 'LOST' | null;
+
+  /**
+   * 抽選結果の履歴（当選/落選）。
+   * 1回の抽選につき複数回記録される可能性があるため append-only。
+   */
+  lotteryHistory?: LotteryHistoryItem[];
+}
+
+export interface LotteryHistoryItem {
+  /** 記録した時刻（ISO） */
+  at: string;
+  /** 結果 */
+  result: 'WON' | 'LOST';
+  /** 抽選名（例：FC先行） */
+  lotteryName?: string | null;
+  /** 結果発表日時（保存されている resultAt のスナップショット） */
+  resultAt?: string | null;
 }
 
 export interface Tour {

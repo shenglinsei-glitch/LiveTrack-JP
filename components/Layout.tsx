@@ -1,13 +1,13 @@
 
 import React from 'react';
 import { theme } from '../ui/theme';
-import { PageId } from '../domain/types';
+import { Page } from '../domain/types';
 import { Icons } from '../ui/IconButton';
 
 interface LayoutProps {
   children: React.ReactNode;
-  currentPath: PageId;
-  onNavigate: (path: PageId) => void;
+  currentPath: Page;
+  onNavigate: (path: Page) => void;
   onPlusClick?: () => void;
   hasConcertAlert?: boolean;
 }
@@ -25,7 +25,7 @@ const NavIcons = {
 };
 
 export const Layout: React.FC<LayoutProps> = ({ children, currentPath, onNavigate, onPlusClick, hasConcertAlert }) => {
-  const tabs: { id: PageId; label: string; icon: React.ReactNode; alert?: boolean }[] = [
+  const tabs: { id: Page; label: string; icon: React.ReactNode; alert?: boolean }[] = [
     { id: 'EXHIBITIONS', label: '展覧', icon: <NavIcons.Exhibitions /> },
     { id: 'MUSIC', label: '音楽', icon: <NavIcons.Music />, alert: hasConcertAlert },
     { id: 'CALENDAR', label: 'カレンダー', icon: <NavIcons.Calendar /> },

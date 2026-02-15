@@ -24,8 +24,12 @@ const InstanceRow: React.FC<{
   onClick?: () => void;
   disabled?: boolean;
 }> = ({ concert, isLast, onClick, disabled }) => {
+  const [showHistory, setShowHistory] = useState(false);
   const isSpecial = concert.status === '参戦予定' || concert.status === '参戦済み';
   const dotColor = isSpecial ? theme.colors.primary : '#9CA3AF';
+
+  const history = Array.isArray(concert.lotteryHistory) ? concert.lotteryHistory : [];
+  const historyCount = history.length;
 
   const handleLinkClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -35,19 +39,26 @@ const InstanceRow: React.FC<{
   };
 
   return (
-    <div 
-      onClick={disabled ? undefined : onClick}
+    <div
       style={{
         padding: '16px 20px',
         display: 'flex',
-        gap: '12px',
-        alignItems: 'center',
-        cursor: (disabled || !onClick) ? 'default' : 'pointer',
+        flexDirection: 'column',
+        gap: '10px',
         borderBottom: isLast ? 'none' : '1px solid rgba(0, 0, 0, 0.05)',
-        transition: 'background 0.2s',
         opacity: disabled ? 0.6 : 1,
       }}
+      onClick={disabled ? undefined : onClick}
     >
+      <div
+        style={{
+          display: 'flex',
+          gap: '12px',
+          alignItems: 'center',
+          cursor: (disabled || !onClick) ? 'default' : 'pointer',
+          transition: 'background 0.2s',
+        }}
+      >
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{ fontWeight: '800', fontSize: '15px' }}>{concert.date}</span>
@@ -87,6 +98,70 @@ const InstanceRow: React.FC<{
           </div>
         )}
       </div>
+
+      </div>
+
+      {historyCount > 0 && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
+        >
+          <button
+            onClick={() => setShowHistory(v => !v)}
+            style={{
+              border: 'none',
+              background: 'rgba(0,0,0,0.04)',
+              color: theme.colors.textSecondary,
+              padding: '8px 10px',
+              borderRadius: '10px',
+              fontSize: '12px',
+              fontWeight: '800',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <span>抽選履歴（{historyCount}）</span>
+            <span style={{ opacity: 0.6 }}>{showHistory ? '閉じる' : '見る'}</span>
+          </button>
+
+          {showHistory && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingLeft: '2px' }}>
+              {[...history].slice().reverse().map((h, idx) => (
+                <div
+                  key={`${h.at}_${idx}`}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    gap: '10px',
+                    fontSize: '12px',
+                    color: theme.colors.textSecondary,
+                    background: 'rgba(255,255,255,0.7)',
+                    border: '1px solid rgba(0,0,0,0.05)',
+                    borderRadius: '10px',
+                    padding: '8px 10px',
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 900, color: h.result === 'WON' ? theme.colors.primary : theme.colors.error }}>
+                      {h.result === 'WON' ? '当選' : '落選'}
+                    </div>
+                    {(h.lotteryName || h.resultAt) && (
+                      <div style={{ marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {h.lotteryName ? `${h.lotteryName}` : ''}{h.lotteryName && h.resultAt ? ' / ' : ''}{h.resultAt ? `結果：${h.resultAt}` : ''}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ flexShrink: 0, opacity: 0.75 }}>
+                    {new Date(h.at).toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

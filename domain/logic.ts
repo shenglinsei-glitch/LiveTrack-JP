@@ -1,5 +1,5 @@
 
-import { Artist, Concert, Status, TICKET_TRACK_STATUSES, TOUR_ACTIVE_STATUSES, GlobalSettings, DueAction, CalendarEvent, CalendarEventType, Exhibition } from './types';
+import { Artist, Concert, Status, TICKET_TRACK_STATUSES, TOUR_ACTIVE_STATUSES, GlobalSettings, DueAction, CalendarEvent, CalendarEventType, Exhibition, LotteryHistoryItem } from '../domain/types';
 import { TEXT } from '../ui/constants';
 import { bulkPutImageUrls, bulkGetImageUrls } from './imageStore';
 
@@ -179,6 +179,17 @@ export const applyDecision = (
   decision: 'BUY' | 'CONSIDER' | 'SKIP' | 'WON' | 'LOST', 
   payload?: { lotteryName?: string; resultAt?: string; concertAt?: string }
 ): Concert => {
+  const withLotteryHistory = (result: 'WON' | 'LOST'): Concert => {
+    const item: LotteryHistoryItem = {
+      at: new Date().toISOString(),
+      result,
+      lotteryName: payload?.lotteryName ?? concert.lotteryName ?? null,
+      resultAt: payload?.resultAt ?? concert.resultAt ?? null,
+    };
+    const prev = concert.lotteryHistory ?? [];
+    return { ...concert, lotteryHistory: [...prev, item] };
+  };
+
   switch (decision) {
     case 'BUY':
       return { 
@@ -193,13 +204,13 @@ export const applyDecision = (
       return { ...concert, status: '見送', lotteryResult: null };
     case 'WON':
       return { 
-        ...concert, 
+        ...withLotteryHistory('WON'),
         status: '参戦予定', 
         lotteryResult: 'WON',
         concertAt: payload?.concertAt ?? (concert.concertAt || concert.date)
       };
     case 'LOST':
-      return { ...concert, status: '見送', lotteryResult: 'LOST' };
+      return { ...withLotteryHistory('LOST'), status: '見送', lotteryResult: 'LOST' };
     default:
       return concert;
   }

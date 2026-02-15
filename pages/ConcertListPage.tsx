@@ -352,6 +352,7 @@ const MilestoneRowCard: React.FC<{
         concertAt: updated.concertAt ?? null,
         lotteryName: updated.lotteryName ?? null,
         lotteryResult: updated.lotteryResult ?? null,
+        lotteryHistory: updated.lotteryHistory,
         isParticipated: updated.isParticipated,
       });
     },
@@ -845,28 +846,33 @@ export const ConcertListPage: React.FC<Props> = ({
 
   return (
     <PageShell
-      title={TEXT.LABELS.SCHEDULE}
-      hideHeader={hideHeader}
-      rightSlot={
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button
-            onClick={onRefreshAll}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 999,
-              border: 'none',
-              background: 'rgba(0,0,0,0.05)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-            }}
-            aria-label="refresh"
-          >
-            <Icons.Refresh style={{ width: 18, height: 18 }} />
-          </button>
-        </div>
+      header={
+        hideHeader ? undefined : (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ fontSize: 18, fontWeight: 900, color: theme.colors.text }}>
+              {TEXT.LABELS.CONCERT_SCHEDULE}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button
+                onClick={onRefreshAll}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 999,
+                  border: 'none',
+                  background: 'rgba(0,0,0,0.05)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                }}
+                aria-label="refresh"
+              >
+                <Icons.Refresh style={{ width: 18, height: 18 }} />
+              </button>
+            </div>
+          </div>
+        )
       }
     >
       <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
