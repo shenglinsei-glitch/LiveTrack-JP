@@ -2,12 +2,15 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { theme } from '../ui/theme';
 import { Icons, IconButton } from '../ui/IconButton';
 import { PageShell } from '../ui/PageShell';
-import { Exhibition, ExhibitionOverallStatus } from '../domain/types';
+import { Exhibition, ExhibitionStatus } from '../domain/types';
 import { ExhibitionInfoSection } from './exhibition-detail/ExhibitionInfoSection';
 import { ExhibitionDescriptionSection } from './exhibition-detail/ExhibitionDescriptionSection';
 import { ExhibitionGallerySection } from './exhibition-detail/ExhibitionGallerySection';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import dayjs from 'dayjs';
+
+import { useRemoteImage } from '../components/RemoteImage';
+import { getEffectiveExhibitionStatus } from '../domain/logic';
 
 interface ExhibitionDetailPageProps {
   exhibition: Exhibition;
@@ -53,21 +56,8 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
     setFormData(exhibition);
   }, [exhibition]);
 
-  const computedStatus = useMemo(() => {
-    if (formData.visitedAt) return 'visited' as ExhibitionOverallStatus;
-
-    const now = dayjs().startOf('day');
-    const start = dayjs(formData.startDate).startOf('day');
-    const end = dayjs(formData.endDate).endOf('day');
-
-    if (now.isBefore(start)) return 'preparing' as ExhibitionOverallStatus;
-    if (now.isAfter(end)) return 'ended_not_visited' as ExhibitionOverallStatus;
-    return 'running' as ExhibitionOverallStatus;
-  }, [formData.startDate, formData.endDate, formData.visitedAt]);
-
   const handleSave = () => {
-    const updated = { ...formData, exhibitionStatus: computedStatus };
-    onUpdateExhibition(updated);
+    onUpdateExhibition(formData);
     setIsEditMode(false);
   };
 
@@ -76,27 +66,35 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
     setIsEditMode(false);
   };
 
-  const exhibitionStatusLabelMap: Record<ExhibitionOverallStatus, string> = {
-    preparing: '準備中',
-    running: '開催中',
-    visited: '参加済',
-    ended_not_visited: '終了（未参加）'
+  const effectiveStatus = getEffectiveExhibitionStatus(formData);
+
+  const exhibitionStatusLabelMap: Record<ExhibitionStatus, string> = {
+    NONE: '準備中',
+    PLANNED: '開催中',
+    RESERVED: '予約済',
+    SKIPPED: '見送る',
+    VISITED: '参戦済み',
+    ENDED: '終了'
   };
 
-  const statusColors: Record<ExhibitionOverallStatus, string> = {
-    preparing: '#9CA3AF',
-    running: theme.colors.primary,
-    visited: '#10B981',
-    ended_not_visited: '#6B7280'
+  const statusColors: Record<ExhibitionStatus, string> = {
+    NONE: '#9CA3AF',
+    PLANNED: theme.colors.primary,
+    RESERVED: '#F59E0B',
+    VISITED: '#10B981',
+    SKIPPED: '#6B7280',
+    ENDED: '#9CA3AF'
   };
+
+  const { resolvedUrl: backgroundUrl } = useRemoteImage(formData.imageUrl, formData.imageId);
 
   return (
     <div style={{ position: 'relative', minHeight: '100vh', background: '#F5F5F7' }}>
       {/* Background */}
       <div style={{ position: 'fixed', inset: 0, zIndex: 0, overflow: 'hidden' }}>
-        {formData.imageUrl ? (
+        {backgroundUrl ? (
           <img
-            src={formData.imageUrl}
+            src={backgroundUrl}
             style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'brightness(0.9) blur(0px)' }}
             alt=""
           />
@@ -231,7 +229,7 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
                 <span style={{ fontSize: '13px', fontWeight: '700', color: theme.colors.textSecondary, letterSpacing: '0.02em' }}>
                   {formData.startDate?.replace(/-/g, '/')} ～ {formData.endDate?.replace(/-/g, '/')}
                 </span>
-                <StatusTag color={statusColors[computedStatus]}>{exhibitionStatusLabelMap[computedStatus]}</StatusTag>
+                <StatusTag color={statusColors[formData.status]}>{exhibitionStatusLabelMap[formData.status]}</StatusTag>
               </div>
             </div>
 

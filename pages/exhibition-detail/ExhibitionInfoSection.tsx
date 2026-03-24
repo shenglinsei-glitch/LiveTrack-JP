@@ -3,7 +3,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { theme } from '../../ui/theme';
 import { GlassCard } from '../../ui/GlassCard';
-import { Exhibition, ExhibitionOverallStatus, ExhibitionTicketSalesStatus } from '../../domain/types';
+import { Exhibition, ExhibitionStatus, ExhibitionTicketSalesStatus } from '../../domain/types';
 import { Icons } from '../../ui/IconButton';
 import {
   Select,
@@ -389,9 +389,15 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
         <>
           {isEditMode ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div>
-                <Label>ポスター画像 (URL)</Label>
-                <Input value={exhibition.imageUrl} onChange={(e) => onChange({ imageUrl: e.target.value })} placeholder="https://..." />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <Label>ポスター画像 (URL)</Label>
+                  <Input value={exhibition.imageUrl} onChange={(e) => onChange({ imageUrl: e.target.value })} placeholder="https://..." />
+                </div>
+                <div>
+                  <Label>ポスター画像 (ID)</Label>
+                  <Input value={exhibition.imageId} onChange={(e) => onChange({ imageId: e.target.value })} placeholder="ID..." />
+                </div>
               </div>
 
               <div>

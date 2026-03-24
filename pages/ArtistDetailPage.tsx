@@ -7,6 +7,8 @@ import { Artist, Concert, DisplaySettings, Status } from '../domain/types';
 import { calcArtistStatus, sortPerformancesForDisplay } from '../domain/logic';
 import { TEXT } from '../ui/constants';
 
+import { RemoteImage } from '../components/RemoteImage';
+
 interface Props {
   artistId: string;
   artist: Artist;
@@ -192,10 +194,10 @@ export const ArtistDetailPage: React.FC<Props> = ({
   }, [status]);
 
   const processedTours = useMemo(() => {
-    return artist.tours
+    return (artist.tours || [])
       .map(tour => ({
         ...tour,
-        concerts: sortPerformancesForDisplay(tour.concerts.filter(c => {
+        concerts: sortPerformancesForDisplay((tour.concerts || []).filter(c => {
           if (!settings.showAttended && c.status === '参戦済み') return false;
           if (!settings.showSkipped && c.status === '見送') return false;
           return true;
@@ -293,11 +295,12 @@ export const ArtistDetailPage: React.FC<Props> = ({
           <div style={{ 
             width: '96px', height: '96px', borderRadius: '50%', background: '#F3F4F6', border: '3px solid white', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}>
-            {artist.imageUrl ? (
-              <img src={artist.imageUrl} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <span style={{ fontSize: '32px', opacity: 0.2 }}>👤</span>
-            )}
+            <RemoteImage 
+              imageUrl={artist.imageUrl} 
+              imageId={(artist as any).imageId}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+              fallback={<span style={{ fontSize: '32px', opacity: 0.2 }}>👤</span>}
+            />
           </div>
           <div style={{ minWidth: 0 }}>
             <h1 style={{ fontSize: '32px', fontWeight: '900', margin: 0, letterSpacing: '-0.02em', lineHeight: '1.2' }}>{artist.name}</h1>
@@ -387,11 +390,12 @@ export const ArtistDetailPage: React.FC<Props> = ({
                     borderBottom: '1px solid rgba(0,0,0,0.03)' 
                   }}>
                     <div style={{ width: '60px', height: '80px', borderRadius: '12px', background: '#F3F4F6', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {tour.imageUrl && !imgErrors[tour.id] ? (
-                        <img src={tour.imageUrl} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setImgErrors(p => ({ ...p, [tour.id]: true }))} />
-                      ) : (
-                        <span style={{ fontSize: '24px', opacity: 0.2 }}>🎸</span>
-                      )}
+                      <RemoteImage 
+                        imageUrl={tour.imageUrl} 
+                        imageId={(tour as any).imageId}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                        fallback={<span style={{ fontSize: '24px', opacity: 0.2 }}>🎸</span>}
+                      />
                     </div>
                     <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -422,11 +426,11 @@ export const ArtistDetailPage: React.FC<Props> = ({
 
                   {!isSelectionMode && (
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      {tour.concerts.map((c, idx) => (
+                      {(tour.concerts || []).map((c, idx) => (
                         <InstanceRow 
                           key={c.id} 
                           concert={c} 
-                          isLast={idx === tour.concerts.length - 1}
+                          isLast={idx === (tour.concerts || []).length - 1}
                           onClick={(c.status === '参戦予定' || c.status === '参戦済み') ? () => onOpenConcertHome(artistId, tour.id, c.id) : undefined} 
                         />
                       ))}

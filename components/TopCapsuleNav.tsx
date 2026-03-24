@@ -8,18 +8,23 @@ interface TopCapsuleNavProps {
   onTabChange: (tab: string) => void;
   onRefresh: () => void;
   isRefreshing?: boolean;
+  tabs?: { key: string; label: string }[];
+  leftControl?: React.ReactNode;
+  rightControl?: React.ReactNode;
 }
 
 export const TopCapsuleNav: React.FC<TopCapsuleNavProps> = ({ 
   activeTab, 
   onTabChange, 
   onRefresh,
-  isRefreshing 
-}) => {
-  const tabs = [
+  isRefreshing,
+  leftControl,
+  rightControl,
+  tabs = [
     { key: 'artists', label: 'アーティスト' },
     { key: 'concerts', label: '公演' }
-  ];
+  ]
+}) => {
 
   const glassStyle: React.CSSProperties = {
     background: 'rgba(255, 255, 255, 0.72)',
@@ -44,6 +49,12 @@ export const TopCapsuleNav: React.FC<TopCapsuleNavProps> = ({
       {/* Container to allow relative positioning of children */}
       <div style={{ position: 'relative', width: '100%', height: '100%' }}>
         
+        {leftControl && (
+          <div style={{ position: 'absolute', left: 0, height: '44px', pointerEvents: 'auto' }}>
+            {leftControl}
+          </div>
+        )}
+
         {/* Centered Capsule: Tabs Segmented Control */}
         <div style={{
           ...glassStyle,
@@ -85,43 +96,44 @@ export const TopCapsuleNav: React.FC<TopCapsuleNavProps> = ({
           })}
         </div>
 
-        {/* Right Positioned Capsule: Independent Refresh Button */}
-        <button
-          onClick={onRefresh}
-          disabled={isRefreshing}
-          style={{
-            ...glassStyle,
-            position: 'absolute',
-            right: 0,
-            width: '44px',
-            height: '44px',
-            borderRadius: '9999px',
-            justifyContent: 'center',
-            cursor: isRefreshing ? 'default' : 'pointer',
-            outline: 'none',
-            padding: 0,
-            pointerEvents: 'auto',
-            color: isRefreshing ? theme.colors.primary : '#9CA3AF',
-            transition: 'transform 0.15s ease',
-          }}
-          onMouseDown={(e) => !isRefreshing && (e.currentTarget.style.transform = 'scale(0.92)')}
-          onMouseUp={(e) => !isRefreshing && (e.currentTarget.style.transform = 'scale(1)')}
-          onMouseLeave={(e) => !isRefreshing && (e.currentTarget.style.transform = 'scale(1)')}
-        >
-          <Icons.Refresh 
-            style={{ 
-              width: '18px', 
-              height: '18px',
-              animation: isRefreshing ? 'spin 1s linear infinite' : 'none'
-            }} 
-          />
-          <style>{`
-            @keyframes spin {
-              from { transform: rotate(0deg); }
-              to { transform: rotate(360deg); }
-            }
-          `}</style>
-        </button>
+        {rightControl ?? (
+          <button
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            style={{
+              ...glassStyle,
+              position: 'absolute',
+              right: 0,
+              width: '44px',
+              height: '44px',
+              borderRadius: '9999px',
+              justifyContent: 'center',
+              cursor: isRefreshing ? 'default' : 'pointer',
+              outline: 'none',
+              padding: 0,
+              pointerEvents: 'auto',
+              color: isRefreshing ? theme.colors.primary : '#9CA3AF',
+              transition: 'transform 0.15s ease',
+            }}
+            onMouseDown={(e) => !isRefreshing && (e.currentTarget.style.transform = 'scale(0.92)')}
+            onMouseUp={(e) => !isRefreshing && (e.currentTarget.style.transform = 'scale(1)')}
+            onMouseLeave={(e) => !isRefreshing && (e.currentTarget.style.transform = 'scale(1)')}
+          >
+            <Icons.Refresh 
+              style={{ 
+                width: '18px', 
+                height: '18px',
+                animation: isRefreshing ? 'spin 1s linear infinite' : 'none'
+              }} 
+            />
+            <style>{`
+              @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+              }
+            `}</style>
+          </button>
+        )}
       </div>
     </div>
   );

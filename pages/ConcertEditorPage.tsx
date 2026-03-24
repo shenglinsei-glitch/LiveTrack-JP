@@ -188,7 +188,13 @@ const navBtnStyle = { border: 'none', background: 'none', padding: '4px 8px', cu
 const selectTimeStyle = { flex: 1, padding: '8px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: 'white' };
 
 export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, allArtists, onSave, onCancel, onDeleteTour }) => {
-  const getInitialData = (): Tour => tourId && tour ? { ...tour } : { id: generateId(), name: '', imageUrl: '', memo: '', concerts: [], officialUrl: '' };
+  const getInitialData = (): Tour => {
+    const base = tourId && tour ? { ...tour } : { id: generateId(), name: '', imageUrl: '', memo: '', concerts: [], officialUrl: '' };
+    return {
+      ...base,
+      concerts: Array.isArray(base.concerts) ? base.concerts : [],
+    };
+  };
   const [formData, setFormData] = useState<Tour>(getInitialData());
   const initialSnapshotRef = useRef<string>(JSON.stringify(getInitialData()));
   const [imageUrlDraft, setImageUrlDraft] = useState(formData.imageUrl);
@@ -200,9 +206,13 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
 
   useEffect(() => { 
     if (tour) { 
-      setFormData({ ...tour }); 
-      setImageUrlDraft(tour.imageUrl); 
-      initialSnapshotRef.current = JSON.stringify(tour); 
+      const normalized = {
+        ...tour,
+        concerts: Array.isArray(tour.concerts) ? tour.concerts : [],
+      };
+      setFormData(normalized); 
+      setImageUrlDraft(normalized.imageUrl); 
+      initialSnapshotRef.current = JSON.stringify(normalized); 
     } 
   }, [tourId, tour]);
   
@@ -230,11 +240,11 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
 
   const handleAddConcert = () => {
     const nc: Concert = { id: generateId(), date: 'TBD', venue: '', price: 0, saleLink: '', status: '発売前', isParticipated: false, imageIds: [] };
-    setFormData(prev => ({ ...prev, concerts: [...prev.concerts, nc] }));
+    setFormData(prev => ({ ...prev, concerts: [...(prev.concerts || []), nc] }));
     setExpandedConcertId(nc.id);
   };
 
-  const handleUpdateConcert = (id: string, updates: Partial<Concert>) => setFormData(prev => ({ ...prev, concerts: prev.concerts.map(c => c.id === id ? { ...c, ...updates } : c) }));
+  const handleUpdateConcert = (id: string, updates: Partial<Concert>) => setFormData(prev => ({ ...prev, concerts: (prev.concerts || []).map(c => c.id === id ? { ...c, ...updates } : c) }));
 
   const handleLoadImage = () => {
     if (imageUrlDraft.trim()) {
@@ -301,7 +311,7 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
             <button type="button" onClick={handleAddConcert} style={actionButtonStyle}>＋ 公演追加</button>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-            {sortPerformancesForDisplay(formData.concerts).map(c => {
+            {sortPerformancesForDisplay(formData.concerts || []).map(c => {
               const exp = expandedConcertId === c.id;
               return (
                 <GlassCard key={c.id} padding="0" style={{ position: 'relative', zIndex: exp ? 10 : 1 }}>

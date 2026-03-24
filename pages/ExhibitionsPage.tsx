@@ -1,12 +1,15 @@
-import React, { useState, useRef } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { PageShell } from '../ui/PageShell';
 import { GlassCard } from '../ui/GlassCard';
 import { theme } from '../ui/theme';
 import { Icons } from '../ui/IconButton';
-import { Exhibition } from '../domain/types';
+import { Exhibition, ExhibitionStatus } from '../domain/types';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { ExhibitionMenu } from '../components/ExhibitionMenu';
+import { ExhibitionMenu, ExhibitionSortKey } from '../components/ExhibitionMenu';
 import dayjs from 'dayjs';
+
+import { RemoteImage } from '../components/RemoteImage';
+import { getEffectiveExhibitionStatus } from '../domain/logic';
 
 interface ExhibitionsPageProps {
   exhibitions: Exhibition[];
@@ -17,6 +20,7 @@ interface ExhibitionsPageProps {
   onAddNew: () => void;
   onExport: () => void;
   onImport: (data: any) => void;
+  hideHeader?: boolean;
 }
 
 const StatusTag: React.FC<{ color: string; children: React.ReactNode }> = ({ color, children }) => (
@@ -46,11 +50,14 @@ export const ExhibitionsPage: React.FC<ExhibitionsPageProps> = ({
   onMenuClose,
   onAddNew,
   onExport,
-  onImport
+  onImport,
+  hideHeader
 }) => {
   const [isMobile] = useState(window.innerWidth <= 480);
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
   const [stagedImportData, setStagedImportData] = useState<any>(null);
+  const [sortKey, setSortKey] = useState<ExhibitionSortKey>('date_asc');
+  const [selectedStatuses, setSelectedStatuses] = useState<ExhibitionStatus[] | undefined>(undefined);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImportClick = () => {
@@ -84,16 +91,53 @@ export const ExhibitionsPage: React.FC<ExhibitionsPageProps> = ({
     setIsImportConfirmOpen(false);
   };
 
+
+  const displayExhibitions = useMemo(() => {
+    const allowed = new Set<ExhibitionStatus>(selectedStatuses && selectedStatuses.length ? selectedStatuses : ['NONE', 'PLANNED', 'RESERVED', 'VISITED', 'SKIPPED', 'ENDED']);
+    const list = (exhibitions || []).filter((ex) => allowed.has(getEffectiveExhibitionStatus(ex)));
+    const getStart = (ex: Exhibition) => dayjs(ex.startDate).valueOf() || 0;
+    const sorted = [...list].sort((a, b) => {
+      if (sortKey === 'date_asc') return getStart(a) - getStart(b);
+      if (sortKey === 'date_desc') return getStart(b) - getStart(a);
+      if (sortKey === 'name_desc') return (b.title || '').localeCompare(a.title || '');
+      return (a.title || '').localeCompare(b.title || '');
+    });
+    return sorted;
+  }, [exhibitions, selectedStatuses, sortKey]);
+
+  const toggleStatus = (status: ExhibitionStatus) => {
+    const base = selectedStatuses && selectedStatuses.length ? selectedStatuses : ['NONE', 'PLANNED', 'RESERVED', 'VISITED', 'SKIPPED', 'ENDED'];
+    const next = new Set<ExhibitionStatus>(base);
+    if (next.has(status)) next.delete(status);
+    else next.add(status);
+    const result = next.size === 0 || next.size === 6 ? undefined : Array.from(next);
+    setSelectedStatuses(result);
+  };
+
   const getStatus = (ex: Exhibition): { label: string; color: string } => {
-    if (ex.visitedAt) return { label: '参加済', color: '#10B981' };
+    const effectiveStatus = getEffectiveExhibitionStatus(ex);
+    const exhibitionStatusLabelMap: Record<ExhibitionStatus, string> = {
+      NONE: '準備中',
+      PLANNED: '開催中',
+      RESERVED: '予約済',
+      SKIPPED: '見送る',
+      VISITED: '参戦済み',
+      ENDED: '終了'
+    };
 
-    const today = dayjs().startOf('day');
-    const start = dayjs(ex.startDate).startOf('day');
-    const end = dayjs(ex.endDate).endOf('day');
+    const statusColors: Record<ExhibitionStatus, string> = {
+      NONE: '#9CA3AF',
+      PLANNED: theme.colors.primary,
+      RESERVED: '#F59E0B',
+      VISITED: '#10B981',
+      SKIPPED: '#6B7280',
+      ENDED: '#9CA3AF'
+    };
 
-    if (today.isBefore(start)) return { label: '準備中', color: '#9CA3AF' };
-    if (today.isAfter(end)) return { label: '終了', color: '#6B7280' };
-    return { label: '開催中', color: theme.colors.primary };
+    return { 
+      label: exhibitionStatusLabelMap[effectiveStatus] || '未定', 
+      color: statusColors[effectiveStatus] || '#9CA3AF' 
+    };
   };
 
   return (
@@ -115,7 +159,7 @@ export const ExhibitionsPage: React.FC<ExhibitionsPageProps> = ({
           marginTop: 'calc(env(safe-area-inset-top) + 20px)'
         }}
       >
-        {exhibitions.length === 0 ? (
+        {displayExhibitions.length === 0 ? (
           <div
             style={{
               gridColumn: '1 / -1',
@@ -134,7 +178,7 @@ export const ExhibitionsPage: React.FC<ExhibitionsPageProps> = ({
             <div style={{ fontWeight: '600' }}>展覧会情報がありません。</div>
           </div>
         ) : (
-          exhibitions.map((ex) => {
+          displayExhibitions.map((ex) => {
             const status = getStatus(ex);
             return (
               <div key={ex.id} onClick={() => onOpenDetail(ex.id)} style={{ position: 'relative' }}>
@@ -148,29 +192,29 @@ export const ExhibitionsPage: React.FC<ExhibitionsPageProps> = ({
                   }}
                 >
                   <div style={{ position: 'relative', paddingTop: '140%', background: '#F3F4F6' }}>
-                    {ex.imageUrl ? (
-                      <img
-                        src={ex.imageUrl}
-                        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-                        alt={ex.title}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          width: '100%',
-                          height: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          opacity: 0.2
-                        }}
-                      >
-                        <Icons.Exhibitions style={{ width: 48, height: 48 }} />
-                      </div>
-                    )}
+                    <RemoteImage 
+                      imageUrl={ex.imageUrl} 
+                      imageId={ex.imageId}
+                      alt={ex.title}
+                      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                      fallback={(
+                        <div
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            opacity: 0.2
+                          }}
+                        >
+                          <Icons.Exhibitions style={{ width: 48, height: 48 }} />
+                        </div>
+                      )}
+                    />
 
                     <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', gap: '4px' }}>
                       <StatusTag color={status.color}>{status.label}</StatusTag>
@@ -235,8 +279,15 @@ export const ExhibitionsPage: React.FC<ExhibitionsPageProps> = ({
         isOpen={!!isMenuOpenExternally}
         onClose={() => onMenuClose?.()}
         onAddNew={onAddNew}
+        showAddAction={false}
+        position={hideHeader ? 'top-left' : 'bottom-right'}
         onExport={onExport}
         onImport={handleImportClick}
+        sortKey={sortKey}
+        onSetSortKey={setSortKey}
+        selectedStatuses={selectedStatuses}
+        onToggleStatus={toggleStatus}
+        onSelectAllStatuses={() => setSelectedStatuses(undefined)}
       />
 
       <ConfirmDialog

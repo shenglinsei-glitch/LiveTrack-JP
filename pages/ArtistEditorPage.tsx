@@ -58,8 +58,16 @@ export const ArtistEditorPage: React.FC<Props> = ({
     order: 0,
   });
 
-  const [formData, setFormData] = useState<Artist>(artist ? { ...artist } : createNewArtist());
-  const initialSnapshotRef = useRef<string>(JSON.stringify(artist ? { ...artist } : formData));
+  const [formData, setFormData] = useState<Artist>(() => {
+    if (!artist) return createNewArtist();
+    return {
+      ...createNewArtist(),
+      ...artist,
+      links: Array.isArray(artist.links) ? artist.links : [],
+      tours: Array.isArray(artist.tours) ? artist.tours : [],
+    };
+  });
+  const initialSnapshotRef = useRef<string>(JSON.stringify(formData));
   const [imageUrlDraft, setImageUrlDraft] = useState(formData.imageUrl);
   const [hasChanges, setHasChanges] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -67,9 +75,15 @@ export const ArtistEditorPage: React.FC<Props> = ({
 
   useEffect(() => {
     if (artist) {
-      setFormData({ ...artist });
-      setImageUrlDraft(artist.imageUrl);
-      initialSnapshotRef.current = JSON.stringify(artist);
+      const normalized = {
+        ...createNewArtist(),
+        ...artist,
+        links: Array.isArray(artist.links) ? artist.links : [],
+        tours: Array.isArray(artist.tours) ? artist.tours : [],
+      };
+      setFormData(normalized);
+      setImageUrlDraft(normalized.imageUrl);
+      initialSnapshotRef.current = JSON.stringify(normalized);
     }
   }, [artistId, artist]);
 
@@ -109,10 +123,9 @@ export const ArtistEditorPage: React.FC<Props> = ({
     // 3. 判定列表页/分页页：判定为不可
     // 匹配包含 /news/、/list/、/page/、/p/ 后面紧跟数字或特定结构的 URL
     const isNumberedList = /\/(news|list|page|p|archive)\/\d+/.test(lower);
-    const isMrsGreenAppleList = /\/list\/\d+\/\d+/.test(lower); // 处理 /news/list/1/6/
     const isNewsRoot = /\/(news|list|p)\/?(\?.*)?$/.test(lower); // 处理以 /news 或 /news/ 结尾的路径
 
-    if (isNumberedList || isMrsGreenAppleList || isNewsRoot) {
+    if (isNumberedList || isNewsRoot) {
       return 'unsupported';
     }
 
@@ -298,7 +311,7 @@ export const ArtistEditorPage: React.FC<Props> = ({
           <h3 style={sectionTitleStyle}>公式サイト・リンク</h3>
           <GlassCard padding={theme.spacing.md}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-              {formData.links.map((link, idx) => {
+              {(formData.links || []).map((link, idx) => {
                 const safe = normalizeLink(link);
                 return (
                   <div key={idx} style={linkBoxStyle}>

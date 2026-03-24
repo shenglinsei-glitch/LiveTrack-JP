@@ -1,6 +1,8 @@
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { PageId, Artist, Tour, DisplaySettings, Status, GlobalSettings, SiteLink, TrackingStatus, TrackingErrorType, Concert, Exhibition, ConcertViewMode } from './domain/types';
+import { normalizeArtistData, normalizeExhibitionData } from './utils/data';
+import { safeSave, safeGet } from './utils/storage';
+import { PageId, Artist, Tour, DisplaySettings, Status, GlobalSettings, SiteLink, TrackingStatus, TrackingErrorType, Concert, Exhibition } from './domain/types';
 import { Layout } from './components/Layout';
 import { ArtistListPage } from './pages/ArtistListPage';
 import { ConcertListPage } from './pages/ConcertListPage';
@@ -9,8 +11,8 @@ import { ArtistDetailPage } from './pages/ArtistDetailPage';
 import { ConcertHomePage } from './pages/ConcertHomePage';
 import { ArtistEditorPage } from './pages/ArtistEditorPage';
 import { ConcertEditorPage } from './pages/ConcertEditorPage';
-import { MusicPage } from './pages/MusicPage';
-import { ExhibitionsPage } from './pages/ExhibitionsPage';
+import { ContentPage } from './pages/ContentPage';
+import { StatusPage } from './pages/StatusPage';
 import { ExhibitionDetailPage } from './pages/ExhibitionDetailPage';
 import { GlassCard } from './ui/GlassCard';
 import { theme } from './ui/theme';
@@ -33,22 +35,7 @@ const STORAGE_KEYS = {
   GLOBAL_SETTINGS: 'livetrack_jp_global_settings',
   DISPLAY_SETTINGS: 'livetrack_jp_display_settings',
   ARTIST_SORT: 'livetrack_jp_artist_sort',
-  CONCERT_SORT: 'livetrack_jp_concert_sort',
-  CONCERT_VIEW_MODE: 'livetrack_jp_concert_view_mode'
-};
-
-const safeSave = (key: string, data: any) => {
-  try {
-    const serialized = JSON.stringify(data);
-    localStorage.setItem(key, serialized);
-  } catch (err: any) {
-    console.error(`Persistence Error for key [${key}]:`, err);
-    let userMsg = "データの保存に失敗しました。";
-    if (err.name === 'QuotaExceededError' || err.code === 22) {
-      userMsg += "\nストレージ容量が不足しています。";
-    }
-    window.alert(userMsg);
-  }
+  CONCERT_SORT: 'livetrack_jp_concert_sort'
 };
 
 const normalizeUrl = (raw: string): string => {
@@ -70,7 +57,7 @@ const fetchWithTimeout = async (url: string, timeoutMs: number) => {
 };
 
 export default function App() {
-  const [nav, setNav] = useState<NavContext>({ path: 'EXHIBITIONS' });
+  const [nav, setNav] = useState<NavContext>({ path: 'CONTENT' });
   const [isArtistPickerOpen, setIsArtistPickerOpen] = useState(false);
   const [isTracking, setIsTracking] = useState(false);
   const trackingLockRef = useRef(false);
@@ -80,49 +67,32 @@ export default function App() {
   const [isCalendarMenuOpen, setIsCalendarMenuOpen] = useState(false);
   const [isExhibitionMenuOpen, setIsExhibitionMenuOpen] = useState(false);
 
-  const [musicActiveTab, setMusicActiveTab] = useState('artists');
+  const [contentActiveTab, setContentActiveTab] = useState('artists');
   
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.GLOBAL_SETTINGS);
-      return saved ? JSON.parse(saved) : { autoTrackIntervalDays: 7 };
-    } catch { return { autoTrackIntervalDays: 7 }; }
+    return safeGet<GlobalSettings>(STORAGE_KEYS.GLOBAL_SETTINGS, { autoTrackIntervalDays: 7 });
   });
 
   const [displaySettings, setDisplaySettings] = useState<DisplaySettings>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.DISPLAY_SETTINGS);
-      return saved ? JSON.parse(saved) : { showAttended: true, showSkipped: true };
-    } catch { return { showAttended: true, showSkipped: true }; }
+    return safeGet<DisplaySettings>(STORAGE_KEYS.DISPLAY_SETTINGS, { showAttended: true, showSkipped: true });
   });
 
   const [artistSortMode, setArtistSortMode] = useState<'manual' | 'status'>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.ARTIST_SORT);
-    return (saved as 'manual' | 'status') || 'status';
+    return safeGet<'manual' | 'status'>(STORAGE_KEYS.ARTIST_SORT, 'status');
   });
 
   const [concertSortMode, setConcertSortMode] = useState<'status' | 'lottery'>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.CONCERT_SORT);
-    return (saved as 'status' | 'lottery') || 'status';
-  });
-
-  const [concertViewMode, setConcertViewMode] = useState<ConcertViewMode>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.CONCERT_VIEW_MODE);
-    return (saved as ConcertViewMode) || 'concert';
+    return safeGet<'status' | 'lottery'>(STORAGE_KEYS.CONCERT_SORT, 'status');
   });
 
   const [artists, setArtists] = useState<Artist[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.ARTISTS);
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
+    const raw = safeGet<any[]>(STORAGE_KEYS.ARTISTS, []);
+    return (raw || []).map(normalizeArtistData);
   });
 
   const [exhibitions, setExhibitions] = useState<Exhibition[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.EXHIBITIONS);
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
+    const raw = safeGet<any[]>(STORAGE_KEYS.EXHIBITIONS, []);
+    return (raw || []).map(normalizeExhibitionData);
   });
 
   useEffect(() => { safeSave(STORAGE_KEYS.ARTISTS, artists); }, [artists]);
@@ -131,11 +101,32 @@ export default function App() {
   useEffect(() => { safeSave(STORAGE_KEYS.DISPLAY_SETTINGS, displaySettings); }, [displaySettings]);
   useEffect(() => { safeSave(STORAGE_KEYS.ARTIST_SORT, artistSortMode); }, [artistSortMode]);
   useEffect(() => { safeSave(STORAGE_KEYS.CONCERT_SORT, concertSortMode); }, [concertSortMode]);
-  useEffect(() => { safeSave(STORAGE_KEYS.CONCERT_VIEW_MODE, concertViewMode); }, [concertViewMode]);
+
+  useEffect(() => {
+    // One-time migration on startup to move images to IndexedDB
+    const runMigration = async () => {
+      try {
+        const migratedArtists = await migrateAlbumImagesToIndexedDB(artists);
+        const migratedExhibitions = await migrateExhibitionImagesToIndexedDB(exhibitions);
+        
+        // Only update if something actually changed (to avoid infinite loops)
+        // We check if the stringified version changed, which is a bit heavy but safe.
+        if (JSON.stringify(migratedArtists) !== JSON.stringify(artists)) {
+          setArtists(migratedArtists);
+        }
+        if (JSON.stringify(migratedExhibitions) !== JSON.stringify(exhibitions)) {
+          setExhibitions(migratedExhibitions);
+        }
+      } catch (e) {
+        console.error('Startup image migration failed:', e);
+      }
+    };
+    runMigration();
+  }, []);
 
   const hasGlobalConcertAlert = useMemo(() => {
     const now = new Date();
-    return artists.some(a => a.tours.some(t => t.concerts.some(c => !!getDueAction(c, now))));
+    return (artists || []).some(a => (a.tours || []).some(t => (t.concerts || []).some(c => !!getDueAction(c, now))));
   }, [artists]);
 
   const runTrackingAll = useCallback(async (reason: 'manual' | 'auto' = 'manual') => {
@@ -202,11 +193,11 @@ export default function App() {
 
   const runAutoAdvance = useCallback(() => {
     const now = new Date();
-    setArtists(prev => prev.map(a => ({
+    setArtists(prev => (prev || []).map(a => ({
       ...a,
-      tours: a.tours.map(t => ({
+      tours: (a.tours || []).map(t => ({
         ...t,
-        concerts: t.concerts.map(c => autoAdvanceConcertStatus(c, now))
+        concerts: (t.concerts || []).map(c => autoAdvanceConcertStatus(c, now))
       }))
     })));
   }, []);
@@ -266,19 +257,19 @@ export default function App() {
       if (!ok) return;
     }
 
-    if (artistsRaw) setArtists(artistsRaw);
-    if (exhibitionsRaw) setExhibitions(exhibitionsRaw);
+    if (artistsRaw) setArtists((artistsRaw || []).map(normalizeArtistData));
+    if (exhibitionsRaw) setExhibitions((exhibitionsRaw || []).map(normalizeExhibitionData));
 
     // Post-migrate in background (still on the main thread), then update state again.
     (async () => {
       try {
         if (artistsRaw) {
           const migratedArtists = await migrateAlbumImagesToIndexedDB(artistsRaw);
-          setArtists(migratedArtists);
+          setArtists((migratedArtists || []).map(normalizeArtistData));
         }
         if (exhibitionsRaw) {
           const migratedExhibitions = await migrateExhibitionImagesToIndexedDB(exhibitionsRaw);
-          setExhibitions(migratedExhibitions);
+          setExhibitions((migratedExhibitions || []).map(normalizeExhibitionData));
         }
       } catch (e) {
         console.error('Import image migration failed:', e);
@@ -288,12 +279,20 @@ export default function App() {
     })();
   };
 
-  const navigateToArtistList = () => setNav({ path: 'MUSIC' });
+  const navigateToArtistList = () => {
+    setNav({ path: 'CONTENT' });
+    setContentActiveTab('artists');
+  };
   const navigateToArtistDetail = (artistId: string, from?: PageId) => setNav({ path: 'ARTIST_DETAIL', artistId, from });
   const navigateToArtistEditor = (artistId?: string) => setNav({ path: 'ARTIST_EDITOR', artistId });
   const navigateToConcertEditor = (artistId: string, tourId?: string) => setNav({ path: 'CONCERT_EDITOR', artistId, tourId });
   const navigateToConcertHome = (artistId: string, tourId: string, concertId: string, from?: PageId) => setNav({ path: 'CONCERT_HOME', artistId, tourId, concertId, from });
   
+  const navigateToExhibitionList = () => {
+    setNav({ path: 'CONTENT' });
+    setContentActiveTab('exhibitions');
+  };
+
   const navigateToExhibitionDetail = (exhibitionId: string, edit?: boolean) => setNav({ path: 'EXHIBITION_DETAIL', exhibitionId, edit });
 
   const addNewExhibition = () => {
@@ -302,7 +301,7 @@ export default function App() {
       title: '新規展覧会',
       startDate: dayjs().format('YYYY-MM-DD'),
       endDate: dayjs().add(1, 'month').format('YYYY-MM-DD'),
-      exhibitionStatus: 'preparing',
+      status: 'NONE',
       ticketSalesStatus: 'none',
       holidaySameAsWeekday: true,
       holidayPriceSameAsWeekday: true,
@@ -322,25 +321,25 @@ export default function App() {
   };
 
   const updateConcert = (artistId: string, tourId: string, concertId: string, updates: Partial<Concert>) => {
-    setArtists(prev => prev.map(a => {
+    setArtists(prev => (prev || []).map(a => {
       if (a.id !== artistId) return a;
       return {
         ...a,
-        tours: a.tours.map(t => {
+        tours: (a.tours || []).map(t => {
           if (t.id !== tourId) return t;
-          return { ...t, concerts: t.concerts.map(c => c.id === concertId ? { ...c, ...updates } : c) };
+          return { ...t, concerts: (t.concerts || []).map(c => c.id === concertId ? { ...c, ...updates } : c) };
         })
       };
     }));
   };
 
   const upsertTour = (artistId: string, updatedTour: Tour) => {
-    setArtists(prev => prev.map(artist => {
+    setArtists(prev => (prev || []).map(artist => {
       if (artist.id !== artistId) return artist;
-      const tourExists = artist.tours.some(t => t.id === updatedTour.id);
+      const tourExists = (artist.tours || []).some(t => t.id === updatedTour.id);
       return { 
         ...artist, 
-        tours: tourExists ? artist.tours.map(t => t.id === updatedTour.id ? updatedTour : t) : [...artist.tours, updatedTour] 
+        tours: tourExists ? (artist.tours || []).map(t => t.id === updatedTour.id ? updatedTour : t) : [...(artist.tours || []), updatedTour] 
       };
     }));
     navigateToArtistDetail(artistId, nav.from);
@@ -348,7 +347,7 @@ export default function App() {
 
   const handleAcknowledgeArtistTracking = useCallback((artistId: string) => {
     const nowIso = new Date().toISOString();
-    setArtists(prev => prev.map(artist => {
+    setArtists(prev => (prev || []).map(artist => {
       if (artist.id !== artistId) return artist;
       return {
         ...artist,
@@ -362,7 +361,7 @@ export default function App() {
 
   const handleClearAllTrackingNotices = useCallback(() => {
     const nowIso = new Date().toISOString();
-    setArtists(prev => prev.map(artist => ({
+    setArtists(prev => (prev || []).map(artist => ({
       ...artist,
       links: (artist.links || []).map(link => ({
         ...link,
@@ -372,30 +371,66 @@ export default function App() {
   }, []);
 
   const handlePlusClick = useCallback(() => {
-    if (nav.path === 'EXHIBITIONS') {
-      setIsExhibitionMenuOpen(true);
-    } else if (nav.path === 'MUSIC') {
-      if (musicActiveTab === 'artists') {
-        setIsArtistMenuOpen(true);
-      } else {
-        setIsConcertMenuOpen(true);
-      }
-    } else if (nav.path === 'CALENDAR') {
-      setIsCalendarMenuOpen(true);
+    if (nav.path !== 'CONTENT') return;
+    if (contentActiveTab === 'artists') {
+      navigateToArtistEditor();
+    } else if (contentActiveTab === 'concerts') {
+      setIsArtistPickerOpen(true);
+    } else if (contentActiveTab === 'exhibitions') {
+      addNewExhibition();
     }
-  }, [nav.path, musicActiveTab]);
+  }, [nav.path, contentActiveTab]);
 
   const renderPage = () => {
     switch (nav.path) {
-      case 'EXHIBITIONS':
+      case 'CONTENT':
         return (
-          <ExhibitionsPage 
+          <ContentPage 
+            activeTab={contentActiveTab}
+            onTabChange={setContentActiveTab}
+            artists={artists} 
+            onOpenArtist={(id) => navigateToArtistDetail(id, 'CONTENT')} 
+            onOpenArtistEditor={() => navigateToArtistEditor()} 
+            onRefreshAll={handleRefreshAll} 
+            onImportData={handleImportAll}
+            globalSettings={globalSettings} 
+            onUpdateGlobalSettings={setGlobalSettings}
+            artistSortMode={artistSortMode}
+            onSetArtistSort={setArtistSortMode}
+            onUpdateOrder={(newList) => setArtists(newList.map((a, i) => ({ ...a, order: i })))}
+            onAcknowledgeArtistTracking={handleAcknowledgeArtistTracking}
+            onClearAllTrackingNotices={handleClearAllTrackingNotices}
+            onOpenConcert={(aid, tid, cid) => navigateToConcertHome(aid, tid, cid, 'CONTENT')} 
+            onCreateConcert={() => setIsArtistPickerOpen(true)} 
+            onUpdateConcert={updateConcert} 
+            concertSortMode={concertSortMode}
+            onSetSort={setConcertSortMode}
+            isArtistMenuOpen={isArtistMenuOpen}
+            onArtistMenuClose={() => setIsArtistMenuOpen(false)}
+            isConcertMenuOpen={isConcertMenuOpen}
+            onConcertMenuClose={() => setIsConcertMenuOpen(false)}
             exhibitions={exhibitions}
             onUpdateExhibitions={setExhibitions}
-            onOpenDetail={navigateToExhibitionDetail}
-            isMenuOpenExternally={isExhibitionMenuOpen}
-            onMenuClose={() => setIsExhibitionMenuOpen(false)}
-            onAddNew={addNewExhibition}
+            onOpenExhibitionDetail={navigateToExhibitionDetail}
+            isExhibitionMenuOpen={isExhibitionMenuOpen}
+            onExhibitionMenuClose={() => setIsExhibitionMenuOpen(false)}
+            onAddNewExhibition={addNewExhibition}
+            onExport={handleExportAll}
+            onImport={handleImportAll}
+          />
+        );
+      case 'STATUS':
+        return (
+          <StatusPage 
+            artists={artists} 
+            exhibitions={exhibitions} 
+            onOpenConcert={(aid, tid, cid) => navigateToConcertHome(aid, tid, cid, 'STATUS')}
+            onOpenConcertEditor={(aid, tid) => navigateToConcertEditor(aid, tid)}
+            onUpdateConcert={updateConcert}
+            onOpenExhibitionDetail={navigateToExhibitionDetail}
+            onUpdateExhibitionStatus={(id, updates) => {
+              setExhibitions(prev => prev.map(e => e.id === id ? { ...e, ...updates } : e));
+            }}
             onExport={handleExportAll}
             onImport={handleImportAll}
           />
@@ -412,44 +447,13 @@ export default function App() {
             }}
             onDeleteExhibition={(id) => {
               setExhibitions(prev => prev.filter(e => e.id !== id));
-              setNav({ path: 'EXHIBITIONS' });
+              navigateToExhibitionList();
             }}
-            onBack={() => setNav({ path: 'EXHIBITIONS' })}
+            onBack={navigateToExhibitionList}
             initialEditMode={nav.edit}
           />
         );
       }
-      case 'MUSIC':
-        return (
-          <MusicPage 
-            activeTab={musicActiveTab}
-            onTabChange={setMusicActiveTab}
-            artists={artists} 
-            onOpenArtist={(id) => navigateToArtistDetail(id, 'MUSIC')} 
-            onOpenArtistEditor={() => navigateToArtistEditor()} 
-            onRefreshAll={handleRefreshAll} 
-            onImportData={handleImportAll} // Updated to unified
-            globalSettings={globalSettings} 
-            onUpdateGlobalSettings={setGlobalSettings}
-            artistSortMode={artistSortMode}
-            onSetArtistSort={setArtistSortMode}
-            onUpdateOrder={(newList) => setArtists(newList.map((a, i) => ({ ...a, order: i })))}
-            onAcknowledgeArtistTracking={handleAcknowledgeArtistTracking}
-            onClearAllTrackingNotices={handleClearAllTrackingNotices}
-            onOpenConcert={(aid, tid, cid) => navigateToConcertHome(aid, tid, cid, 'MUSIC')} 
-            onCreateConcert={() => setIsArtistPickerOpen(true)} 
-            onUpdateConcert={updateConcert} 
-            concertSortMode={concertSortMode}
-            onSetSort={setConcertSortMode}
-            concertViewMode={concertViewMode}
-            onSetConcertViewMode={setConcertViewMode}
-            isArtistMenuOpen={isArtistMenuOpen}
-            onArtistMenuClose={() => setIsArtistMenuOpen(false)}
-            isConcertMenuOpen={isConcertMenuOpen}
-            onConcertMenuClose={() => setIsConcertMenuOpen(false)}
-            onExport={handleExportAll} // Pass unified export
-          />
-        );
       case 'CALENDAR': 
         return (
           <CalendarPage 
@@ -533,7 +537,7 @@ export default function App() {
       <Layout 
         currentPath={nav.path} 
         onNavigate={p => setNav({ path: p })} 
-        onPlusClick={handlePlusClick}
+        onPlusClick={nav.path === 'CONTENT' ? handlePlusClick : undefined}
         hasConcertAlert={hasGlobalConcertAlert}
       >
         {renderPage()}

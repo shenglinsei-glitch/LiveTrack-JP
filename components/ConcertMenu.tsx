@@ -1,121 +1,82 @@
 import React from 'react';
 import { GlassCard } from '../ui/GlassCard';
 import { theme } from '../ui/theme';
-import { Icons } from '../ui/IconButton';
 import { TEXT } from '../ui/constants';
-import { ConcertViewMode, Status } from '../domain/types';
+import { Status } from '../domain/types';
 
-export type ConcertListSortKey = 'date' | 'artist' | 'status_group';
+export type ConcertListSortKey = 'artist' | 'date_asc' | 'date_desc' | 'status_time';
 
 interface ConcertMenuProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddConcert: () => void;
-
-  viewMode: ConcertViewMode;
-  onSetViewMode: (mode: ConcertViewMode) => void;
-
   sortKey: ConcertListSortKey;
-  onSetSortKey: (k: ConcertListSortKey) => void;
-
-  allStatuses: Status[];
-  selectedStatuses?: Status[]; // undefined = all
+  onSetSort: (k: ConcertListSortKey) => void;
+  filters?: { statuses?: Status[] };
   onToggleStatus: (s: Status) => void;
   onSelectAllStatuses: () => void;
   onSelectImportantStatuses: () => void;
+  onExport?: () => void;
+  onImport?: () => void;
 }
+
+const ALL_STATUSES: Status[] = ['発売前', '検討中', '抽選中', '参戦予定', '参戦済み', '見送'];
 
 export const ConcertMenu: React.FC<ConcertMenuProps> = ({
   isOpen,
   onClose,
-  onAddConcert,
-  viewMode,
-  onSetViewMode,
   sortKey,
-  onSetSortKey,
-  allStatuses,
-  selectedStatuses,
+  onSetSort,
+  filters,
   onToggleStatus,
   onSelectAllStatuses,
   onSelectImportantStatuses,
+  onExport,
+  onImport,
 }) => {
   if (!isOpen) return null;
 
-  const isAllSelected = !selectedStatuses || selectedStatuses.length === 0 || selectedStatuses.length === allStatuses.length;
-  const current = new Set<Status>(isAllSelected ? allStatuses : selectedStatuses);
+  const selectedStatuses = filters?.statuses;
+  const isAllSelected = !selectedStatuses || selectedStatuses.length === 0 || selectedStatuses.length === ALL_STATUSES.length;
+  const current = new Set<Status>(isAllSelected ? ALL_STATUSES : selectedStatuses);
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        bottom: '100px',
-        right: '16px',
-        zIndex: 1000,
-        width: '300px',
-        maxWidth: 'calc(100vw - 32px)',
-      }}
-    >
+    <div style={{ position: 'fixed', top: '74px', left: '16px', zIndex: 1000, width: '320px', maxWidth: 'calc(100vw - 32px)' }}>
       <div style={{ position: 'fixed', inset: 0, background: 'transparent' }} onClick={onClose} />
       <GlassCard className="fade-in">
         <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
           <section>
-            <MenuButton label="公演を追加" primary icon={<Icons.Plus />} onClick={() => { onAddConcert(); onClose(); }} />
-          </section>
-
-          <section style={{ borderTop: `0.5px solid rgba(0,0,0,0.1)`, paddingTop: theme.spacing.md }}>
-            <h4 style={sectionTitleStyle}>表示モード</h4>
-            <div style={segmentedWrapStyle}>
-              <button
-                onClick={() => onSetViewMode('concert')}
-                style={{
-                  ...segmentedBtnStyle,
-                  background: viewMode === 'concert' ? 'white' : 'transparent',
-                  color: viewMode === 'concert' ? theme.colors.primary : theme.colors.textSecondary,
-                  boxShadow: viewMode === 'concert' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
-                }}
-              >
-                公演
-              </button>
-              <button
-                onClick={() => onSetViewMode('deadline')}
-                style={{
-                  ...segmentedBtnStyle,
-                  background: viewMode === 'deadline' ? 'white' : 'transparent',
-                  color: viewMode === 'deadline' ? theme.colors.primary : theme.colors.textSecondary,
-                  boxShadow: viewMode === 'deadline' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
-                }}
-              >
-                期限
-              </button>
-            </div>
-          </section>
-
-          <section style={{ borderTop: `0.5px solid rgba(0,0,0,0.1)`, paddingTop: theme.spacing.md }}>
             <h4 style={sectionTitleStyle}>{TEXT.MENU.SORT}</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <MenuButton label="日付（公演/期限）" active={sortKey === 'date'} onClick={() => onSetSortKey('date')} />
-              <MenuButton label="歌手名" active={sortKey === 'artist'} onClick={() => onSetSortKey('artist')} />
-              <MenuButton label="状態でグループ + 日付" active={sortKey === 'status_group'} onClick={() => onSetSortKey('status_group')} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <MenuButton label="アーティスト名前順" active={sortKey === 'artist'} onClick={() => onSetSort('artist')} />
+              <MenuButton label="公演日遠" active={sortKey === 'date_desc'} onClick={() => onSetSort('date_desc')} />
+              <MenuButton label="公演日近" active={sortKey === 'date_asc'} onClick={() => onSetSort('date_asc')} />
+              <MenuButton label="状態 + 状態時間" active={sortKey === 'status_time'} onClick={() => onSetSort('status_time')} />
             </div>
           </section>
 
           <section style={{ borderTop: `0.5px solid rgba(0,0,0,0.1)`, paddingTop: theme.spacing.md }}>
-            <h4 style={sectionTitleStyle}>ステータス（複数選択）</h4>
+            <h4 style={sectionTitleStyle}>絞り込み</h4>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
               <SmallChip label="全て" active={isAllSelected} onClick={onSelectAllStatuses} />
               <SmallChip label="重要" active={!isAllSelected && selectedStatuses?.length === 4} onClick={onSelectImportantStatuses} />
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {allStatuses.map((s) => (
-                <SmallChip
-                  key={s}
-                  label={TEXT.STATUS?.[s as any] ?? String(s)}
-                  active={current.has(s)}
-                  onClick={() => onToggleStatus(s)}
-                />
+              {ALL_STATUSES.map((s) => (
+                <SmallChip key={s} label={TEXT.STATUS?.[s as any] ?? String(s)} active={current.has(s)} onClick={() => onToggleStatus(s)} />
               ))}
             </div>
           </section>
+
+
+          {(onExport || onImport) && (
+            <section style={{ borderTop: `0.5px solid rgba(0,0,0,0.1)`, paddingTop: theme.spacing.md }}>
+              <h4 style={sectionTitleStyle}>データ</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {onExport && <MenuButton label="書き出す" icon={<span style={{ display: 'flex', transform: 'scale(0.8)' }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>} onClick={() => { onExport(); onClose(); }} />}
+                {onImport && <MenuButton label="読み込む" icon={<span style={{ display: 'flex', transform: 'scale(0.8)' }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></span>} onClick={() => { onImport(); onClose(); }} />}
+              </div>
+            </section>
+          )}
         </div>
       </GlassCard>
     </div>
@@ -129,26 +90,7 @@ const sectionTitleStyle: React.CSSProperties = {
   fontWeight: 'bold',
 };
 
-const segmentedWrapStyle: React.CSSProperties = {
-  display: 'flex',
-  gap: '4px',
-  background: 'rgba(0,0,0,0.05)',
-  padding: '4px',
-  borderRadius: '10px',
-};
-
-const segmentedBtnStyle: React.CSSProperties = {
-  flex: 1,
-  border: 'none',
-  fontSize: '11px',
-  fontWeight: '800',
-  padding: '8px 0',
-  borderRadius: '8px',
-  cursor: 'pointer',
-  transition: 'all 0.2s',
-};
-
-const MenuButton = ({ label, active, primary, onClick, icon }: any) => (
+const MenuButton = ({ label, active, onClick }: any) => (
   <button
     onClick={onClick}
     style={{
@@ -157,10 +99,10 @@ const MenuButton = ({ label, active, primary, onClick, icon }: any) => (
       padding: '10px 12px',
       borderRadius: '12px',
       border: 'none',
-      background: primary ? theme.colors.primary : active ? 'rgba(83, 190, 232, 0.1)' : 'transparent',
-      color: primary ? 'white' : active ? theme.colors.primary : theme.colors.text,
+      background: active ? 'rgba(83, 190, 232, 0.1)' : 'transparent',
+      color: active ? theme.colors.primary : theme.colors.text,
       fontSize: '14px',
-      fontWeight: primary || active ? '800' : '600',
+      fontWeight: active ? '800' : '600',
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
@@ -168,10 +110,7 @@ const MenuButton = ({ label, active, primary, onClick, icon }: any) => (
       transition: 'all 0.2s',
     }}
   >
-    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-      {icon && <span style={{ display: 'flex', transform: 'scale(0.8)' }}>{icon}</span>}
-      {label}
-    </span>
+    <span>{label}</span>
   </button>
 );
 

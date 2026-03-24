@@ -1,41 +1,49 @@
-
 import React from 'react';
 import { theme } from '../ui/theme';
-import { Page } from '../domain/types';
+import { PageId } from '../domain/types';
 import { Icons } from '../ui/IconButton';
 
 interface LayoutProps {
   children: React.ReactNode;
-  currentPath: Page;
-  onNavigate: (path: Page) => void;
+  currentPath: PageId;
+  onNavigate: (path: PageId) => void;
   onPlusClick?: () => void;
   hasConcertAlert?: boolean;
 }
 
-const NavIcons = {
-  Exhibitions: Icons.Exhibitions,
-  Music: (props: any) => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M9 18V5l12-2v13" />
-      <circle cx="6" cy="18" r="3" />
-      <circle cx="18" cy="16" r="3" />
+const NavIcons = { 
+  Content: (props: React.SVGProps<SVGSVGElement>) => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <rect x="3.5" y="3.5" width="7" height="7" rx="2.4" />
+      <rect x="13.5" y="3.5" width="7" height="7" rx="2.4" />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="2.4" />
+      <rect x="13.5" y="13.5" width="7" height="7" rx="2.4" />
     </svg>
   ),
-  Calendar: Icons.Calendar
+  Status: (props: React.SVGProps<SVGSVGElement>) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    {/* 增大了圆环半径到 8，并调整了起止点以留出右上角的缺口 */}
+    <path d="M18.5 10.5 A 8 8 0 1 1 13.5 4.5" />
+    {/* 调整圆点位置，使其看起来是被圆环的缺口“含”在里面 */}
+    <circle cx="17.2" cy="6.8" r="2.6" fill="currentColor" stroke="none" />
+  </svg>
+),
+  Calendar: Icons.Calendar,
 };
 
 export const Layout: React.FC<LayoutProps> = ({ children, currentPath, onNavigate, onPlusClick, hasConcertAlert }) => {
-  const tabs: { id: Page; label: string; icon: React.ReactNode; alert?: boolean }[] = [
-    { id: 'EXHIBITIONS', label: '展覧', icon: <NavIcons.Exhibitions /> },
-    { id: 'MUSIC', label: '音楽', icon: <NavIcons.Music />, alert: hasConcertAlert },
-    { id: 'CALENDAR', label: 'カレンダー', icon: <NavIcons.Calendar /> },
+  const tabs: { id: PageId; label: string; icon: React.ReactNode; alert?: boolean }[] = [
+    { id: 'CONTENT', label: '内容', icon: <NavIcons.Content /> },
+    { id: 'STATUS', label: '状态', icon: <NavIcons.Status />, alert: hasConcertAlert },
+    { id: 'CALENDAR', label: '日历', icon: <NavIcons.Calendar /> },
   ];
 
   const isMainTab = tabs.some(tab => tab.id === currentPath);
+  const hasFab = Boolean(onPlusClick);
 
   return (
-    <div style={{ 
-      minHeight: '100vh', 
+    <div style={{
+      minHeight: '100vh',
       backgroundColor: theme.colors.background,
       color: theme.colors.text,
       paddingBottom: isMainTab ? '100px' : '0',
@@ -48,12 +56,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPath, onNavigat
 
       {isMainTab && (
         <>
-          {/* Bottom Navigation Bar */}
           <nav style={{
             position: 'fixed',
             bottom: 'calc(16px + env(safe-area-inset-bottom))',
             left: '16px',
-            right: 'calc(16px + 64px + 16px)', // Margin + Button Width + Gap
+            right: hasFab ? 'calc(16px + 64px + 16px)' : '16px',
             height: '64px',
             background: 'rgba(255, 255, 255, 0.7)',
             backdropFilter: 'blur(24px)',
@@ -85,10 +92,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPath, onNavigat
                     outline: 'none',
                     padding: '12px',
                     position: 'relative',
-                    flex: 1
+                    flex: 1,
                   }}
                 >
-                  <span style={{ 
+                  <span style={{
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -104,7 +111,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPath, onNavigat
                       height: '8px',
                       borderRadius: '50%',
                       backgroundColor: theme.colors.error,
-                      border: '2px solid white'
+                      border: '2px solid white',
                     }} />
                   )}
                 </button>
@@ -112,7 +119,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPath, onNavigat
             })}
           </nav>
 
-          {/* Floating Action Button */}
           {onPlusClick && (
             <button
               onClick={onPlusClick}

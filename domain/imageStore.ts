@@ -89,8 +89,7 @@ export const bulkPutImageUrls = async (urls: string[]): Promise<string[]> => {
   const ids: string[] = [];
   for (const url of urls) {
     if (!url) continue;
-    // Skip data:image / blob: defensively
-    if (url.startsWith('data:image') || url.startsWith('blob:')) continue;
+    // We WANT to store data:image and blob: in IndexedDB to save localStorage space.
     const id = await putImageUrl(url);
     ids.push(id);
   }

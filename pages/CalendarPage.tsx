@@ -3,9 +3,8 @@ import { createPortal } from 'react-dom';
 import { PageShell } from '../ui/PageShell';
 import { theme } from '../ui/theme';
 import { TEXT } from '../ui/constants';
-import { Artist, CalendarEvent, CalendarEventType, Exhibition, ExhibitionOverallStatus } from '../domain/types';
-import { CalendarMenu } from '../components/CalendarMenu';
-import { buildCalendarEvents, EVENT_PRIORITY } from '../domain/logic';
+import { Artist, CalendarEvent, CalendarEventType, Exhibition, ExhibitionStatus } from '../domain/types';
+import { buildCalendarEvents, EVENT_PRIORITY, getEffectiveExhibitionStatus } from '../domain/logic';
 import { Icons } from '../ui/IconButton';
 import dayjs from 'dayjs';
 
@@ -22,11 +21,13 @@ interface Props {
 
 type CalendarMode = 'concert' | 'exhibition';
 
-const exhibitionPriorityMap: Record<ExhibitionOverallStatus, number> = {
-  running: 1,
-  preparing: 2,
-  visited: 3,
-  ended_not_visited: 4,
+const exhibitionPriorityMap: Record<ExhibitionStatus, number> = {
+  PLANNED: 1,
+  RESERVED: 2,
+  NONE: 3,
+  VISITED: 4,
+  SKIPPED: 5,
+  ENDED: 6,
 };
 
 // ====== Music calendar dot rules (restored from legacy CalendarPage.tsx) ======
@@ -332,6 +333,7 @@ export const CalendarPage: React.FC<Props> = ({
 
   const monthAnchorRef = useRef<HTMLDivElement | null>(null);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+  const [isToolsOpen, setIsToolsOpen] = useState(false);
   const [isWheelPickerOpen, setIsWheelPickerOpen] = useState(false);
 
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
@@ -362,8 +364,8 @@ export const CalendarPage: React.FC<Props> = ({
         return (day.isAfter(start) || day.isSame(start)) && (day.isBefore(end) || day.isSame(end));
       })
       .sort((a, b) => {
-        const prioA = exhibitionPriorityMap[a.exhibitionStatus] || 99;
-        const prioB = exhibitionPriorityMap[b.exhibitionStatus] || 99;
+        const prioA = exhibitionPriorityMap[getEffectiveExhibitionStatus(a)] || 99;
+        const prioB = exhibitionPriorityMap[getEffectiveExhibitionStatus(b)] || 99;
         if (prioA !== prioB) return prioA - prioB;
         return dayjs(a.startDate).unix() - dayjs(b.startDate).unix();
       });
@@ -465,8 +467,8 @@ export const CalendarPage: React.FC<Props> = ({
         return (start.isBefore(endOfWeek) || start.isSame(endOfWeek)) && (end.isAfter(startOfWeek) || end.isSame(startOfWeek));
       })
       .sort((a, b) => {
-        const prioA = exhibitionPriorityMap[a.exhibitionStatus] || 99;
-        const prioB = exhibitionPriorityMap[b.exhibitionStatus] || 99;
+        const prioA = exhibitionPriorityMap[getEffectiveExhibitionStatus(a)] || 99;
+        const prioB = exhibitionPriorityMap[getEffectiveExhibitionStatus(b)] || 99;
         if (prioA !== prioB) return prioA - prioB;
         return dayjs(a.startDate).unix() - dayjs(b.startDate).unix();
       });
@@ -537,14 +539,40 @@ export const CalendarPage: React.FC<Props> = ({
     <PageShell disablePadding>
       <div style={{ padding: 'calc(12px + env(safe-area-inset-top)) 16px 140px 16px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', gap: '10px', marginBottom: '24px', height: '44px', width: '100%' }}>
-          <div style={{ display: 'inline-flex', background: 'white', padding: '3px', borderRadius: '999px', border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 2px 8px rgba(0,0,0,0.03)', whiteSpace: 'nowrap' }}>
-            <button onClick={() => setMode('concert')} style={{ ...modeBtnStyle, background: mode === 'concert' ? theme.colors.primary : 'transparent', color: mode === 'concert' ? 'white' : theme.colors.textSecondary }}>
-              公演
-            </button>
-            <button onClick={() => setMode('exhibition')} style={{ ...modeBtnStyle, background: mode === 'exhibition' ? theme.colors.primary : 'transparent', color: mode === 'exhibition' ? 'white' : theme.colors.textSecondary }}>
-              展覧
-            </button>
-          </div>
+          <div
+  style={{
+    display: 'inline-flex',
+    background: 'rgba(255,255,255,0.72)',
+    backdropFilter: 'blur(16px)',
+    WebkitBackdropFilter: 'blur(16px)',
+    padding: '4px',
+    borderRadius: '999px',
+    border: '1px solid rgba(255,255,255,0.42)',
+    boxShadow: '0 6px 18px rgba(15,23,42,0.05)',
+    whiteSpace: 'nowrap',
+  }}
+>
+  <button
+    onClick={() => setMode('concert')}
+    style={{
+      ...modeBtnStyle,
+      background: mode === 'concert' ? 'rgba(83, 190, 232, 0.18)' : 'transparent',
+      color: mode === 'concert' ? '#53BEE8' : theme.colors.textSecondary,
+    }}
+  >
+    公演
+  </button>
+  <button
+    onClick={() => setMode('exhibition')}
+    style={{
+      ...modeBtnStyle,
+      background: mode === 'exhibition' ? 'rgba(83, 190, 232, 0.18)' : 'transparent',
+      color: mode === 'exhibition' ? '#53BEE8' : theme.colors.textSecondary,
+    }}
+  >
+    展覧
+  </button>
+</div>
 
           <div ref={monthAnchorRef} onClick={handleOpenPicker} style={{ justifySelf: 'center', fontSize: '17px', fontWeight: '900', color: theme.colors.text, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: '12px', maxWidth: '100%' }}>
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -553,9 +581,60 @@ export const CalendarPage: React.FC<Props> = ({
             <span style={{ flexShrink: 0, marginLeft: '6px', fontSize: '10px', opacity: 0.35, lineHeight: 1 }}>▼</span>
           </div>
 
-          <button onClick={onRefreshAll} style={{ border: '1px solid rgba(0,0,0,0.06)', background: 'white', color: '#9CA3AF', fontSize: '12px', fontWeight: 800, padding: '10px', borderRadius: '999px', cursor: 'pointer', whiteSpace: 'nowrap', lineHeight: 0 }} aria-label="refresh">
-            <Icons.Refresh />
-          </button>
+          <div style={{ position: 'relative' }}>
+            <button onClick={() => setIsToolsOpen(v => !v)} style={{ border: '1px solid rgba(0,0,0,0.06)', background: 'rgba(255,255,255,0.72)', color: '#9CA3AF', fontSize: '12px', fontWeight: 800, padding: '10px', borderRadius: '999px', cursor: 'pointer', whiteSpace: 'nowrap', lineHeight: 0, backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', boxShadow: '0 6px 18px rgba(15, 23, 42, 0.06)' }} aria-label="calendar tools">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" /><line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" /><line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" /><line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" /><line x1="17" y1="16" x2="23" y2="16" />
+              </svg>
+            </button>
+            {isToolsOpen && (
+              <>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 119 }} onClick={() => setIsToolsOpen(false)} />
+                <div
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: 48,
+                    zIndex: 120,
+                    width: 324,
+                    maxWidth: 'calc(100vw - 32px)',
+                    background: 'rgba(255,255,255,0.58)',
+                    border: '1px solid rgba(255,255,255,0.40)',
+                    borderRadius: 30,
+                    boxShadow: '0 18px 44px -18px rgba(15,23,42,0.18)',
+                    backdropFilter: 'blur(20px)',
+                    WebkitBackdropFilter: 'blur(20px)',
+                    padding: '18px 16px',
+                  }}
+                >
+                  <div style={calendarMenuSectionTitleStyle}>表示設定</div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                    <button
+                      onClick={() => { onRefreshAll(); setIsToolsOpen(false); }}
+                      style={calendarMenuTextButtonStyle}
+                    >
+                      再読み込み
+                    </button>
+                  </div>
+
+                  <div style={calendarMenuDividerStyle} />
+                  <div style={calendarMenuSectionTitleStyle}>週の開始日</div>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+                    <button onClick={() => setWeekStart('sun')} style={weekStart === 'sun' ? calendarChipActiveStyle : calendarChipStyle}>日曜日</button>
+                    <button onClick={() => setWeekStart('mon')} style={weekStart === 'mon' ? calendarChipActiveStyle : calendarChipStyle}>月曜日</button>
+                  </div>
+
+                  <div style={calendarMenuDividerStyle} />
+                  <div style={calendarMenuSectionTitleStyle}>予定表示</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <button onClick={() => setShowAttended(!showAttended)} style={showAttended ? calendarMenuBtnActiveStyle : calendarMenuBtnStyle}>参戦済みを表示</button>
+                    <button onClick={() => setShowSkipped(!showSkipped)} style={showSkipped ? calendarMenuBtnActiveStyle : calendarMenuBtnStyle}>見送りを表示</button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         <div onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} style={{ background: 'white', borderRadius: '28px', padding: '16px 10px', border: '1px solid rgba(0,0,0,0.04)', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', overflow: 'hidden', userSelect: 'none', touchAction: 'pan-y' }}>
@@ -683,7 +762,6 @@ export const CalendarPage: React.FC<Props> = ({
         anchorRect={anchorRect}
       />
 
-      <CalendarMenu isOpen={!!isMenuOpenExternally} onClose={() => onMenuClose?.()} weekStart={weekStart} setWeekStart={setWeekStart} showAttended={showAttended} setShowAttended={setShowAttended} showSkipped={showSkipped} setShowSkipped={setShowSkipped} />
     </PageShell>
   );
 };
@@ -708,4 +786,73 @@ const eventCardStyle: React.CSSProperties = {
   justifyContent: 'space-between',
   alignItems: 'center',
   cursor: 'pointer',
+};
+
+const calendarMenuSectionTitleStyle: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 900,
+  letterSpacing: '0.06em',
+  color: '#6B7280',
+  marginBottom: 10,
+};
+
+const calendarMenuDividerStyle: React.CSSProperties = {
+  borderTop: '1px solid rgba(15,23,42,0.08)',
+  margin: '0 0 16px 0',
+};
+
+const calendarMenuTextButtonStyle: React.CSSProperties = {
+  width: '100%',
+  textAlign: 'left',
+  padding: '8px 2px',
+  border: 'none',
+  background: 'transparent',
+  color: theme.colors.text,
+  fontSize: 14,
+  lineHeight: 1.3,
+  fontWeight: 800,
+  cursor: 'pointer',
+};
+
+const calendarMenuBtnStyle: React.CSSProperties = {
+  width: '100%',
+  textAlign: 'left',
+  padding: '12px 16px',
+  borderRadius: 16,
+  border: '1px solid rgba(255,255,255,0.22)',
+  background: 'rgba(255,255,255,0.22)',
+  color: theme.colors.text,
+  fontSize: 13,
+  lineHeight: 1.2,
+  fontWeight: 800,
+  cursor: 'pointer',
+  backdropFilter: 'blur(8px)',
+  WebkitBackdropFilter: 'blur(8px)',
+};
+
+const calendarMenuBtnActiveStyle: React.CSSProperties = {
+  ...calendarMenuBtnStyle,
+  background: 'rgba(83,190,232,0.10)',
+  border: '1px solid rgba(83,190,232,0.12)',
+  color: theme.colors.primary,
+};
+
+const calendarChipStyle: React.CSSProperties = {
+  border: '1px solid rgba(255,255,255,0.22)',
+  cursor: 'pointer',
+  padding: '7px 14px',
+  fontSize: 12,
+  fontWeight: 800,
+  borderRadius: 999,
+  background: 'rgba(255,255,255,0.22)',
+  color: theme.colors.textSecondary,
+  backdropFilter: 'blur(8px)',
+  WebkitBackdropFilter: 'blur(8px)',
+};
+
+const calendarChipActiveStyle: React.CSSProperties = {
+  ...calendarChipStyle,
+  background: 'rgba(83,190,232,0.10)',
+  border: '1px solid rgba(83,190,232,0.12)',
+  color: theme.colors.primary,
 };

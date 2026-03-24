@@ -1,13 +1,13 @@
 
 import { Artist, Concert, Status, TICKET_TRACK_STATUSES, TOUR_ACTIVE_STATUSES, GlobalSettings, DueAction, CalendarEvent, CalendarEventType, Exhibition, LotteryHistoryItem } from '../domain/types';
 import { TEXT } from '../ui/constants';
-import { bulkPutImageUrls, bulkGetImageUrls } from './imageStore';
+import { bulkPutImageUrls, bulkGetImageUrls, putImageUrl } from './imageStore';
 
 /**
  * ===== Date Parsing Rules =====
  * iOS Safari compatibility: replaces '-' with '/' for broad support
  */
-export const parseConcertDate = (dateStr: string | null | undefined, type: 'CONCERT' | 'NORMAL'): Date | null => {
+export const parseConcertDate = (dateStr: string | null | undefined, type: 'CONCERT' | 'NORMAL' | 'EXHIBITION'): Date | null => {
   if (!dateStr || dateStr === TEXT.GLOBAL.TBD) return null;
   
   // Standardize format for iOS: "2023-10-27" -> "2023/10/27"
@@ -25,6 +25,9 @@ export const parseConcertDate = (dateStr: string | null | undefined, type: 'CONC
       if (type === 'CONCERT') {
         return new Date(dateParts[0], dateParts[1] - 1, dateParts[2], 21, 0, 0);
       }
+      if (type === 'EXHIBITION') {
+        return new Date(dateParts[0], dateParts[1] - 1, dateParts[2], 10, 0, 0);
+      }
       return new Date(dateParts[0], dateParts[1] - 1, dateParts[2], 12, 0, 0);
     } catch (e) {
       return null;
@@ -38,10 +41,43 @@ export const parseConcertDate = (dateStr: string | null | undefined, type: 'CONC
     if (type === 'CONCERT') {
       return new Date(y, m, day, 21, 0, 0);
     }
+    if (type === 'EXHIBITION') {
+      return new Date(y, m, day, 10, 0, 0);
+    }
     return new Date(y, m, day, 12, 0, 0);
   }
 
   return d;
+};
+
+export const getEffectiveExhibitionStatus = (exhibition: Exhibition, now: Date = new Date()) => {
+  const rawStatus = exhibition.status || 'NONE';
+  const start = parseConcertDate(exhibition.startDate, 'EXHIBITION');
+  const end = parseConcertDate(exhibition.endDate, 'EXHIBITION');
+
+  if (rawStatus === 'VISITED') return 'VISITED' as const;
+  if (rawStatus === 'ENDED') return 'ENDED' as const;
+
+  if (rawStatus === 'SKIPPED') {
+    if (end && now > end) return 'ENDED' as const;
+    return 'SKIPPED' as const;
+  }
+
+  if (rawStatus === 'RESERVED') {
+    if (end && now > end) return 'ENDED' as const;
+    return 'RESERVED' as const;
+  }
+
+  if (start && now < start) return 'NONE' as const;
+  if (end && now > end) return 'ENDED' as const;
+
+  return 'PLANNED' as const;
+};
+
+export const applyAutoExhibitionStatus = (exhibition: Exhibition, now: Date = new Date()): Exhibition => {
+  const nextStatus = getEffectiveExhibitionStatus(exhibition, now);
+  if (exhibition.status === nextStatus) return exhibition;
+  return { ...exhibition, status: nextStatus };
 };
 
 export const EVENT_PRIORITY: Record<CalendarEventType, number> = {
@@ -248,7 +284,7 @@ export const calcArtistStatus = (artist: Artist): {
   sub: Status | null;
   trackSuffix: string;
 } => {
-  const allConcerts = artist.tours.flatMap(t => t.concerts);
+  const allConcerts = (artist.tours || []).flatMap(t => t.concerts || []);
   const hasActiveTour = allConcerts.some(c => TOUR_ACTIVE_STATUSES.includes(c.status));
   let main: string = TEXT.ARTIST_STATUS.MAIN_NONE;
 
@@ -349,16 +385,16 @@ export const sortPerformancesByLotteryDate = (concerts: Concert[]): Concert[] =>
 
 export const checkGlobalDateConflicts = (allArtists: Artist[], currentTourId: string, formConcerts: Concert[]): string[] => {
   const otherDates = new Set<string>();
-  allArtists.forEach(artist => artist.tours.forEach(tour => {
+  (allArtists || []).forEach(artist => (artist.tours || []).forEach(tour => {
     if (tour.id === currentTourId) return;
-    tour.concerts.forEach(concert => {
+    (tour.concerts || []).forEach(concert => {
       const d = concert.concertAt || concert.date;
       if (d !== TEXT.GLOBAL.TBD && d) otherDates.add(d.split(' ')[0]);
     });
   }));
   const conflicts = new Set<string>();
   const currentDatesInForm = new Set<string>();
-  formConcerts.forEach(c => {
+  (formConcerts || []).forEach(c => {
     const d = c.concertAt || c.date;
     if (d === TEXT.GLOBAL.TBD || !d) return;
     const dateOnly = d.split(' ')[0];
@@ -372,7 +408,7 @@ export const getTrackTargetConcerts = (artist: Artist, settings: GlobalSettings,
   const n = settings.autoTrackIntervalDays;
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const limitStart = new Date(todayStart.getTime() - n * 24 * 60 * 60 * 1000);
-  return artist.tours.flatMap(tour => tour.concerts).filter(concert => {
+  return (artist.tours || []).flatMap(tour => tour.concerts || []).filter(concert => {
     if (!TICKET_TRACK_STATUSES.includes(concert.status)) return false;
     const d = concert.concertAt || concert.date;
     if (d === TEXT.GLOBAL.TBD || !d) return false;
@@ -389,10 +425,31 @@ export const shouldTriggerAutoTrack = (lastCheckedAt: string | undefined, settin
 };
 
 export const migrateAlbumImagesToIndexedDB = async (artists: Artist[]): Promise<Artist[]> => {
-  const nextArtists: Artist[] = artists.map(a => ({ ...a, tours: a.tours.map(t => ({ ...t, concerts: t.concerts.map(c => ({ ...c })) })) }));
+  if (!Array.isArray(artists)) return [];
+  const nextArtists: Artist[] = (artists || []).map(a => ({ 
+    ...a, 
+    tours: (a.tours || []).map(t => ({ 
+      ...t, 
+      concerts: (t.concerts || []).map(c => ({ ...c })) 
+    })) 
+  }));
   for (const artist of nextArtists) {
-    for (const tour of artist.tours) {
-      for (const concert of tour.concerts) {
+    // Also migrate artist profile image if it's base64
+    if (artist.imageUrl && (artist.imageUrl.startsWith('data:image') || artist.imageUrl.startsWith('blob:'))) {
+      const id = await putImageUrl(artist.imageUrl);
+      (artist as any).imageId = id;
+      delete (artist as any).imageUrl;
+    }
+
+    for (const tour of (artist.tours || [])) {
+      // Also migrate tour image if it's base64
+      if (tour.imageUrl && (tour.imageUrl.startsWith('data:image') || tour.imageUrl.startsWith('blob:'))) {
+        const id = await putImageUrl(tour.imageUrl);
+        (tour as any).imageId = id;
+        delete (tour as any).imageUrl;
+      }
+
+      for (const concert of (tour.concerts || [])) {
         const hasIds = Array.isArray((concert as any).imageIds) && (concert as any).imageIds.length > 0;
         const legacyUrls = Array.isArray((concert as any).images) ? (concert as any).images as string[] : [];
         if (!hasIds && legacyUrls.length > 0) {
@@ -408,18 +465,18 @@ export const migrateAlbumImagesToIndexedDB = async (artists: Artist[]): Promise<
 
 export const expandAlbumImagesForExport = async (artists: Artist[]): Promise<any> => {
   const allIds: string[] = [];
-  artists.forEach(a => a.tours.forEach(t => t.concerts.forEach(c => {
+  (artists || []).forEach(a => (a.tours || []).forEach(t => (t.concerts || []).forEach(c => {
     const ids = (c as any).imageIds as string[] | undefined;
     if (ids && ids.length) allIds.push(...ids);
   })));
 
   const map = await bulkGetImageUrls(allIds);
 
-  return artists.map(a => ({
+  return (artists || []).map(a => ({
     ...a,
-    tours: a.tours.map(t => ({
+    tours: (a.tours || []).map(t => ({
       ...t,
-      concerts: t.concerts.map(c => {
+      concerts: (t.concerts || []).map(c => {
         const ids = (c as any).imageIds as string[] | undefined;
         const legacyUrls = Array.isArray((c as any).images) ? ((c as any).images as string[]) : [];
 
@@ -442,8 +499,30 @@ export const expandAlbumImagesForExport = async (artists: Artist[]): Promise<any
  * Also removes the legacy `images` field to keep localStorage small.
  */
 export const migrateExhibitionImagesToIndexedDB = async (exhibitions: Exhibition[]): Promise<Exhibition[]> => {
-  const next: Exhibition[] = exhibitions.map(ex => ({ ...ex }));
+  if (!Array.isArray(exhibitions)) return [];
+  const next: Exhibition[] = (exhibitions || []).map(ex => {
+    let updated = { ...ex };
+    // Migrate legacy status if needed
+    if ((ex as any).exhibitionStatus && !ex.status) {
+      const oldStatus = (ex as any).exhibitionStatus;
+      if (oldStatus === 'visited') updated.status = 'VISITED';
+      else if (oldStatus === 'running') updated.status = 'PLANNED';
+      else if (oldStatus === 'ended_not_visited') updated.status = 'ENDED';
+      else updated.status = 'NONE';
+    } else if (!ex.status) {
+      updated.status = 'NONE';
+    }
+    return updated;
+  });
+
   for (const ex of next) {
+    // Also migrate exhibition main image if it's base64
+    if (ex.imageUrl && (ex.imageUrl.startsWith('data:image') || ex.imageUrl.startsWith('blob:'))) {
+      const id = await putImageUrl(ex.imageUrl);
+      (ex as any).imageId = id;
+      delete (ex as any).imageUrl;
+    }
+
     const hasIds = Array.isArray((ex as any).imageIds) && (ex as any).imageIds.length > 0;
     const legacyUrls = Array.isArray((ex as any).images) ? ((ex as any).images as string[]) : [];
     if (!hasIds && legacyUrls.length > 0) {
@@ -465,13 +544,13 @@ export const prepareFullDataForExport = async (artists: Artist[], exhibitions: E
 
   // 2. Expand Exhibition Images
   const exIds: string[] = [];
-  exhibitions.forEach(ex => {
+  (exhibitions || []).forEach(ex => {
     if (ex.imageIds && ex.imageIds.length) exIds.push(...ex.imageIds);
   });
   
   const exImageMap = await bulkGetImageUrls(exIds);
   
-  const exhibitionsExpanded = exhibitions.map(ex => {
+  const exhibitionsExpanded = (exhibitions || []).map(ex => {
     const ids = (ex as any).imageIds as string[] | undefined;
     const legacyUrls = Array.isArray((ex as any).images) ? ((ex as any).images as string[]) : [];
     const resolved = ids ? ids.map(id => exImageMap[id]).filter(Boolean) : [];

@@ -119,7 +119,7 @@ export interface Artist {
 // --- Exhibition Types ---
 export type ExhibitionTicketStatus = 'none' | 'reserved' | 'bought' | 'visited';
 export type ExhibitionTicketSalesStatus = 'none' | 'before_sale' | 'not_purchased' | 'purchased';
-export type ExhibitionOverallStatus = 'preparing' | 'running' | 'visited' | 'ended_not_visited';
+export type ExhibitionStatus = 'NONE' | 'PLANNED' | 'RESERVED' | 'SKIPPED' | 'VISITED' | 'ENDED';
 
 export interface ExhibitionArtist {
   name: string;
@@ -160,7 +160,7 @@ export interface Exhibition {
   
   // Visit Tracking
   visitedAt?: string; // YYYY-MM-DD HH:mm
-  exhibitionStatus: ExhibitionOverallStatus;
+  status: ExhibitionStatus;
 
   // Content
   description?: string;
@@ -177,8 +177,6 @@ export interface DisplaySettings {
   showSkipped: boolean;
 }
 
-export type ConcertViewMode = 'concert' | 'deadline';
-
 // Concert list page (local UI state)
 // NOTE: These types are additive and do not affect existing persisted data.
 export type ConcertListSortKey = 'date' | 'artist' | 'status_group';
@@ -188,7 +186,21 @@ export interface ConcertListFilters {
   statuses?: Status[];
 }
 
+export type StatusItem = {
+  id: string;
+  type: 'concert' | 'exhibition';
+  parentId: string;
+  title: string;
+  date: string;
+  status: string;
+  actionType: 'lottery' | 'result' | 'ticket' | 'exhibition_start' | 'exhibition_end';
+  displayStatus: string;
+  raw: any;
+};
+
 export type PageId = 
+  | 'CONTENT'
+  | 'STATUS'
   | 'EXHIBITIONS'  
   | 'EXHIBITION_DETAIL'
   | 'MUSIC'        
