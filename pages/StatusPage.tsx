@@ -152,9 +152,19 @@ export const StatusPage: React.FC<Props> = ({
       const isPassed = concertDate && now >= concertDate;
       const due = getDueAction(item.raw, now);
 
-      if (due || ['発売前', '検討中', '抽選中'].includes(item.status)) pending.push(item);
-      else if (item.status === '参戦済み' || (item.status === '見送' && isPassed)) history.push(item);
-      else decided.push(item);
+      if (
+  item.status === '参戦済み' ||
+  item.status === '落選' ||
+  item.status === '見送'
+) {
+  history.push(item);
+}
+      else if (due || ['発売前', '検討中', '抽選中'].includes(item.status)) {
+  pending.push(item);
+}
+      else {
+  decided.push(item);
+}
     });
 
     return { pending, decided, history };
