@@ -1,5 +1,5 @@
 
-import { Artist, Concert, Status, TICKET_TRACK_STATUSES, TOUR_ACTIVE_STATUSES, GlobalSettings, DueAction, CalendarEvent, CalendarEventType, Exhibition, LotteryHistoryItem } from '../domain/types';
+import { Artist, Concert, Status, TICKET_TRACK_STATUSES, TOUR_ACTIVE_STATUSES, GlobalSettings, DueAction, CalendarEvent, CalendarEventType, Exhibition, LotteryHistoryItem, Movie } from '../domain/types';
 import { TEXT } from '../ui/constants';
 import { bulkPutImageUrls, bulkGetImageUrls, putImageUrl } from './imageStore';
 
@@ -87,6 +87,7 @@ export const EVENT_PRIORITY: Record<CalendarEventType, number> = {
   [TEXT.CALENDAR.EVENT_SALE]: 4,
   // Fix: Added missing '展覧会' property to Record
   ['展覧会']: 5,
+  ['映画']: 6,
 };
 
 const extractDateAndTime = (str: string | null | undefined): { date: string; time?: string } | null => {
@@ -95,7 +96,7 @@ const extractDateAndTime = (str: string | null | undefined): { date: string; tim
   return { date: parts[0], time: parts[1] ? parts[1].substring(0, 5) : undefined };
 };
 
-export const buildCalendarEvents = (artists: Artist[], settings: { showAttended: boolean; showSkipped: boolean }): CalendarEvent[] => {
+export const buildCalendarEvents = (artists: Artist[], settings: { showAttended: boolean; showSkipped: boolean }, movies: Movie[] = []): CalendarEvent[] => {
   const events: CalendarEvent[] = [];
 
   artists.forEach(artist => {
@@ -168,6 +169,23 @@ export const buildCalendarEvents = (artists: Artist[], settings: { showAttended:
           }
         }
       });
+    });
+  });
+
+  (movies || []).forEach(movie => {
+    const dateStr = movie.watchDate || movie.releaseDate;
+    const info = extractDateAndTime(dateStr);
+    if (!info) return;
+    events.push({
+      dateKey: info.date,
+      timeLabel: movie.startTime || undefined,
+      type: '映画',
+      artistId: '',
+      tourId: '',
+      concertId: '',
+      movieId: movie.id,
+      title: movie.title,
+      status: movie.status,
     });
   });
 
@@ -538,7 +556,7 @@ export const migrateExhibitionImagesToIndexedDB = async (exhibitions: Exhibition
  * Prepares a unified data object containing both artists and exhibitions
  * with all image data expanded for backup.
  */
-export const prepareFullDataForExport = async (artists: Artist[], exhibitions: Exhibition[]): Promise<any> => {
+export const prepareFullDataForExport = async (artists: Artist[], exhibitions: Exhibition[], movies: Movie[] = []): Promise<any> => {
   // 1. Expand Artist Images
   const artistsExpanded = await expandAlbumImagesForExport(artists);
 
@@ -563,7 +581,8 @@ export const prepareFullDataForExport = async (artists: Artist[], exhibitions: E
   return {
     artists: artistsExpanded,
     exhibitions: exhibitionsExpanded,
-    version: '1.0',
+    movies,
+    version: '1.1',
     exportedAt: new Date().toISOString()
   };
 };

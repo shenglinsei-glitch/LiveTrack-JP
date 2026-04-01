@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { theme } from '../ui/theme';
 import { Icons } from '../ui/IconButton';
@@ -13,9 +12,9 @@ interface TopCapsuleNavProps {
   rightControl?: React.ReactNode;
 }
 
-export const TopCapsuleNav: React.FC<TopCapsuleNavProps> = ({ 
-  activeTab, 
-  onTabChange, 
+export const TopCapsuleNav: React.FC<TopCapsuleNavProps> = ({
+  activeTab,
+  onTabChange,
   onRefresh,
   isRefreshing,
   leftControl,
@@ -25,7 +24,6 @@ export const TopCapsuleNav: React.FC<TopCapsuleNavProps> = ({
     { key: 'concerts', label: '公演' }
   ]
 }) => {
-
   const glassStyle: React.CSSProperties = {
     background: 'rgba(255, 255, 255, 0.72)',
     backdropFilter: 'blur(16px)',
@@ -37,35 +35,36 @@ export const TopCapsuleNav: React.FC<TopCapsuleNavProps> = ({
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 'calc(12px + env(safe-area-inset-top))',
-      left: '16px',
-      right: '16px',
-      height: '44px',
-      zIndex: 120,
-      pointerEvents: 'none',
-    }}>
-      {/* Container to allow relative positioning of children */}
+    <div style={{ position: 'fixed', top: 'calc(12px + env(safe-area-inset-top))', left: '16px', right: '16px', height: '44px', zIndex: 120, pointerEvents: 'none' }}>
       <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-        
         {leftControl && (
           <div style={{ position: 'absolute', left: 0, height: '44px', pointerEvents: 'auto' }}>
             {leftControl}
           </div>
         )}
 
-        {/* Centered Capsule: Tabs Segmented Control */}
-        <div style={{
-          ...glassStyle,
-          position: 'absolute',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          height: '44px',
-          padding: '4px',
-          borderRadius: '9999px',
-          pointerEvents: 'auto',
-        }}>
+        <div
+          style={{
+            ...glassStyle,
+            position: 'absolute',
+            left: leftControl ? '52px' : 0,
+            right: rightControl ? '52px' : '52px',
+            margin: '0 auto',
+            width: 'fit-content',
+            maxWidth: `calc(100% - ${(leftControl ? 52 : 0) + 52 + (rightControl ? 52 : 52)}px)`,
+            height: '44px',
+            padding: '4px',
+            borderRadius: '9999px',
+            pointerEvents: 'auto',
+            overflowX: 'auto',
+            overflowY: 'hidden',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            whiteSpace: 'nowrap',
+            justifyContent: 'flex-start',
+          }}
+          className="hide-scrollbar"
+        >
           {tabs.map((tab) => {
             const isActive = activeTab === tab.key;
             return (
@@ -88,6 +87,7 @@ export const TopCapsuleNav: React.FC<TopCapsuleNavProps> = ({
                   outline: 'none',
                   padding: '0 16px',
                   whiteSpace: 'nowrap',
+                  flexShrink: 0,
                 }}
               >
                 {tab.label}
@@ -119,13 +119,7 @@ export const TopCapsuleNav: React.FC<TopCapsuleNavProps> = ({
             onMouseUp={(e) => !isRefreshing && (e.currentTarget.style.transform = 'scale(1)')}
             onMouseLeave={(e) => !isRefreshing && (e.currentTarget.style.transform = 'scale(1)')}
           >
-            <Icons.Refresh 
-              style={{ 
-                width: '18px', 
-                height: '18px',
-                animation: isRefreshing ? 'spin 1s linear infinite' : 'none'
-              }} 
-            />
+            <Icons.Refresh style={{ width: '18px', height: '18px', animation: isRefreshing ? 'spin 1s linear infinite' : 'none' }} />
             <style>{`
               @keyframes spin {
                 from { transform: rotate(0deg); }

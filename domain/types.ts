@@ -33,7 +33,8 @@ export type CalendarEventType =
   | '抽選結果' 
   | '発売開始' 
   | '申込締切'
-  | '展覧会';
+  | '展覧会'
+  | '映画';
 
 export interface CalendarEvent {
   dateKey: string;        // YYYY-MM-DD
@@ -43,7 +44,8 @@ export interface CalendarEvent {
   tourId: string;
   concertId: string;
   title: string;          // Artist Name + Tour Name
-  status: Status;
+  status: string;
+  movieId?: string;
 }
 
 export interface SiteLink {
@@ -168,6 +170,33 @@ export interface Exhibition {
   imageIds?: string[];
 }
 
+
+
+export type MovieStatus = '未上映' | '上映中' | '鑑賞済み' | '見送り' | '上映終了';
+export type MovieTicketType = '通常' | '舞台挨拶';
+
+export interface Movie {
+  id: string;
+  title: string;
+  posterUrl: string;
+  theaterName: string;
+  screenName: string;
+  seat: string;
+  releaseDate?: string;
+  watchDate?: string;
+  startTime?: string;
+  endTime?: string;
+  memo?: string;
+  actors: string[];
+  directors: string[];
+  price?: number;
+  ticketType: MovieTicketType;
+  status: MovieStatus;
+  websiteUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface GlobalSettings {
   autoTrackIntervalDays: 3 | 7 | 14 | 21 | 30;
 }
@@ -188,12 +217,12 @@ export interface ConcertListFilters {
 
 export type StatusItem = {
   id: string;
-  type: 'concert' | 'exhibition';
+  type: 'concert' | 'exhibition' | 'movie';
   parentId: string;
   title: string;
   date: string;
   status: string;
-  actionType: 'lottery' | 'result' | 'ticket' | 'exhibition_start' | 'exhibition_end';
+  actionType: 'lottery' | 'result' | 'ticket' | 'exhibition_start' | 'exhibition_end' | 'movie';
   displayStatus: string;
   raw: any;
 };
@@ -210,4 +239,5 @@ export type PageId =
   | 'ARTIST_DETAIL' 
   | 'CONCERT_HOME' 
   | 'ARTIST_EDITOR' 
-  | 'CONCERT_EDITOR';
+  | 'CONCERT_EDITOR'
+  | 'MOVIE_DETAIL';

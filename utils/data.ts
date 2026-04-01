@@ -1,4 +1,4 @@
-import { Artist, Exhibition, SiteLink, Tour, Concert } from '../domain/types';
+import { Artist, Exhibition, SiteLink, Tour, Concert, Movie } from '../domain/types';
 
 export const normalizeArtistData = (artist: any): Artist => {
   return {
@@ -41,5 +41,32 @@ export const normalizeExhibitionData = (ex: any): Exhibition => {
     holidayPriceSameAsWeekday: !!ex.holidayPriceSameAsWeekday,
     imageIds: Array.isArray(ex.imageIds) ? ex.imageIds : [],
     artists: Array.isArray(ex.artists) ? ex.artists : []
+  };
+};
+
+
+export const normalizeMovieData = (movie: any): Movie => {
+  const now = new Date().toISOString();
+  return {
+    ...movie,
+    id: String(movie.id || Math.random().toString(36).substr(2, 9)),
+    title: movie.title || '新規映画',
+    posterUrl: movie.posterUrl || '',
+    theaterName: movie.theaterName || '',
+    screenName: movie.screenName || '',
+    seat: movie.seat || '',
+    releaseDate: movie.releaseDate || '',
+    watchDate: movie.watchDate || '',
+    startTime: movie.startTime || '',
+    endTime: movie.endTime || '',
+    memo: movie.memo || '',
+    actors: Array.isArray(movie.actors) ? movie.actors : [],
+    directors: Array.isArray(movie.directors) ? movie.directors : [],
+    price: typeof movie.price === 'number' ? movie.price : (movie.price === '' || movie.price == null ? undefined : Number(movie.price) || undefined),
+    ticketType: movie.ticketType || '通常',
+    status: movie.status || '未上映',
+    websiteUrl: movie.websiteUrl || '',
+    createdAt: movie.createdAt || now,
+    updatedAt: movie.updatedAt || movie.createdAt || now,
   };
 };

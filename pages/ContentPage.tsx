@@ -1,16 +1,15 @@
-
 import React, { useState } from 'react';
 import { ArtistListPage } from './ArtistListPage';
 import { ConcertListPage } from './ConcertListPage';
 import { ExhibitionsPage } from './ExhibitionsPage';
-import { Artist, GlobalSettings, Concert, Exhibition } from '../domain/types';
+import { MoviesPage } from './MoviesPage';
+import { Artist, GlobalSettings, Concert, Exhibition, Movie } from '../domain/types';
 import { TopCapsuleNav } from '../components/TopCapsuleNav';
 
 interface ContentPageProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
-  
-  // Artist Props
+
   artists: Artist[];
   onOpenArtist: (artistId: string) => void;
   onOpenArtistEditor: () => void;
@@ -25,8 +24,7 @@ interface ContentPageProps {
   onClearAllTrackingNotices: () => void;
   isArtistMenuOpen: boolean;
   onArtistMenuClose: () => void;
-  
-  // Concert Props
+
   onOpenConcert: (artistId: string, tourId: string, concertId: string) => void;
   onCreateConcert: () => void;
   onUpdateConcert: (artistId: string, tourId: string, concertId: string, updates: Partial<Concert>) => void;
@@ -35,7 +33,6 @@ interface ContentPageProps {
   isConcertMenuOpen: boolean;
   onConcertMenuClose: () => void;
 
-  // Exhibition Props
   exhibitions: Exhibition[];
   onUpdateExhibitions: (exhibitions: Exhibition[]) => void;
   onOpenExhibitionDetail: (exhibitionId: string) => void;
@@ -43,19 +40,26 @@ interface ContentPageProps {
   onExhibitionMenuClose: () => void;
   onAddNewExhibition: () => void;
 
+  movies: Movie[];
+  onOpenMovieDetail: (movieId: string) => void;
+  onAddNewMovie: () => void;
+  onUpdateMovies: (movies: Movie[]) => void;
+
   onExport: () => void;
+  onImport: (data: any) => void;
 }
 
 export const ContentPage: React.FC<ContentPageProps> = (props) => {
-
   const [isArtistToolsOpen, setIsArtistToolsOpen] = useState(false);
   const [isConcertToolsOpen, setIsConcertToolsOpen] = useState(false);
   const [isExhibitionToolsOpen, setIsExhibitionToolsOpen] = useState(false);
+  const [isMovieToolsOpen, setIsMovieToolsOpen] = useState(false);
 
   const closeAllMenus = () => {
     setIsArtistToolsOpen(false);
     setIsConcertToolsOpen(false);
     setIsExhibitionToolsOpen(false);
+    setIsMovieToolsOpen(false);
   };
 
   const leftControl = (
@@ -65,14 +69,22 @@ export const ContentPage: React.FC<ContentPageProps> = (props) => {
           setIsArtistToolsOpen(v => !v);
           setIsConcertToolsOpen(false);
           setIsExhibitionToolsOpen(false);
+          setIsMovieToolsOpen(false);
         } else if (props.activeTab === 'concerts') {
           setIsConcertToolsOpen(v => !v);
           setIsArtistToolsOpen(false);
           setIsExhibitionToolsOpen(false);
-        } else {
+          setIsMovieToolsOpen(false);
+        } else if (props.activeTab === 'exhibitions') {
           setIsExhibitionToolsOpen(v => !v);
           setIsArtistToolsOpen(false);
           setIsConcertToolsOpen(false);
+          setIsMovieToolsOpen(false);
+        } else {
+          setIsMovieToolsOpen(v => !v);
+          setIsArtistToolsOpen(false);
+          setIsConcertToolsOpen(false);
+          setIsExhibitionToolsOpen(false);
         }
       }}
       style={{
@@ -109,25 +121,23 @@ export const ContentPage: React.FC<ContentPageProps> = (props) => {
   const tabs = [
     { key: 'artists', label: 'アーティスト' },
     { key: 'concerts', label: '公演' },
-    { key: 'exhibitions', label: '展覧' }
+    { key: 'exhibitions', label: '展覧' },
+    { key: 'movies', label: '映画' },
   ];
 
   return (
-    <div style={{ 
-      position: 'relative',
-      paddingTop: 'calc(12px + env(safe-area-inset-top) + 44px + 16px)' 
-    }}>
-      <TopCapsuleNav 
+    <div style={{ position: 'relative', paddingTop: 'calc(12px + env(safe-area-inset-top) + 44px + 16px)' }}>
+      <TopCapsuleNav
         activeTab={props.activeTab}
         onTabChange={(tab) => { closeAllMenus(); props.onTabChange(tab); }}
         onRefresh={props.onRefreshAll}
         tabs={tabs}
         leftControl={leftControl}
       />
-      
+
       <div className="content-area">
         {props.activeTab === 'artists' && (
-          <ArtistListPage 
+          <ArtistListPage
             artists={props.artists}
             onOpenArtist={props.onOpenArtist}
             onOpenArtistEditor={props.onOpenArtistEditor}
@@ -147,7 +157,7 @@ export const ContentPage: React.FC<ContentPageProps> = (props) => {
           />
         )}
         {props.activeTab === 'concerts' && (
-          <ConcertListPage 
+          <ConcertListPage
             artists={props.artists}
             onOpenArtist={props.onOpenArtist}
             onOpenConcert={props.onOpenConcert}
@@ -164,7 +174,7 @@ export const ContentPage: React.FC<ContentPageProps> = (props) => {
           />
         )}
         {props.activeTab === 'exhibitions' && (
-          <ExhibitionsPage 
+          <ExhibitionsPage
             exhibitions={props.exhibitions}
             onUpdateExhibitions={props.onUpdateExhibitions}
             onOpenDetail={props.onOpenExhibitionDetail}
@@ -173,6 +183,17 @@ export const ContentPage: React.FC<ContentPageProps> = (props) => {
             onAddNew={props.onAddNewExhibition}
             onExport={props.onExport}
             onImport={props.onImportData}
+            hideHeader={true}
+          />
+        )}
+        {props.activeTab === 'movies' && (
+          <MoviesPage
+            movies={props.movies}
+            onOpenDetail={props.onOpenMovieDetail}
+            onExport={props.onExport}
+            onImport={props.onImportData}
+            isMenuOpenExternally={isMovieToolsOpen}
+            onMenuClose={() => setIsMovieToolsOpen(false)}
             hideHeader={true}
           />
         )}

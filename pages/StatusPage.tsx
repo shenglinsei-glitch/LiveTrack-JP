@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { theme } from '../ui/theme';
 import { GlassCard } from '../ui/GlassCard';
-import { Artist, Concert, Exhibition, StatusItem } from '../domain/types';
+import { Artist, Concert, Exhibition, StatusItem, Movie } from '../domain/types';
 import { generateStatusItems } from '../utils/statusGenerator';
 import { TopCapsuleNav } from '../components/TopCapsuleNav';
 import { getDueAction, parseConcertDate } from '../domain/logic';
@@ -12,16 +12,19 @@ import { RemoteImage } from '../components/RemoteImage';
 interface Props {
   artists: Artist[];
   exhibitions: Exhibition[];
+  movies: Movie[];
   onOpenConcert: (aid: string, tid: string, cid: string) => void;
   onOpenConcertEditor: (aid: string, tid: string) => void;
   onUpdateConcert: (aid: string, tid: string, cid: string, updates: Partial<Concert>) => void;
   onOpenExhibitionDetail: (id: string) => void;
   onUpdateExhibitionStatus: (id: string, updates: Partial<Exhibition>) => void;
+  onOpenMovieDetail: (id: string) => void;
+  onUpdateMovieStatus: (id: string, updates: Partial<Movie>) => void;
   onExport: () => void;
   onImport: (data: any) => void;
 }
 
-type StatusTab = 'ALL' | 'CONCERT' | 'EXHIBITION';
+type StatusTab = 'ALL' | 'CONCERT' | 'EXHIBITION' | 'MOVIE';
 type SectionKey = 'all' | 'pending' | 'decided' | 'history';
 type SortKey = 'date_asc' | 'date_desc' | 'type' | 'status';
 
@@ -87,6 +90,22 @@ const getExhibitionStatusTone = (status: string) => {
   }
 };
 
+
+const getMovieStatusTone = (status: string) => {
+  switch (status) {
+    case '未上映':
+      return { color: '#9CA3AF', bg: 'rgba(156,163,175,0.12)', label: '未上映' };
+    case '上映中':
+      return { color: theme.colors.primary, bg: 'rgba(83,190,232,0.12)', label: '上映中' };
+    case '鑑賞済み':
+      return { color: '#10B981', bg: 'rgba(16,185,129,0.12)', label: '鑑賞済み' };
+    case '見送り':
+      return { color: theme.colors.textSecondary, bg: 'rgba(107,114,128,0.10)', label: '見送り' };
+    default:
+      return { color: '#94A3B8', bg: 'rgba(148,163,184,0.12)', label: '上映終了' };
+  }
+};
+
 const getExhibitionMeta = (item: StatusItem) => {
   if (item.status === 'RESERVED') {
     return {
@@ -111,11 +130,14 @@ const getExhibitionMeta = (item: StatusItem) => {
 export const StatusPage: React.FC<Props> = ({
   artists,
   exhibitions,
+  movies,
   onOpenConcert,
   onOpenConcertEditor,
   onUpdateConcert,
   onOpenExhibitionDetail,
   onUpdateExhibitionStatus,
+  onOpenMovieDetail,
+  onUpdateMovieStatus,
   onExport,
   onImport,
 }) => {
@@ -126,12 +148,13 @@ export const StatusPage: React.FC<Props> = ({
   const [exhibitionAction, setExhibitionAction] = useState<{ id: string; mode: ExhibitionActionMode; value: string; title: string } | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
 
-  const allItems = useMemo(() => generateStatusItems(artists, exhibitions) || [], [artists, exhibitions]);
+  const allItems = useMemo(() => generateStatusItems(artists, exhibitions, movies) || [], [artists, exhibitions, movies]);
 
   const filteredItems = useMemo(() => {
     if (activeTab === 'ALL') return allItems;
     if (activeTab === 'CONCERT') return allItems.filter((item) => item.type === 'concert');
-    return allItems.filter((item) => item.type === 'exhibition');
+    if (activeTab === 'EXHIBITION') return allItems.filter((item) => item.type === 'exhibition');
+    return allItems.filter((item) => item.type === 'movie');
   }, [allItems, activeTab]);
 
   const sections = useMemo(() => {
@@ -144,6 +167,12 @@ export const StatusPage: React.FC<Props> = ({
       if (item.type === 'exhibition') {
         if (item.status === 'PLANNED') pending.push(item);
         else if (item.status === 'RESERVED') decided.push(item);
+        else history.push(item);
+        return;
+      }
+
+      if (item.type === 'movie') {
+        if (item.status === '未上映' || item.status === '上映中') pending.push(item);
         else history.push(item);
         return;
       }
@@ -258,6 +287,18 @@ export const StatusPage: React.FC<Props> = ({
     return null;
   };
 
+  const renderMovieActions = (item: StatusItem) => {
+    if (item.status !== '上映中') return null;
+
+    return (
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', padding: '0 4px' }}>
+        <button onClick={(e) => { e.stopPropagation(); onUpdateMovieStatus(item.parentId, { status: '鑑賞済み', watchDate: item.raw.watchDate || dayjs().format('YYYY-MM-DD') }); }} style={actionPrimaryBtn}>鑑賞済み</button>
+        <button onClick={(e) => { e.stopPropagation(); onUpdateMovieStatus(item.parentId, { status: '見送り' }); }} style={actionGhostBtn}>見送り</button>
+        <button onClick={(e) => { e.stopPropagation(); onUpdateMovieStatus(item.parentId, { status: '上映終了' }); }} style={actionGhostBtn}>上映終了</button>
+      </div>
+    );
+  };
+
   const renderItem = (item: StatusItem) => {
     if (item.type === 'concert') {
       return (
@@ -268,6 +309,108 @@ export const StatusPage: React.FC<Props> = ({
           onUpdate={onUpdateConcert}
           onOpenEditor={() => onOpenConcertEditor(item.raw.artistId, item.raw.tourId)}
         />
+      );
+    }
+
+    if (item.type === 'movie') {
+      const statusTone = getMovieStatusTone(item.status);
+      const metaLabel = item.raw.watchDate ? '鑑賞日' : '公開日';
+      const metaValue = formatCompactDate(item.raw.watchDate || item.raw.releaseDate || item.date || '');
+
+      return (
+        <div key={item.id}>
+          <div
+            onClick={() => onOpenMovieDetail(item.parentId)}
+            style={{
+              background: 'white',
+              borderRadius: '24px',
+              border: '1px solid rgba(0, 0, 0, 0.04)',
+              padding: '14px 18px',
+              display: 'flex',
+              flexDirection: 'column',
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+              transition: 'all 0.2s',
+              marginBottom: item.status === '上映中' ? '4px' : '12px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '50%',
+                  background: '#F3F4F6',
+                  flexShrink: 0,
+                  overflow: 'hidden',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {item.raw.posterUrl ? (
+                  <img src={item.raw.posterUrl} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <span style={{ fontSize: '18px', opacity: 0.2 }}>🎬</span>
+                )}
+              </div>
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                  <div style={{ fontSize: '12px', color: theme.colors.textSecondary, fontWeight: '700', minWidth: 0 }}>
+                    <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {item.raw.theaterName || '映画'}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '10px',
+                      fontWeight: '800',
+                      color: statusTone.color,
+                      background: statusTone.bg,
+                      padding: '2px 8px',
+                      borderRadius: '9999px',
+                      border: '1px solid rgba(0,0,0,0.06)',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {statusTone.label}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    fontWeight: '800',
+                    fontSize: '15px',
+                    color: theme.colors.text,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    marginTop: 2,
+                  }}
+                >
+                  {item.title}
+                </div>
+
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: theme.colors.textSecondary,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    marginTop: 2,
+                  }}
+                >
+                  <span style={{ fontWeight: '800', color: theme.colors.textMain }}>{metaLabel}：</span> {metaValue || '未設定'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {renderMovieActions(item)}
+        </div>
       );
     }
 
@@ -391,6 +534,7 @@ export const StatusPage: React.FC<Props> = ({
     { key: 'ALL', label: '全部' },
     { key: 'CONCERT', label: '公演' },
     { key: 'EXHIBITION', label: '展覧' },
+    { key: 'MOVIE', label: '映画' },
   ];
 
   const leftControl = (

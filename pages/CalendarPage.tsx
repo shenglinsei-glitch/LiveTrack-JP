@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { PageShell } from '../ui/PageShell';
 import { theme } from '../ui/theme';
 import { TEXT } from '../ui/constants';
-import { Artist, CalendarEvent, CalendarEventType, Exhibition, ExhibitionStatus } from '../domain/types';
+import { Artist, CalendarEvent, CalendarEventType, Exhibition, ExhibitionStatus, Movie } from '../domain/types';
 import { buildCalendarEvents, EVENT_PRIORITY, getEffectiveExhibitionStatus } from '../domain/logic';
 import { Icons } from '../ui/IconButton';
 import dayjs from 'dayjs';
@@ -11,15 +11,17 @@ import dayjs from 'dayjs';
 interface Props {
   artists: Artist[];
   exhibitions: Exhibition[];
+  movies: Movie[];
   onOpenArtist: (artistId: string) => void;
   onOpenConcert: (artistId: string, tourId: string, concertId: string) => void;
   onOpenExhibition: (exhibitionId: string) => void;
+  onOpenMovie: (movieId: string) => void;
   onRefreshAll: () => void;
   isMenuOpenExternally?: boolean;
   onMenuClose?: () => void;
 }
 
-type CalendarMode = 'concert' | 'exhibition';
+type CalendarMode = 'concert' | 'exhibition' | 'movie';
 
 const exhibitionPriorityMap: Record<ExhibitionStatus, number> = {
   PLANNED: 1,
@@ -37,6 +39,7 @@ const typeColorMap: Record<CalendarEventType, string> = {
   [TEXT.CALENDAR.EVENT_DEADLINE]: theme.colors.status['検討中'],
   [TEXT.CALENDAR.EVENT_SALE]: theme.colors.status['発売前'],
   '展覧会': theme.colors.primary, // Satisfy Record<CalendarEventType, string>
+  '映画': '#8B5CF6',
 };
 
 const CONCERT_DOT_COLOR_UNDECIDED = '#377D99';
@@ -49,6 +52,17 @@ const getConcertDotColor = (status: string): string => {
   if (status === '抽選中' || status === '発売前' || status === '検討中') return CONCERT_DOT_COLOR_UNDECIDED;
   if (status === '見送' || status === '見送り') return CONCERT_DOT_COLOR_SKIPPED;
   return CONCERT_DOT_COLOR_UNDECIDED;
+};
+
+
+const getMovieDotColor = (status: string): string => {
+  switch (status) {
+    case '未上映': return '#9CA3AF';
+    case '上映中': return '#53BEE8';
+    case '鑑賞済み': return '#10B981';
+    case '見送り': return '#6B7280';
+    default: return '#94A3B8';
+  }
 };
 
 // ====== Wheel Picker Popover ======
@@ -315,9 +329,11 @@ const WheelPickerPopover = ({
 export const CalendarPage: React.FC<Props> = ({
   artists,
   exhibitions,
+  movies,
   onOpenArtist,
   onOpenConcert,
   onOpenExhibition,
+  onOpenMovie,
   onRefreshAll,
   isMenuOpenExternally,
   onMenuClose,
@@ -330,6 +346,7 @@ export const CalendarPage: React.FC<Props> = ({
   const [showSkipped, setShowSkipped] = useState(true);
 
   const [mode, setMode] = useState<CalendarMode>('concert');
+  const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
 
   const monthAnchorRef = useRef<HTMLDivElement | null>(null);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
@@ -343,7 +360,7 @@ export const CalendarPage: React.FC<Props> = ({
     setSelectedDateKey(null);
   }, [currentDate.getFullYear(), currentDate.getMonth(), mode]);
 
-  const allEvents = useMemo(() => buildCalendarEvents(artists, { showAttended, showSkipped }), [artists, showAttended, showSkipped]);
+  const allEvents = useMemo(() => buildCalendarEvents(artists, { showAttended, showSkipped }, movies), [artists, showAttended, showSkipped, movies]);
 
   const musicEventMap = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
@@ -437,7 +454,7 @@ export const CalendarPage: React.FC<Props> = ({
 
   const selectedDayEvents = useMemo(() => {
     if (!selectedDateKey) return [];
-    if (mode === 'concert') {
+    if (mode === 'concert' || mode === 'movie') {
       const list = musicEventMap.get(selectedDateKey) || [];
       return [...list].sort((a, b) => {
         if (a.timeLabel && !b.timeLabel) return -1;
@@ -539,40 +556,40 @@ export const CalendarPage: React.FC<Props> = ({
     <PageShell disablePadding>
       <div style={{ padding: 'calc(12px + env(safe-area-inset-top)) 16px 140px 16px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', gap: '10px', marginBottom: '24px', height: '44px', width: '100%' }}>
-          <div
-  style={{
-    display: 'inline-flex',
-    background: 'rgba(255,255,255,0.72)',
-    backdropFilter: 'blur(16px)',
-    WebkitBackdropFilter: 'blur(16px)',
-    padding: '4px',
-    borderRadius: '999px',
-    border: '1px solid rgba(255,255,255,0.42)',
-    boxShadow: '0 6px 18px rgba(15,23,42,0.05)',
-    whiteSpace: 'nowrap',
-  }}
->
-  <button
-    onClick={() => setMode('concert')}
-    style={{
-      ...modeBtnStyle,
-      background: mode === 'concert' ? 'rgba(83, 190, 232, 0.18)' : 'transparent',
-      color: mode === 'concert' ? '#53BEE8' : theme.colors.textSecondary,
-    }}
-  >
-    公演
-  </button>
-  <button
-    onClick={() => setMode('exhibition')}
-    style={{
-      ...modeBtnStyle,
-      background: mode === 'exhibition' ? 'rgba(83, 190, 232, 0.18)' : 'transparent',
-      color: mode === 'exhibition' ? '#53BEE8' : theme.colors.textSecondary,
-    }}
-  >
-    展覧
-  </button>
-</div>
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setIsModeMenuOpen(v => !v)}
+              style={{
+                ...modeBtnStyle,
+                height: 44,
+                padding: '0 16px',
+                background: 'rgba(255,255,255,0.72)',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                border: '1px solid rgba(255,255,255,0.42)',
+                boxShadow: '0 6px 18px rgba(15,23,42,0.05)',
+                color: theme.colors.text,
+                gap: 8,
+              }}
+            >
+              <span>{mode === 'concert' ? '公演' : mode === 'exhibition' ? '展覧' : '映画'}</span>
+              <span style={{ fontSize: 10, opacity: 0.45 }}>▼</span>
+            </button>
+            {isModeMenuOpen && (
+              <>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 119 }} onClick={() => setIsModeMenuOpen(false)} />
+                <div style={{ position: 'absolute', left: 0, top: 48, zIndex: 120, minWidth: 140, background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', border: '1px solid rgba(15,23,42,0.06)', borderRadius: 20, boxShadow: '0 18px 44px -18px rgba(15,23,42,0.18)', padding: 8 }}>
+                  {[
+                    { key: 'concert', label: '公演' },
+                    { key: 'exhibition', label: '展覧' },
+                    { key: 'movie', label: '映画' },
+                  ].map((item) => (
+                    <button key={item.key} onClick={() => { setMode(item.key as CalendarMode); setIsModeMenuOpen(false); }} style={{ width: '100%', border: 'none', background: mode === item.key ? 'rgba(83,190,232,0.12)' : 'transparent', color: mode === item.key ? theme.colors.primary : theme.colors.text, borderRadius: 14, padding: '10px 12px', textAlign: 'left', fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>{item.label}</button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
 
           <div ref={monthAnchorRef} onClick={handleOpenPicker} style={{ justifySelf: 'center', fontSize: '17px', fontWeight: '900', color: theme.colors.text, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: '12px', maxWidth: '100%' }}>
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -664,20 +681,23 @@ export const CalendarPage: React.FC<Props> = ({
                         {d.day}
                       </div>
 
-                      {mode === 'concert' && musicEvents.length > 0 && (() => {
-                        const sorted = [...musicEvents].sort((a, b) => EVENT_PRIORITY[a.type] - EVENT_PRIORITY[b.type]);
+                      {(mode === 'concert' || mode === 'movie') && musicEvents.length > 0 && (() => {
+                        const filteredEvents = mode === 'movie' ? musicEvents.filter(ev => ev.type === '映画') : musicEvents.filter(ev => ev.type !== '映画');
+                        if (!filteredEvents.length) return null;
+                        const sorted = [...filteredEvents].sort((a, b) => EVENT_PRIORITY[a.type] - EVENT_PRIORITY[b.type]);
                         const primary = sorted[0];
                         let primaryDotColor: string | null = null;
 
                         if (primary) {
-                          if (isConcertType(primary.type)) primaryDotColor = getConcertDotColor(primary.status);
+                          if (primary.type === '映画') primaryDotColor = getMovieDotColor(primary.status);
+                          else if (isConcertType(primary.type)) primaryDotColor = getConcertDotColor(primary.status);
                           else primaryDotColor = typeColorMap[primary.type] || theme.colors.primary;
                         }
 
                         return (
                           <div style={{ marginTop: '6px', height: '6px', display: 'flex', alignItems: 'center', gap: '2px', justifyContent: 'center' }}>
                             {primaryDotColor && <div style={{ width: '6px', height: '6px', borderRadius: '999px', background: primaryDotColor }} />}
-                            {musicEvents.length > 1 && <div style={{ width: '4px', height: '4px', borderRadius: '999px', background: '#CBD5E1' }} />}
+                            {filteredEvents.length > 1 && <div style={{ width: '4px', height: '4px', borderRadius: '999px', background: '#CBD5E1' }} />}
                           </div>
                         );
                       })()}
@@ -702,13 +722,15 @@ export const CalendarPage: React.FC<Props> = ({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {selectedDayEvents.length === 0 ? (
                 <div style={{ color: theme.colors.textWeak, fontWeight: 700, padding: '12px 0' }}>予定はありません</div>
-              ) : mode === 'concert' ? (
-                (selectedDayEvents as CalendarEvent[]).map((ev, idx) => (
-                  <div key={`${ev.concertId}-${ev.type}-${idx}`} onClick={() => handleEventClick(ev)} style={eventCardStyle}>
+              ) : mode === 'concert' || mode === 'movie' ? (
+                (selectedDayEvents as CalendarEvent[])
+                  .filter((ev) => mode === 'movie' ? ev.type === '映画' : ev.type !== '映画')
+                  .map((ev, idx) => (
+                  <div key={`${ev.movieId || ev.concertId}-${ev.type}-${idx}`} onClick={() => ev.type === '映画' ? onOpenMovie(ev.movieId || '') : handleEventClick(ev)} style={eventCardStyle}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
                       <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <div style={{ fontSize: '10px', fontWeight: '800', color: typeColorMap[ev.type] }}>
-                          {isConcertType(ev.type) ? 'LIVE' : String(ev.type).substring(0, 2)}
+                        <div style={{ fontSize: '10px', fontWeight: '800', color: ev.type === '映画' ? getMovieDotColor(ev.status) : typeColorMap[ev.type] }}>
+                          {ev.type === '映画' ? 'MOV' : (isConcertType(ev.type) ? 'LIVE' : String(ev.type).substring(0, 2))}
                         </div>
                         {ev.timeLabel && <div style={{ fontSize: '10px', fontWeight: '600', color: theme.colors.textSecondary }}>{ev.timeLabel}</div>}
                       </div>
@@ -716,7 +738,7 @@ export const CalendarPage: React.FC<Props> = ({
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontSize: '15px', fontWeight: '800', color: theme.colors.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ev.title}</div>
                         <div style={{ fontSize: '12px', color: theme.colors.textSecondary, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: typeColorMap[ev.type] }} />
+                          <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: ev.type === '映画' ? getMovieDotColor(ev.status) : typeColorMap[ev.type] }} />
                           {ev.type}
                         </div>
                       </div>
@@ -724,7 +746,7 @@ export const CalendarPage: React.FC<Props> = ({
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <div style={{ fontSize: '11px', fontWeight: '800', color: theme.colors.textWeak, padding: '4px 8px', borderRadius: '8px', background: '#F8FAFC' }}>
-                        {TEXT.STATUS[ev.status]}
+                        {ev.type === '映画' ? ev.status : (TEXT.STATUS[ev.status as keyof typeof TEXT.STATUS] || ev.status)}
                       </div>
                       <Icons.ChevronLeft style={{ transform: 'rotate(180deg)', width: '16px', height: '16px', color: '#CBD5E1' }} />
                     </div>

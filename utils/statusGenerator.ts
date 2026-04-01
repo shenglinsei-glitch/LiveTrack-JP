@@ -1,8 +1,8 @@
-import { Artist, StatusItem, Exhibition } from '../domain/types';
+import { Artist, StatusItem, Exhibition, Movie } from '../domain/types';
 import { parseConcertDate, getEffectiveExhibitionStatus } from '../domain/logic';
 import dayjs from 'dayjs';
 
-export function generateStatusItems(artists: Artist[], exhibitions: Exhibition[]): StatusItem[] {
+export function generateStatusItems(artists: Artist[], exhibitions: Exhibition[], movies: Movie[] = []): StatusItem[] {
   const items: StatusItem[] = [];
   const now = new Date();
 
@@ -137,6 +137,22 @@ export function generateStatusItems(artists: Artist[], exhibitions: Exhibition[]
       actionType: 'exhibition_end',
       displayStatus: '終了',
       raw: baseRaw,
+    });
+  });
+
+
+  (movies || []).forEach((movie) => {
+    const displayStatus = movie.status;
+    items.push({
+      id: `movie-${movie.id}` ,
+      type: 'movie',
+      parentId: movie.id,
+      title: movie.title,
+      date: movie.watchDate || movie.releaseDate || '',
+      status: movie.status,
+      actionType: 'movie',
+      displayStatus,
+      raw: { ...movie },
     });
   });
 
