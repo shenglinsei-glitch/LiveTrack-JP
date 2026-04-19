@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
 import { Movie, MovieStatus, MovieTicketType } from '../domain/types';
-import { PageShell } from '../ui/PageShell';
 import { theme } from '../ui/theme';
 import { Icons, IconButton } from '../ui/IconButton';
 import { GlassCard } from '../ui/GlassCard';
 import { Label, Value, SubValue, SectionTitle } from '../components/detail/DetailText';
 import { DetailHeader, DetailChip, DetailLinkIconButton } from '../components/detail/DetailHeader';
+import { DetailPageLayout } from '../components/detail/DetailPageLayout';
 
 interface MovieDetailPageProps {
   movie: Movie;
@@ -221,61 +221,8 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, onUpdat
   };
 
   return (
-    <PageShell disablePadding>
-      <div style={{ minHeight: '100vh', position: 'relative', background: theme.colors.background }}>
-        {formData.posterUrl && (
-  <>
-    {/* 1) 单背景图（保持清晰） */}
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundImage: `url(${formData.posterUrl})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        transform: 'scale(1.02)',
-        opacity: 0.94,
-      }}
-    />
+    <DetailPageLayout backgroundUrl={formData.posterUrl} bottomPadding={120}>
 
-    {/* 2) 顶部局部模糊（只在上半部生效） */}
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backdropFilter: 'blur(8px)',          // 调这里控制“糊”的强度
-        WebkitBackdropFilter: 'blur(8px)',
-        background: 'rgba(0,0,0,0.06)',       // 很轻的雾感（可选）
-        // 关键：用 mask 只让顶部模糊，往下逐渐消失
-        maskImage:
-  'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.92) 12%, rgba(0,0,0,0.75) 28%, rgba(0,0,0,0.50) 48%, rgba(0,0,0,0.28) 65%, rgba(0,0,0,0.12) 78%, rgba(0,0,0,0) 88%)',
-WebkitMaskImage:
-  'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.92) 12%, rgba(0,0,0,0.75) 28%, rgba(0,0,0,0.50) 48%, rgba(0,0,0,0.28) 65%, rgba(0,0,0,0.12) 78%, rgba(0,0,0,0) 88%)',
-      }}
-    />
-
-    {/* 3) 灰色渐变（统一层次，不偏蓝） */}
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: `
-          linear-gradient(
-            to bottom,
-            rgba(0,0,0,0.60) 0%,
-            rgba(0,0,0,0.42) 18%,
-            rgba(0,0,0,0.28) 38%,
-            rgba(0,0,0,0.16) 58%,
-            rgba(0,0,0,0.10) 78%,
-            rgba(0,0,0,0.04) 100%
-          )
-        `,
-      }}
-    />
-  </>
-)}
-
-        <div style={{ position: 'relative', zIndex: 1, padding: 'calc(env(safe-area-inset-top) + 16px) clamp(10px, 1.8vw, 16px) 120px', width: '100%', maxWidth: 1080, margin: '0 auto', boxSizing: 'border-box' }}>
           <DetailHeader
             title={formData.title}
             onTitleChange={(value) => updateField('title', value)}
@@ -465,8 +412,6 @@ WebkitMaskImage:
               </ViewSection>
             </>
           )}
-        </div>
-      </div>
-    </PageShell>
+    </DetailPageLayout>
   );
 };

@@ -4,6 +4,7 @@ import { ImageDialog } from '../components/ImageDialog';
 import { GlassCard } from '../ui/GlassCard';
 import { Label, Value, SectionTitle } from '../components/detail/DetailText';
 import { DetailHeader, DetailChip, DetailLinkIconButton } from '../components/detail/DetailHeader';
+import { DetailPageLayout } from '../components/detail/DetailPageLayout';
 import { Artist, Tour, Concert } from '../domain/types';
 import { Icons, IconButton } from '../ui/IconButton';
 import { bulkGetImageUrls, bulkPutImageUrls, putImageUrl, setImageUrl, deleteImage } from '../domain/imageStore';
@@ -185,16 +186,7 @@ export const ConcertHomePage: React.FC<Props> = ({
   ) : null;
 
   return (
-    <div style={{ minHeight: '100vh', position: 'relative', overflowX: 'hidden', background: theme.colors.background }}>
-      {bgUrl && (
-        <>
-          <div style={{ position: 'fixed', inset: 0, backgroundImage: `url(${bgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', transform: 'scale(1.02)', opacity: 0.94 }} />
-          <div style={{ position: 'fixed', inset: 0, backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.06)', maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.92) 12%, rgba(0,0,0,0.75) 28%, rgba(0,0,0,0.50) 48%, rgba(0,0,0,0.28) 65%, rgba(0,0,0,0.12) 78%, rgba(0,0,0,0) 88%)', WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.92) 12%, rgba(0,0,0,0.75) 28%, rgba(0,0,0,0.50) 48%, rgba(0,0,0,0.28) 65%, rgba(0,0,0,0.12) 78%, rgba(0,0,0,0) 88%)' }} />
-          <div style={{ position: 'fixed', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.60) 0%, rgba(0,0,0,0.42) 18%, rgba(0,0,0,0.28) 38%, rgba(0,0,0,0.16) 58%, rgba(0,0,0,0.10) 78%, rgba(0,0,0,0.04) 100%)' }} />
-        </>
-      )}
-
-      <div style={{ position: 'relative', zIndex: 1, padding: 'calc(env(safe-area-inset-top) + 16px) max(16px, env(safe-area-inset-right)) 140px max(16px, env(safe-area-inset-left))', width: '100%', maxWidth: 1080, margin: '0 auto', boxSizing: 'border-box' }}>
+    <DetailPageLayout backgroundUrl={bgUrl} bottomPadding={140}>
         <DetailHeader
           title={tour.name || ''}
           titlePlaceholder="公演名未設定"
@@ -277,7 +269,6 @@ export const ConcertHomePage: React.FC<Props> = ({
             </div>
           )}
         </CollapsibleSection>
-      </div>
 
       {fullscreenUrl && (
         <div onClick={() => setFullscreenUrl(null)} className="fade-in" style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(0,0,0,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
@@ -292,6 +283,6 @@ export const ConcertHomePage: React.FC<Props> = ({
         onAdd={async (url) => { await handleAddOrReplace(url); setIsDialogOpen(false); }}
         title={editingTarget ? '画像のURLを更新' : '思い出の写真を追加'}
       />
-    </div>
+    </DetailPageLayout>
   );
 };

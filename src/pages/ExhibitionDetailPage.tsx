@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { theme } from '../ui/theme';
 import { Icons, IconButton } from '../ui/IconButton';
 import { DetailHeader, DetailChip, DetailLinkIconButton } from '../components/detail/DetailHeader';
-import { PageShell } from '../ui/PageShell';
+import { DetailPageLayout } from '../components/detail/DetailPageLayout';
 import { Exhibition, ExhibitionStatus } from '../domain/types';
 import { ExhibitionInfoSection } from './exhibition-detail/ExhibitionInfoSection';
 import { ExhibitionDescriptionSection } from './exhibition-detail/ExhibitionDescriptionSection';
@@ -69,57 +69,8 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
   const { resolvedUrl: backgroundUrl } = useRemoteImage(formData.imageUrl, formData.imageId);
 
   return (
-    <PageShell disablePadding>
-      <div style={{ minHeight: '100vh', position: 'relative', background: theme.colors.background }}>
-        <div style={{ position: 'fixed', inset: 0, zIndex: 0, overflow: 'hidden' }}>
-          {backgroundUrl ? (
-            <img
-              src={backgroundUrl}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.02)', opacity: 0.94 }}
-              alt=""
-            />
-          ) : (
-            <div style={{ width: '100%', height: '100%', background: 'linear-gradient(180deg, #E5E7EB 0%, #F5F5F7 100%)' }} />
-          )}
-        </div>
+    <DetailPageLayout backgroundUrl={backgroundUrl} bottomPadding={140}>
 
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 1,
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-            background: 'rgba(0,0,0,0.06)',
-            maskImage:
-              'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.92) 12%, rgba(0,0,0,0.75) 28%, rgba(0,0,0,0.50) 48%, rgba(0,0,0,0.28) 65%, rgba(0,0,0,0.12) 78%, rgba(0,0,0,0) 88%)',
-            WebkitMaskImage:
-              'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.92) 12%, rgba(0,0,0,0.75) 28%, rgba(0,0,0,0.50) 48%, rgba(0,0,0,0.28) 65%, rgba(0,0,0,0.12) 78%, rgba(0,0,0,0) 88%)',
-            pointerEvents: 'none'
-          }}
-        />
-
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 1,
-            background: `
-              linear-gradient(
-                to bottom,
-                rgba(0,0,0,0.60) 0%,
-                rgba(0,0,0,0.42) 18%,
-                rgba(0,0,0,0.28) 38%,
-                rgba(0,0,0,0.16) 58%,
-                rgba(0,0,0,0.10) 78%,
-                rgba(0,0,0,0.04) 100%
-              )
-            `,
-            pointerEvents: 'none'
-          }}
-        />
-
-        <div style={{ position: 'relative', zIndex: 2, padding: 'calc(env(safe-area-inset-top) + 16px) clamp(10px, 1.8vw, 16px) 140px', width: '100%', maxWidth: 1080, margin: '0 auto', boxSizing: 'border-box' }}>
           <DetailHeader
             title={formData.title}
             onTitleChange={(value) => setFormData((prev) => ({ ...prev, title: value }))}
@@ -211,8 +162,6 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
             onClose={() => setIsDeleteConfirmOpen(false)}
             onConfirm={() => onDeleteExhibition(formData.id)}
           />
-        </div>
-      </div>
-    </PageShell>
+    </DetailPageLayout>
   );
 };
