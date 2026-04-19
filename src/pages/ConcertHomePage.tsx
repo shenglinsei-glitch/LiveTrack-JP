@@ -256,7 +256,7 @@ export const ConcertHomePage: React.FC<Props> = ({
         </>
       )}
 
-      <div style={{ position: 'relative', zIndex: 1, padding: 'calc(env(safe-area-inset-top) + 16px) clamp(16px, 3vw, 28px) 140px', width: '100%', maxWidth: 1080, margin: '0 auto' }}>
+      <div style={{ position: 'relative', zIndex: 1, padding: 'calc(env(safe-area-inset-top) + 16px) max(16px, env(safe-area-inset-right)) 140px max(16px, env(safe-area-inset-left))', width: '100%', maxWidth: 1080, margin: '0 auto', boxSizing: 'border-box' }}>
         <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, width: '100%' }}>
           <IconButton icon={<Icons.ChevronLeft />} onClick={() => onBack()} style={{ background: 'rgba(255,255,255,0.82)', border: 'none' }} />
           <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
@@ -264,12 +264,12 @@ export const ConcertHomePage: React.FC<Props> = ({
           </div>
         </header>
 
-        <div style={{ display: 'flex', flexWrap: 'nowrap', alignItems: 'flex-end', gap: 'clamp(12px, 3vw, 22px)', marginBottom: 18 }}>
-          <div style={{ width: 'clamp(96px, 26vw, 170px)', aspectRatio: '150 / 214', borderRadius: 'clamp(18px, 4vw, 26px)', overflow: 'hidden', background: '#F3F4F6', boxShadow: '0 12px 30px rgba(15,23,42,0.24)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', flexWrap: 'nowrap', alignItems: 'flex-end', gap: 'clamp(10px, 2.6vw, 22px)', marginBottom: 18, width: '100%', minWidth: 0 }}>
+          <div style={{ width: 'clamp(84px, 24vw, 170px)', aspectRatio: '150 / 214', borderRadius: 'clamp(18px, 4vw, 26px)', overflow: 'hidden', background: '#F3F4F6', boxShadow: '0 12px 30px rgba(15,23,42,0.24)', flexShrink: 0 }}>
             {heroImageUrl ? <img src={heroImageUrl} alt={tour.name} referrerPolicy="no-referrer" onError={handleBgError} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%' }} />}
           </div>
           <div style={{ flex: '1 1 0%', minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 10, paddingBottom: 6 }}>
-            <div style={{ fontSize: 'clamp(17px, 5.4vw, 42px)', lineHeight: 1.08, fontWeight: 800, color: '#fff', textShadow: '0 8px 24px rgba(15,23,42,0.35)', wordBreak: 'break-word' }}>{tour.name || '公演名未設定'}</div>
+            <div style={{ fontSize: 'clamp(16px, 4.8vw, 42px)', lineHeight: 1.08, fontWeight: 800, color: '#fff', textShadow: '0 8px 24px rgba(15,23,42,0.35)', wordBreak: 'break-word' }}>{tour.name || '公演名未設定'}</div>
             <button onClick={() => onOpenArtistDetail(artist.id)} style={{ width: 'fit-content', border: 'none', background: 'transparent', padding: 0, color: 'rgba(255,255,255,0.92)', fontSize: 13, fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: '4px', textDecorationColor: 'rgba(255,255,255,0.45)', cursor: 'pointer' }}>{artist.name}</button>
             <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
               <StatusChip label={concert.status} />
@@ -281,7 +281,7 @@ export const ConcertHomePage: React.FC<Props> = ({
         </div>
 
         <CollapsibleSection title="基本情報">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16, width: '100%' }}>
             <div><Label>公演日</Label><Value>{concert.concertAt || concert.date}</Value></div>
             <div><Label>会場</Label><Value>{concert.venue}</Value></div>
             <div><Label>チケット状態</Label><Value>{concert.status || '未設定'}</Value></div>
@@ -290,7 +290,7 @@ export const ConcertHomePage: React.FC<Props> = ({
         </CollapsibleSection>
 
         <CollapsibleSection title="抽選・販売情報" defaultOpen={!!(concert.lotteryName || concert.saleAt || concert.deadlineAt || concert.resultAt || concert.saleLink)} rightAction={salesLinkHeaderAction}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16, width: '100%' }}>
             <div><Label>発売開始</Label><Value>{concert.saleAt || null}</Value></div>
             <div><Label>申込締切</Label><Value>{concert.deadlineAt || null}</Value></div>
             <div><Label>抽選結果日時</Label><Value>{concert.resultAt || null}</Value></div>

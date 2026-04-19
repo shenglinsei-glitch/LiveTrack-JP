@@ -91,8 +91,9 @@ const collapseButtonStyle: React.CSSProperties = {
 
 const infoGridStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
   gap: 16,
+  width: '100%',
 };
 
 const ViewSection: React.FC<{
@@ -320,7 +321,7 @@ WebkitMaskImage:
   </>
 )}
 
-        <div style={{ position: 'relative', zIndex: 1, padding: 'calc(env(safe-area-inset-top) + 16px) clamp(16px, 3vw, 28px) 120px', width: '100%', maxWidth: 1080, margin: '0 auto' }}>
+        <div style={{ position: 'relative', zIndex: 1, padding: 'calc(env(safe-area-inset-top) + 16px) max(16px, env(safe-area-inset-right)) 120px max(16px, env(safe-area-inset-left))', width: '100%', maxWidth: 1080, margin: '0 auto', boxSizing: 'border-box' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, width: '100%' }}>
             <IconButton icon={<Icons.ChevronLeft />} onClick={() => onBack()} style={{ background: 'rgba(255,255,255,0.82)', border: 'none' }} />
             <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
@@ -333,8 +334,8 @@ WebkitMaskImage:
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexWrap: 'nowrap', alignItems: 'flex-end', gap: 'clamp(12px, 3vw, 22px)', marginBottom: 18 }}>
-            <div style={{ width: 'clamp(96px, 26vw, 150px)', aspectRatio: '150 / 214', borderRadius: 'clamp(18px, 4vw, 26px)', overflow: 'hidden', background: '#F3F4F6', boxShadow: '0 12px 30px rgba(15,23,42,0.24)', flexShrink: 0 }}>
+          <div style={{ display: 'flex', flexWrap: 'nowrap', alignItems: 'flex-end', gap: 'clamp(10px, 2.6vw, 22px)', marginBottom: 18, width: '100%', minWidth: 0 }}>
+            <div style={{ width: 'clamp(84px, 24vw, 150px)', aspectRatio: '150 / 214', borderRadius: 'clamp(18px, 4vw, 26px)', overflow: 'hidden', background: '#F3F4F6', boxShadow: '0 12px 30px rgba(15,23,42,0.24)', flexShrink: 0 }}>
               {formData.posterUrl ? <img src={formData.posterUrl} alt={formData.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, opacity: 0.2 }}>🎬</div>}
             </div>
 
@@ -342,7 +343,7 @@ WebkitMaskImage:
               {isEditMode ? (
                 <input value={formData.title} onChange={(e) => updateField('title', e.target.value)} placeholder="作品名を入力" style={{ width: '100%', fontSize: 24, fontWeight: 900, color: '#fff', textAlign: 'left', background: 'transparent', border: 'none', outline: 'none', padding: 0 }} />
               ) : (
-                <div style={{ fontSize: 'clamp(17px, 5.4vw, 42px)', lineHeight: 1.08, fontWeight: 800, color: '#fff', textShadow: '0 8px 24px rgba(15,23,42,0.35)', wordBreak: 'break-word' }}>{formData.title || '作品名未設定'}</div>
+                <div style={{ fontSize: 'clamp(16px, 4.8vw, 42px)', lineHeight: 1.08, fontWeight: 800, color: '#fff', textShadow: '0 8px 24px rgba(15,23,42,0.35)', wordBreak: 'break-word' }}>{formData.title || '作品名未設定'}</div>
               )}
 
               <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
