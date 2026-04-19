@@ -17,12 +17,14 @@ interface MoviesPageProps {
 
 type MovieSortKey = 'date_asc' | 'date_desc' | 'title';
 
-const MOVIE_STATUSES: MovieStatus[] = ['未上映', '抽選中', '上映中', '鑑賞予定', '鑑賞済み', '見送り', '上映終了'];
+const MOVIE_STATUSES: MovieStatus[] = ['未上映', '発売前', '抽選中', '上映中', '鑑賞予定', '鑑賞済み', '見送り', '上映終了'];
 
 const statusTone = (status: MovieStatus) => {
   switch (status) {
     case '未上映':
       return { label: '未上映', color: '#9CA3AF' };
+    case '発売前':
+      return { label: '発売前', color: '#F59E0B' };
     case '抽選中':
       return { label: '抽選中', color: '#F59E0B' };
     case '上映中':
@@ -172,7 +174,7 @@ export const MoviesPage: React.FC<MoviesPageProps> = ({ movies, onOpenDetail, on
                       >
                         <div style={{ fontSize: 16, fontWeight: 900, lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{movie.title}</div>
                         <div style={{ marginTop: 4, fontSize: 12, fontWeight: 700, opacity: 0.88, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{movie.theaterName || '劇場未設定'}</div>
-                        <div style={{ marginTop: 4, fontSize: 11, fontWeight: 700, opacity: 0.82 }}>{movie.status === '抽選中' ? `結果日：${fmtDate(movie.lotteryResultAt)}` : movie.watchDate ? `鑑賞日：${fmtDate(movie.watchDate)}` : `公開日：${fmtDate(movie.releaseDate)}`}</div>
+                        <div style={{ marginTop: 4, fontSize: 11, fontWeight: 700, opacity: 0.82 }}>{movie.status === '抽選中' ? `結果日：${fmtDate(movie.lotteryResultAt)}` : movie.status === '発売前' ? `発売日：${fmtDate(movie.saleAt)}` : movie.watchDate ? `鑑賞日：${fmtDate(movie.watchDate)}` : `公開日：${fmtDate(movie.releaseDate)}`}</div>
                       </div>
                     </div>
                   </GlassCard>

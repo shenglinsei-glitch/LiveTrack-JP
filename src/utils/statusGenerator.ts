@@ -156,7 +156,9 @@ export function generateStatusItems(artists: Artist[], exhibitions: Exhibition[]
       title: movie.title,
       date: movie.status === '抽選中'
         ? (movie.lotteryResultAt || movie.releaseDate || '')
-        : (movie.watchDate || movie.releaseDate || ''),
+        : movie.status === '発売前'
+          ? (movie.saleAt || movie.deadlineAt || movie.releaseDate || '')
+          : (movie.watchDate || movie.releaseDate || ''),
       status: movie.status,
       actionType: 'movie',
       displayStatus,

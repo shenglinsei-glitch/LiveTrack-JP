@@ -16,12 +16,14 @@ interface MovieDetailPageProps {
   initialEditMode?: boolean;
 }
 
-const STATUSES: MovieStatus[] = ['未上映', '抽選中', '上映中', '鑑賞予定', '鑑賞済み', '見送り', '上映終了'];
+const NORMAL_STATUSES: MovieStatus[] = ['未上映', '上映中', '鑑賞済み', '見送り', '上映終了'];
+const STAGE_GREETING_STATUSES: MovieStatus[] = ['未上映', '発売前', '抽選中', '上映中', '鑑賞予定', '鑑賞済み', '見送り', '上映終了'];
 const TICKET_TYPES: MovieTicketType[] = ['通常', '舞台挨拶'];
 
 const statusTone = (status: MovieStatus) => {
   switch (status) {
     case '未上映': return { bg: '#9CA3AF', label: '未上映' };
+    case '発売前': return { bg: '#F59E0B', label: '発売前' };
     case '抽選中': return { bg: '#F59E0B', label: '抽選中' };
     case '上映中': return { bg: '#53BEE8', label: '上映中' };
     case '鑑賞予定': return { bg: '#3B82F6', label: '鑑賞予定' };
@@ -52,6 +54,22 @@ const calcDuration = (start?: string, end?: string) => {
   const diff = e.diff(s, 'minute');
   if (diff <= 0) return '';
   return `${Math.floor(diff / 60)}時間${diff % 60}分`;
+};
+
+const getEffectiveMovieStatus = (movie: Movie): MovieStatus => {
+  const now = dayjs();
+  const watchAt = movie.watchDate
+    ? dayjs(`${movie.watchDate}${movie.startTime ? ` ${movie.startTime}` : ''}`.trim())
+    : null;
+  const releaseAt = movie.releaseDate ? dayjs(movie.releaseDate) : null;
+
+  if (watchAt?.isValid() && (watchAt.isBefore(now) || watchAt.isSame(now))) return '鑑賞済み';
+  if (movie.status === '鑑賞済み' || movie.status === '見送り' || movie.status === '上映終了') return movie.status;
+  if (movie.ticketType === '舞台挨拶' && movie.status === '発売前') return '発売前';
+  if (movie.ticketType === '舞台挨拶' && movie.status === '抽選中') return '抽選中';
+  if (movie.ticketType === '舞台挨拶' && movie.status === '鑑賞予定') return '鑑賞予定';
+  if (releaseAt?.isValid() && (releaseAt.isBefore(now) || releaseAt.isSame(now))) return movie.watchDate ? '鑑賞済み' : '上映中';
+  return movie.status;
 };
 
 const inputStyle: React.CSSProperties = {
@@ -144,17 +162,29 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, onUpdat
     setFormData(movie);
   }, [movie]);
 
-  const tone = statusTone(formData.status);
+  const effectiveStatus = getEffectiveMovieStatus(formData);
+  const tone = statusTone(effectiveStatus);
   const durationLabel = calcDuration(formData.startTime, formData.endTime);
   const hasPosterLink = !!formData.posterUrl;
-  const hasLotteryLink = !!formData.lotteryUrl;
+  const hasLotteryLink = !!(formData.status === '発売前' ? formData.saleLink : formData.lotteryUrl);
+  const availableStatuses = formData.ticketType === '舞台挨拶' ? STAGE_GREETING_STATUSES : NORMAL_STATUSES;
 
   const updateField = (field: keyof Movie, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const save = () => {
-    onUpdateMovie({ ...formData, updatedAt: new Date().toISOString() });
+    const nextStatus = getEffectiveMovieStatus(formData);
+    const nextMovie: Movie = {
+      ...formData,
+      status: nextStatus,
+      lotteryName: formData.ticketType === '舞台挨拶' && nextStatus === '抽選中' ? formData.lotteryName : '',
+      lotteryUrl: formData.ticketType === '舞台挨拶' && nextStatus === '抽選中' ? formData.lotteryUrl : '',
+      lotteryResultAt: formData.ticketType === '舞台挨拶' && nextStatus === '抽選中' ? formData.lotteryResultAt : '',
+      updatedAt: new Date().toISOString(),
+    };
+    onUpdateMovie(nextMovie);
+    setFormData(nextMovie);
     setIsEditMode(false);
   };
 
@@ -247,7 +277,7 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, onUpdat
                 <DetailChip label={tone.label} bg={tone.bg} />
                 <DetailChip label={formData.ticketType} subtle />
                 {!isEditMode && hasPosterLink ? <DetailLinkIconButton onClick={() => openExternal(formData.posterUrl)} title="ポスターを開く" /> : null}
-                {!isEditMode && hasLotteryLink ? <DetailLinkIconButton onClick={() => openExternal(formData.lotteryUrl)} title="抽選ページを開く" /> : null}
+                {!isEditMode && hasLotteryLink ? <DetailLinkIconButton onClick={() => openExternal(formData.status === '発売前' ? formData.saleLink : formData.lotteryUrl)} title={formData.status === '発売前' ? '販売ページを開く' : '抽選ページを開く'} /> : null}
               </>
             }
           />
@@ -261,10 +291,18 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, onUpdat
                 <Field label="座席"><Input value={formData.seat} onChange={(v) => updateField('seat', v)} placeholder="例：C列 12番" /></Field>
                 <Field label="料金"><Input value={formData.price?.toString() || ''} onChange={(v) => updateField('price', v ? Number(v) : undefined)} placeholder="0" type="number" suffix="円" /></Field>
                 <Field label="チケット種別">{isEditMode ? <SelectRow options={TICKET_TYPES} value={formData.ticketType} onChange={(v) => updateField('ticketType', v as MovieTicketType)} /> : <StaticText>{formData.ticketType}</StaticText>}</Field>
-                <Field label="ステータス">{isEditMode ? <SelectRow options={STATUSES} value={formData.status} onChange={(v) => updateField('status', v as MovieStatus)} /> : <StaticText>{formData.status}</StaticText>}</Field>
+                <Field label="ステータス">{isEditMode ? <SelectRow options={availableStatuses} value={formData.status} onChange={(v) => updateField('status', v as MovieStatus)} /> : <StaticText>{effectiveStatus}</StaticText>}</Field>
               </Section>
 
-              {formData.ticketType === '舞台挨拶' && (
+              {formData.ticketType === '舞台挨拶' && formData.status === '発売前' && (
+                <Section title="舞台挨拶販売">
+                  <Field label="発売日">{isEditMode ? <CustomDateTimePicker value={formData.saleAt} onChange={(v) => updateField('saleAt', v as any)} /> : <StaticText>{formatDateTimeWithWeek(formData.saleAt)}</StaticText>}</Field>
+                  <Field label="締切日">{isEditMode ? <CustomDateTimePicker value={formData.deadlineAt} onChange={(v) => updateField('deadlineAt', v as any)} /> : <StaticText>{formatDateTimeWithWeek(formData.deadlineAt)}</StaticText>}</Field>
+                  <Field label="販売ページURL"><Input value={formData.saleLink || ''} onChange={(v) => updateField('saleLink', v as any)} placeholder="https://..." readOnly={!isEditMode} /></Field>
+                </Section>
+              )}
+
+              {formData.ticketType === '舞台挨拶' && formData.status === '抽選中' && (
                 <Section title="舞台挨拶抽選">
                   <Field label="抽選名"><Input value={formData.lotteryName || ''} onChange={(v) => updateField('lotteryName', v as any)} placeholder="例：プレリザーブ" readOnly={!isEditMode} /></Field>
                   <Field label="抽選結果日時">{isEditMode ? <CustomDateTimePicker value={formData.lotteryResultAt} onChange={(v) => updateField('lotteryResultAt', v as any)} /> : <StaticText>{formatDateTimeWithWeek(formData.lotteryResultAt)}</StaticText>}</Field>
@@ -331,7 +369,42 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, onUpdat
                 </div>
               </ViewSection>
 
-              {formData.ticketType === '舞台挨拶' && (
+              {formData.ticketType === '舞台挨拶' && formData.status === '発売前' && (
+                <ViewSection title="舞台挨拶販売">
+                  <div style={infoGridStyle}>
+                    <div>
+                      <Label>発売日</Label>
+                      <Value>{formData.saleAt ? formatDateTimeWithWeek(formData.saleAt) : null}</Value>
+                    </div>
+                    <div>
+                      <Label>締切日</Label>
+                      <Value>{formData.deadlineAt ? formatDateTimeWithWeek(formData.deadlineAt) : null}</Value>
+                    </div>
+                    {formData.saleLink && (
+                      <div>
+                        <Label>販売ページ</Label>
+                        <button
+                          onClick={() => openExternal(formData.saleLink)}
+                          style={{
+                            border: 'none',
+                            background: 'rgba(83, 190, 232, 0.12)',
+                            color: theme.colors.primary,
+                            fontSize: 14,
+                            fontWeight: 800,
+                            borderRadius: 999,
+                            padding: '10px 14px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          販売ページを開く
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </ViewSection>
+              )}
+
+              {formData.ticketType === '舞台挨拶' && formData.status === '抽選中' && (
                 <ViewSection title="舞台挨拶抽選">
                   <div style={infoGridStyle}>
                     <div>

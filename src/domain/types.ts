@@ -175,7 +175,7 @@ export interface Exhibition {
 
 
 
-export type MovieStatus = '未上映' | '抽選中' | '上映中' | '鑑賞予定' | '鑑賞済み' | '見送り' | '上映終了';
+export type MovieStatus = '未上映' | '発売前' | '抽選中' | '上映中' | '鑑賞予定' | '鑑賞済み' | '見送り' | '上映終了';
 export type MovieTicketType = '通常' | '舞台挨拶';
 
 export interface MovieLotteryHistoryItem {
@@ -203,6 +203,10 @@ export interface Movie {
   ticketType: MovieTicketType;
   status: MovieStatus;
   websiteUrl?: string;
+
+  saleAt?: string;
+  deadlineAt?: string;
+  saleLink?: string;
 
   lotteryName?: string;
   lotteryUrl?: string;

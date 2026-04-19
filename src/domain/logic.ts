@@ -54,7 +54,9 @@ export const getEffectiveExhibitionStatus = (exhibition: Exhibition, now: Date =
   const rawStatus = exhibition.status || 'NONE';
   const start = parseConcertDate(exhibition.startDate, 'EXHIBITION');
   const end = parseConcertDate(exhibition.endDate, 'EXHIBITION');
+  const visitedAt = parseConcertDate(exhibition.visitedAt, 'NORMAL');
 
+  if (visitedAt) return 'VISITED' as const;
   if (rawStatus === 'VISITED') return 'VISITED' as const;
   if (rawStatus === 'ENDED') return 'ENDED' as const;
 
@@ -228,7 +230,14 @@ export const autoAdvanceConcertStatus = (concert: Concert, now: Date = new Date(
   return concert;
 };
 
-export const getMovieDueAction = (movie: Movie, now: Date = new Date()): 'ASK_MOVIE_LOTTERY_RESULT' | null => {
+export type MovieDueAction = 'ASK_MOVIE_BUY' | 'ASK_MOVIE_LOTTERY_RESULT';
+
+export const getMovieDueAction = (movie: Movie, now: Date = new Date()): MovieDueAction | null => {
+  if (movie.status === '発売前') {
+    const saleTime = parseConcertDate(movie.saleAt, 'NORMAL');
+    const deadlineTime = parseConcertDate(movie.deadlineAt, 'NORMAL');
+    if ((saleTime && now >= saleTime) || (deadlineTime && now >= deadlineTime)) return 'ASK_MOVIE_BUY';
+  }
   if (movie.status !== '抽選中') return null;
   const resultTime = parseConcertDate(movie.lotteryResultAt, 'NORMAL');
   if (resultTime && now >= resultTime) return 'ASK_MOVIE_LOTTERY_RESULT';
@@ -238,12 +247,16 @@ export const getMovieDueAction = (movie: Movie, now: Date = new Date()): 'ASK_MO
 export const autoAdvanceMovieStatus = (movie: Movie, now: Date = new Date()): Movie => {
   const nowIso = new Date().toISOString();
   const releaseTime = parseConcertDate(movie.releaseDate, 'NORMAL');
-  const plannedWatchTime = movie.watchDate
+  const watchTime = movie.watchDate
     ? parseConcertDate(
         `${movie.watchDate}${movie.startTime ? ` ${movie.startTime}` : ''}`.trim(),
         movie.startTime ? 'NORMAL' : 'CONCERT'
       )
     : null;
+
+  if (watchTime && now >= watchTime && movie.status !== '見送り' && movie.status !== '上映終了') {
+    return { ...movie, status: '鑑賞済み', updatedAt: nowIso };
+  }
 
   const hasPendingLottery =
     movie.ticketType === '舞台挨拶' &&
@@ -257,11 +270,11 @@ export const autoAdvanceMovieStatus = (movie: Movie, now: Date = new Date()): Mo
     return { ...movie, status: '抽選中', updatedAt: nowIso };
   }
 
-  if (movie.status === '鑑賞予定' && plannedWatchTime && now >= plannedWatchTime) {
-    return { ...movie, status: '鑑賞済み', updatedAt: nowIso };
+  if (movie.ticketType === '舞台挨拶' && movie.status === '未上映' && (movie.saleAt || movie.deadlineAt || movie.saleLink)) {
+    return { ...movie, status: '発売前', updatedAt: nowIso };
   }
 
-  if (movie.status === '未上映' && releaseTime && now >= releaseTime) {
+  if ((movie.status === '未上映' || movie.status === '発売前') && releaseTime && now >= releaseTime) {
     return { ...movie, status: '上映中', updatedAt: nowIso };
   }
 

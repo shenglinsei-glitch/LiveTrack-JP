@@ -57,6 +57,34 @@ const formatTimeLabel = (dateStr: string) => {
 const toDateTimeLocal = (value?: string) => (value ? value.replace(' ', 'T').slice(0, 16) : '');
 const fromDateTimeLocal = (value: string) => value.replace('T', ' ');
 
+const parseMovieFlexibleDate = (value?: string): Date | null => {
+  if (!value || value === TEXT.GLOBAL.TBD) return null;
+
+  const normalized = String(value).trim().replace(/T/g, ' ').replace(/\./g, '/').replace(/-/g, '/');
+
+  const full = normalized.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?$/);
+  if (full) {
+    const [, y, m, d, hh = '0', mm = '0'] = full;
+    const dt = new Date(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), 0, 0);
+    return Number.isNaN(dt.getTime()) ? null : dt;
+  }
+
+  const partial = normalized.match(/^(\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?$/);
+  if (partial) {
+    const [, m, d, hh = '0', mm = '0'] = partial;
+    const year = new Date().getFullYear();
+    const dt = new Date(year, Number(m) - 1, Number(d), Number(hh), Number(mm), 0, 0);
+    return Number.isNaN(dt.getTime()) ? null : dt;
+  }
+
+  const fallback = new Date(normalized);
+  return Number.isNaN(fallback.getTime()) ? null : fallback;
+};
+
+const getMovieSaleStart = (movie: any): string => movie.saleAt || movie.saleStartAt || movie.releaseDate || '';
+
+const getMovieLotteryResultAt = (movie: any): string => movie.lotteryResultAt || movie.resultAt || '';
+
 const getSectionLabel = (key: SectionKey) => {
   switch (key) {
     case 'pending':
@@ -105,8 +133,10 @@ const getMovieStatusTone = (status: string, displayStatus?: string) => {
   switch (status) {
     case '未上映':
       return { color: '#9CA3AF', bg: 'rgba(156,163,175,0.12)', label: displayStatus || '未上映' };
+    case '発売前':
+      return { color: theme.colors.status['発売前'], bg: theme.colors.badges.processing.bg, label: displayStatus || '発売前' };
     case '抽選中':
-      return { color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', label: displayStatus || '抽選中' };
+      return { color: theme.colors.status['抽選中'], bg: theme.colors.badges.lottery.bg, label: displayStatus || '抽選中' };
     case '上映中':
       return { color: theme.colors.primary, bg: 'rgba(83,190,232,0.12)', label: displayStatus || '上映中' };
     case '鑑賞予定':
@@ -187,12 +217,12 @@ export const StatusPage: React.FC<Props> = ({
       }
 
       if (item.type === 'movie') {
-        const movieDue = getMovieDueAction(item.raw, now);
+        const movieDue = item.status === '抽選中' ? (getMovieDueAction(item.raw, now) || (parseMovieFlexibleDate(getMovieLotteryResultAt(item.raw)) && now >= parseMovieFlexibleDate(getMovieLotteryResultAt(item.raw))! ? 'ASK_MOVIE_LOTTERY_RESULT' : null)) : null;
         if (item.status === '鑑賞済み' || item.status === '見送り' || item.status === '上映終了') {
           history.push(item);
         } else if (item.status === '鑑賞予定') {
           decided.push(item);
-        } else if (movieDue || item.status === '未上映' || item.status === '上映中' || item.status === '抽選中') {
+        } else if (movieDue || item.status === '未上映' || item.status === '発売前' || item.status === '上映中' || item.status === '抽選中') {
           pending.push(item);
         } else {
           decided.push(item);
@@ -347,15 +377,46 @@ export const StatusPage: React.FC<Props> = ({
   };
 
   const renderMovieActions = (item: StatusItem) => {
-    if (item.status === '抽選中' && getMovieDueAction(item.raw, new Date())) {
+    if (item.status === '発売前') {
+      const saleStart = parseMovieFlexibleDate(getMovieSaleStart(item.raw));
+      if (!saleStart || new Date() < saleStart) return null;
+
+      return (
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', padding: '0 4px' }}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              const nextStatus = item.raw.ticketType === '舞台挨拶' ? '抽選中' : '上映中';
+              onUpdateMovieStatus(item.parentId, { status: nextStatus } as Partial<Movie>);
+            }}
+            style={actionPrimaryBtn}
+          >
+            購入・申込
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); onUpdateMovieStatus(item.parentId, { status: '上映中' } as Partial<Movie>); }} style={actionGhostBtn}>検討</button>
+          <button onClick={(e) => { e.stopPropagation(); onUpdateMovieStatus(item.parentId, { status: '見送り' } as Partial<Movie>); }} style={actionGhostBtn}>見送り</button>
+        </div>
+      );
+    }
+
+    if (item.status === '抽選中') {
+      const resultAt = parseMovieFlexibleDate(getMovieLotteryResultAt(item.raw));
+      const canDecide = !!resultAt && new Date() >= resultAt;
+      if (!canDecide) return null;
+
       return (
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', padding: '0 4px' }}>
           <button onClick={(e) => { e.stopPropagation(); openMovieLotteryWinModal(item); }} style={actionPrimaryBtn}>当選</button>
-          <button onClick={(e) => {
-            e.stopPropagation();
-            const updated = applyMovieLotteryDecision(item.raw, 'LOST');
-            onUpdateMovieStatus(item.parentId, updated);
-          }} style={actionGhostBtn}>落選</button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              const updated = applyMovieLotteryDecision(item.raw, 'LOST');
+              onUpdateMovieStatus(item.parentId, updated);
+            }}
+            style={actionGhostBtn}
+          >
+            落選
+          </button>
         </div>
       );
     }
@@ -364,9 +425,9 @@ export const StatusPage: React.FC<Props> = ({
 
     return (
       <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', padding: '0 4px' }}>
-        <button onClick={(e) => { e.stopPropagation(); onUpdateMovieStatus(item.parentId, { status: '鑑賞済み', watchDate: item.raw.watchDate || dayjs().format('YYYY-MM-DD') }); }} style={actionPrimaryBtn}>鑑賞済み</button>
-        <button onClick={(e) => { e.stopPropagation(); onUpdateMovieStatus(item.parentId, { status: '見送り' }); }} style={actionGhostBtn}>見送り</button>
-        <button onClick={(e) => { e.stopPropagation(); onUpdateMovieStatus(item.parentId, { status: '上映終了' }); }} style={actionGhostBtn}>上映終了</button>
+        <button onClick={(e) => { e.stopPropagation(); onUpdateMovieStatus(item.parentId, { status: '鑑賞済み', watchDate: item.raw.watchDate || dayjs().format('YYYY-MM-DD') } as Partial<Movie>); }} style={actionPrimaryBtn}>鑑賞済み</button>
+        <button onClick={(e) => { e.stopPropagation(); onUpdateMovieStatus(item.parentId, { status: '見送り' } as Partial<Movie>); }} style={actionGhostBtn}>見送り</button>
+        <button onClick={(e) => { e.stopPropagation(); onUpdateMovieStatus(item.parentId, { status: '上映終了' } as Partial<Movie>); }} style={actionGhostBtn}>上映終了</button>
       </div>
     );
   };
@@ -388,15 +449,19 @@ export const StatusPage: React.FC<Props> = ({
       const statusTone = getMovieStatusTone(item.status, item.displayStatus);
       const metaLabel = item.status === '抽選中'
         ? '結果日'
-        : item.status === '鑑賞予定'
-          ? '鑑賞予定'
-          : item.raw.watchDate
-            ? '鑑賞日'
-            : '公開日';
+        : item.status === '発売前'
+          ? '発売日'
+          : item.status === '鑑賞予定'
+            ? '鑑賞予定'
+            : item.raw.watchDate
+              ? '鑑賞日'
+              : '公開日';
       const metaValue = formatCompactDate(
         item.status === '抽選中'
-          ? (item.raw.lotteryResultAt || item.date || '')
-          : (item.raw.watchDate || item.raw.releaseDate || item.date || '')
+          ? (getMovieLotteryResultAt(item.raw) || item.date || '')
+          : item.status === '発売前'
+            ? (getMovieSaleStart(item.raw) || item.date || '')
+            : (item.raw.watchDate || item.raw.releaseDate || item.date || '')
       );
 
       return (
@@ -413,7 +478,7 @@ export const StatusPage: React.FC<Props> = ({
               cursor: 'pointer',
               boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
               transition: 'all 0.2s',
-              marginBottom: item.status === '上映中' ? '4px' : '12px',
+              marginBottom: item.status === '上映中' || item.status === '発売前' || item.status === '抽選中' ? '4px' : '12px',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>

@@ -38,11 +38,6 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
     setFormData(exhibition);
   }, [exhibition]);
 
-  const handleSave = () => {
-    onUpdateExhibition(formData);
-    setIsEditMode(false);
-  };
-
   const handleCancel = () => {
     setFormData(exhibition);
     setIsEditMode(false);
@@ -67,6 +62,14 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
   };
 
   const { resolvedUrl: backgroundUrl } = useRemoteImage(formData.imageUrl, formData.imageId);
+  const effectiveStatus = getEffectiveExhibitionStatus(formData);
+
+  const handleSave = () => {
+    const next = { ...formData, status: getEffectiveExhibitionStatus(formData) };
+    onUpdateExhibition(next);
+    setFormData(next);
+    setIsEditMode(false);
+  };
 
   return (
     <DetailPageLayout backgroundUrl={backgroundUrl} bottomPadding={140}>
@@ -86,7 +89,7 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
             )}
             tags={
               <>
-                <DetailChip label={exhibitionStatusLabelMap[formData.status]} bg={statusColors[formData.status]} />
+                <DetailChip label={exhibitionStatusLabelMap[effectiveStatus]} bg={statusColors[effectiveStatus]} />
                 <DetailChip label={`${formData.startDate?.replace(/-/g, '/') || '未設定'} ～ ${formData.endDate?.replace(/-/g, '/') || '未設定'}`} subtle />
                 {!isEditMode && formData.websiteUrl ? <DetailLinkIconButton onClick={() => window.open(formData.websiteUrl, '_blank', 'noopener,noreferrer')} title="公式サイトを開く" /> : null}
               </>

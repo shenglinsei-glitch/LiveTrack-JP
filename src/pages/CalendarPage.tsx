@@ -58,6 +58,7 @@ const getConcertDotColor = (status: string): string => {
 const getMovieDotColor = (status: string): string => {
   switch (status) {
     case '未上映': return '#9CA3AF';
+    case '発売前': return '#F59E0B';
     case '抽選中': return '#F59E0B';
     case '上映中': return '#53BEE8';
     case '鑑賞予定': return '#3B82F6';
