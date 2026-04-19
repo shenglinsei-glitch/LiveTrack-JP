@@ -6,6 +6,7 @@ import { theme } from '../ui/theme';
 import { Icons, IconButton } from '../ui/IconButton';
 import { GlassCard } from '../ui/GlassCard';
 import { Label, Value, SubValue, SectionTitle } from '../components/detail/DetailText';
+import { DetailHeader, DetailChip, DetailLinkIconButton } from '../components/detail/DetailHeader';
 
 interface MovieDetailPageProps {
   movie: Movie;
@@ -91,9 +92,8 @@ const collapseButtonStyle: React.CSSProperties = {
 
 const infoGridStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
   gap: 16,
-  width: '100%',
 };
 
 const ViewSection: React.FC<{
@@ -121,52 +121,6 @@ const ViewSection: React.FC<{
     </GlassCard>
   );
 };
-
-const StatusChip: React.FC<{ label: string; bg: string; subtle?: boolean }> = ({ label, bg, subtle = false }) => (
-  <span
-    style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: 28,
-      padding: '0 12px',
-      borderRadius: 999,
-      fontSize: 12,
-      fontWeight: 800,
-      color: subtle ? theme.colors.text : '#fff',
-      background: subtle ? 'rgba(255,255,255,0.74)' : bg,
-      boxShadow: subtle ? '0 4px 12px rgba(15,23,42,0.06)' : 'none',
-      whiteSpace: 'nowrap',
-    }}
-  >
-    {label}
-  </span>
-);
-
-const LinkIconButton: React.FC<{ onClick: () => void; title: string }> = ({ onClick, title }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    title={title}
-    style={{
-      width: 30,
-      height: 30,
-      borderRadius: 999,
-      border: 'none',
-      background: 'rgba(255,255,255,0.72)',
-      color: theme.colors.primary,
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      cursor: 'pointer',
-      boxShadow: '0 4px 12px rgba(15,23,42,0.08)',
-      padding: 0,
-      flexShrink: 0,
-    }}
-  >
-    <Icons.Globe style={{ width: 16, height: 16 }} />
-  </button>
-);
 
 const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -321,39 +275,35 @@ WebkitMaskImage:
   </>
 )}
 
-        <div style={{ position: 'relative', zIndex: 1, padding: 'calc(env(safe-area-inset-top) + 16px) max(16px, env(safe-area-inset-right)) 120px max(16px, env(safe-area-inset-left))', width: '100%', maxWidth: 1080, margin: '0 auto', boxSizing: 'border-box' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, width: '100%' }}>
-            <IconButton icon={<Icons.ChevronLeft />} onClick={() => onBack()} style={{ background: 'rgba(255,255,255,0.82)', border: 'none' }} />
-            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-              {isEditMode ? (
-                <IconButton icon={<Icons.Check />} onClick={() => save()} primary />
-              ) : (
-                <IconButton icon={<Icons.Edit />} onClick={() => setIsEditMode(true)} style={{ background: 'rgba(255,255,255,0.82)', border: 'none', color: theme.colors.primary }} />
-              )}
-              <IconButton icon={<Icons.Trash />} onClick={() => { if (window.confirm('この映画を削除しますか？')) onDeleteMovie(movie.id); }} style={{ background: 'rgba(255,255,255,0.82)', border: 'none', color: theme.colors.error }} />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexWrap: 'nowrap', alignItems: 'flex-end', gap: 'clamp(10px, 2.6vw, 22px)', marginBottom: 18, width: '100%', minWidth: 0 }}>
-            <div style={{ width: 'clamp(84px, 24vw, 150px)', aspectRatio: '150 / 214', borderRadius: 'clamp(18px, 4vw, 26px)', overflow: 'hidden', background: '#F3F4F6', boxShadow: '0 12px 30px rgba(15,23,42,0.24)', flexShrink: 0 }}>
-              {formData.posterUrl ? <img src={formData.posterUrl} alt={formData.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, opacity: 0.2 }}>🎬</div>}
-            </div>
-
-            <div style={{ flex: '1 1 0%', minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 10, paddingBottom: 6 }}>
-              {isEditMode ? (
-                <input value={formData.title} onChange={(e) => updateField('title', e.target.value)} placeholder="作品名を入力" style={{ width: '100%', fontSize: 24, fontWeight: 900, color: '#fff', textAlign: 'left', background: 'transparent', border: 'none', outline: 'none', padding: 0 }} />
-              ) : (
-                <div style={{ fontSize: 'clamp(16px, 4.8vw, 42px)', lineHeight: 1.08, fontWeight: 800, color: '#fff', textShadow: '0 8px 24px rgba(15,23,42,0.35)', wordBreak: 'break-word' }}>{formData.title || '作品名未設定'}</div>
-              )}
-
-              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                <StatusChip label={tone.label} bg={tone.bg} />
-                <StatusChip label={formData.ticketType} bg="#E5E7EB" subtle />
-                {!isEditMode && hasPosterLink ? <LinkIconButton onClick={() => openExternal(formData.posterUrl)} title="ポスターを開く" /> : null}
-                {!isEditMode && hasLotteryLink ? <LinkIconButton onClick={() => openExternal(formData.lotteryUrl)} title="抽選ページを開く" /> : null}
-              </div>
-            </div>
-          </div>
+        <div style={{ position: 'relative', zIndex: 1, padding: 'calc(env(safe-area-inset-top) + 16px) clamp(10px, 1.8vw, 16px) 120px', width: '100%', maxWidth: 1080, margin: '0 auto', boxSizing: 'border-box' }}>
+          <DetailHeader
+            title={formData.title}
+            onTitleChange={(value) => updateField('title', value)}
+            titlePlaceholder="作品名未設定"
+            isEditMode={isEditMode}
+            posterUrl={formData.posterUrl}
+            posterAlt={formData.title}
+            posterFallback={<div style={{ fontSize: 48, opacity: 0.2 }}>🎬</div>}
+            onBack={onBack}
+            actions={
+              <>
+                {isEditMode ? (
+                  <IconButton icon={<Icons.Check />} onClick={() => save()} primary />
+                ) : (
+                  <IconButton icon={<Icons.Edit />} onClick={() => setIsEditMode(true)} style={{ background: 'rgba(255,255,255,0.82)', border: 'none', color: theme.colors.primary }} />
+                )}
+                <IconButton icon={<Icons.Trash />} onClick={() => { if (window.confirm('この映画を削除しますか？')) onDeleteMovie(movie.id); }} style={{ background: 'rgba(255,255,255,0.82)', border: 'none', color: theme.colors.error }} />
+              </>
+            }
+            tags={
+              <>
+                <DetailChip label={tone.label} bg={tone.bg} />
+                <DetailChip label={formData.ticketType} subtle />
+                {!isEditMode && hasPosterLink ? <DetailLinkIconButton onClick={() => openExternal(formData.posterUrl)} title="ポスターを開く" /> : null}
+                {!isEditMode && hasLotteryLink ? <DetailLinkIconButton onClick={() => openExternal(formData.lotteryUrl)} title="抽選ページを開く" /> : null}
+              </>
+            }
+          />
 
           {isEditMode ? (
             <>

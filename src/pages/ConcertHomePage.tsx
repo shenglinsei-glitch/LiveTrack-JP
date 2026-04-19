@@ -3,6 +3,7 @@ import { theme } from '../ui/theme';
 import { ImageDialog } from '../components/ImageDialog';
 import { GlassCard } from '../ui/GlassCard';
 import { Label, Value, SectionTitle } from '../components/detail/DetailText';
+import { DetailHeader, DetailChip, DetailLinkIconButton } from '../components/detail/DetailHeader';
 import { Artist, Tour, Concert } from '../domain/types';
 import { Icons, IconButton } from '../ui/IconButton';
 import { bulkGetImageUrls, bulkPutImageUrls, putImageUrl, setImageUrl, deleteImage } from '../domain/imageStore';
@@ -40,87 +41,24 @@ const LinkPill: React.FC<{ onClick: () => void; children: React.ReactNode }> = (
   </button>
 );
 
-const StatusChip: React.FC<{ label: string }> = ({ label }) => (
-  <span
-    style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: 28,
-      padding: '0 12px',
-      borderRadius: 999,
-      fontSize: 12,
-      fontWeight: 800,
-      color: 'white',
-      background: theme.colors.status[label as keyof typeof theme.colors.status] || theme.colors.primary,
-      whiteSpace: 'nowrap',
-    }}
-  >
-    {label}
-  </span>
-);
-
-const GhostChip: React.FC<{ label: string }> = ({ label }) => (
-  <span
-    style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: 28,
-      padding: '0 12px',
-      borderRadius: 999,
-      fontSize: 12,
-      fontWeight: 800,
-      color: theme.colors.text,
-      background: 'rgba(255,255,255,0.72)',
-      whiteSpace: 'nowrap',
-    }}
-  >
-    {label}
-  </span>
-);
-
-const LinkIconButton: React.FC<{ onClick: () => void; title: string }> = ({ onClick, title }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    title={title}
-    style={{
-      width: 30,
-      height: 30,
-      borderRadius: 999,
-      border: 'none',
-      background: 'rgba(255,255,255,0.72)',
-      color: theme.colors.primary,
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      cursor: 'pointer',
-      boxShadow: '0 6px 18px rgba(15,23,42,0.10)',
-      padding: 0,
-      flexShrink: 0,
-    }}
-  >
-    <Icons.Globe style={{ width: 16, height: 16 }} />
-  </button>
-);
-
 const CollapsibleSection: React.FC<{ title: string; defaultOpen?: boolean; children: React.ReactNode; rightLabel?: string; rightAction?: React.ReactNode }> = ({ title, defaultOpen = true, children, rightLabel, rightAction }) => {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <GlassCard padding="20px" style={{ marginBottom: 16, background: 'rgba(255,255,255,0.72)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.4)' }}>
-      <button
-        type="button"
-        onClick={() => setOpen(v => !v)}
-        style={{ width: '100%', background: 'transparent', border: 'none', padding: 0, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
-      >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <SectionTitle title={title} style={{ marginTop: 0, marginBottom: open ? 12 : 0 }} dividerStyle={{ opacity: open ? 1 : 0 }} />
-        </div>
-        {rightLabel ? <div style={{ fontSize: 12, color: theme.colors.textWeak, fontWeight: 800 }}>{rightLabel}</div> : null}
-        {rightAction ? <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center' }}>{rightAction}</div> : null}
-        <Icons.ChevronLeft style={{ width: 18, height: 18, color: theme.colors.textWeak, transform: open ? 'rotate(-90deg)' : 'rotate(180deg)', transition: 'transform 0.2s ease' }} />
-      </button>
+      <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button
+          type="button"
+          onClick={() => setOpen(v => !v)}
+          style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', padding: 0, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <SectionTitle title={title} style={{ marginTop: 0, marginBottom: open ? 12 : 0 }} dividerStyle={{ opacity: open ? 1 : 0 }} />
+          </div>
+          {rightLabel ? <div style={{ fontSize: 12, color: theme.colors.textWeak, fontWeight: 800 }}>{rightLabel}</div> : null}
+          <Icons.ChevronLeft style={{ width: 18, height: 18, color: theme.colors.textWeak, transform: open ? 'rotate(-90deg)' : 'rotate(180deg)', transition: 'transform 0.2s ease' }} />
+        </button>
+        {rightAction ? <div style={{ display: 'flex', alignItems: 'center' }}>{rightAction}</div> : null}
+      </div>
       {open ? children : null}
     </GlassCard>
   );
@@ -257,28 +195,23 @@ export const ConcertHomePage: React.FC<Props> = ({
       )}
 
       <div style={{ position: 'relative', zIndex: 1, padding: 'calc(env(safe-area-inset-top) + 16px) max(16px, env(safe-area-inset-right)) 140px max(16px, env(safe-area-inset-left))', width: '100%', maxWidth: 1080, margin: '0 auto', boxSizing: 'border-box' }}>
-        <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, width: '100%' }}>
-          <IconButton icon={<Icons.ChevronLeft />} onClick={() => onBack()} style={{ background: 'rgba(255,255,255,0.82)', border: 'none' }} />
-          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-            <IconButton icon={<Icons.Edit />} onClick={() => onOpenConcertEditor(artistId, tour.id)} style={{ background: 'rgba(255,255,255,0.82)', border: 'none', color: theme.colors.primary }} />
-          </div>
-        </header>
-
-        <div style={{ display: 'flex', flexWrap: 'nowrap', alignItems: 'flex-end', gap: 'clamp(10px, 2.6vw, 22px)', marginBottom: 18, width: '100%', minWidth: 0 }}>
-          <div style={{ width: 'clamp(84px, 24vw, 170px)', aspectRatio: '150 / 214', borderRadius: 'clamp(18px, 4vw, 26px)', overflow: 'hidden', background: '#F3F4F6', boxShadow: '0 12px 30px rgba(15,23,42,0.24)', flexShrink: 0 }}>
-            {heroImageUrl ? <img src={heroImageUrl} alt={tour.name} referrerPolicy="no-referrer" onError={handleBgError} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%' }} />}
-          </div>
-          <div style={{ flex: '1 1 0%', minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 10, paddingBottom: 6 }}>
-            <div style={{ fontSize: 'clamp(16px, 4.8vw, 42px)', lineHeight: 1.08, fontWeight: 800, color: '#fff', textShadow: '0 8px 24px rgba(15,23,42,0.35)', wordBreak: 'break-word' }}>{tour.name || '公演名未設定'}</div>
-            <button onClick={() => onOpenArtistDetail(artist.id)} style={{ width: 'fit-content', border: 'none', background: 'transparent', padding: 0, color: 'rgba(255,255,255,0.92)', fontSize: 13, fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: '4px', textDecorationColor: 'rgba(255,255,255,0.45)', cursor: 'pointer' }}>{artist.name}</button>
-            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-              <StatusChip label={concert.status} />
-              <GhostChip label={concert.isParticipated ? '参戦済み' : '公演情報'} />
-              {concert.saleLink ? <LinkIconButton onClick={() => window.open(concert.saleLink, '_blank', 'noopener,noreferrer')} title="販売ページを開く" /> : null}
-              {tour.officialUrl ? <LinkIconButton onClick={() => window.open(tour.officialUrl!, '_blank', 'noopener,noreferrer')} title="ツアー公式サイトを開く" /> : null}
-            </div>
-          </div>
-        </div>
+        <DetailHeader
+          title={tour.name || ''}
+          titlePlaceholder="公演名未設定"
+          posterUrl={heroImageUrl}
+          posterAlt={tour.name}
+          onBack={onBack}
+          actions={<IconButton icon={<Icons.Edit />} onClick={() => onOpenConcertEditor(artistId, tour.id)} style={{ background: 'rgba(255,255,255,0.82)', border: 'none', color: theme.colors.primary }} />}
+          subtitle={<button onClick={() => onOpenArtistDetail(artist.id)} style={{ width: 'fit-content', border: 'none', background: 'transparent', padding: 0, color: 'rgba(255,255,255,0.92)', fontSize: 13, fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: '4px', textDecorationColor: 'rgba(255,255,255,0.45)', cursor: 'pointer' }}>{artist.name}</button>}
+          tags={
+            <>
+              <DetailChip label={concert.status} bg={theme.colors.status[concert.status as keyof typeof theme.colors.status] || theme.colors.primary} />
+              <DetailChip label={concert.isParticipated ? '参戦済み' : '公演情報'} subtle />
+              {concert.saleLink ? <DetailLinkIconButton onClick={() => window.open(concert.saleLink, '_blank', 'noopener,noreferrer')} title="販売ページを開く" /> : null}
+              {tour.officialUrl ? <DetailLinkIconButton onClick={() => window.open(tour.officialUrl!, '_blank', 'noopener,noreferrer')} title="ツアー公式サイトを開く" /> : null}
+            </>
+          }
+        />
 
         <CollapsibleSection title="基本情報">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16, width: '100%' }}>
