@@ -1,0 +1,261 @@
+
+export type Status = 
+  | '発売前' 
+  | '検討中' 
+  | '抽選中' 
+  | '参戦予定' 
+  | '参戦済み' 
+  | '見送'; 
+
+// Fix: Corrected typo '见送' to '見送' to match the Status union type.
+export const TOUR_ACTIVE_STATUSES: Status[] = ['発売前', '検討中', '抽選中', '参戦予定', '見送'];
+export const TICKET_TRACK_STATUSES: Status[] = ['発売前', '検討中', '抽選中'];
+
+export type TrackingErrorType = 
+  | '接続できませんでした'
+  | '页面的内容が変わりました'
+  | 'アクセスが制限されています'
+  | '情報を取得できませんでした';
+
+export type TrackingStatus = 'success' | 'failed' | 'hit';
+
+export type DueAction = 
+  | 'ASK_BUY_AT_SALE'
+  | 'ASK_BUY_AT_DEADLINE'
+  | 'ASK_RESULT'
+  | 'NEED_SET_SALE_AT'
+  | 'NEED_SET_DEADLINE_AT'
+  | 'NEED_SET_RESULT_AT'
+  | 'NEED_SET_CONCERT_AT';
+
+export type CalendarEventType = 
+  | '公演' 
+  | '抽選結果' 
+  | '発売開始' 
+  | '申込締切'
+  | '展覧会'
+  | '映画';
+
+export interface CalendarEvent {
+  dateKey: string;        // YYYY-MM-DD
+  timeLabel?: string;     // HH:mm
+  type: CalendarEventType;
+  artistId: string;
+  tourId: string;
+  concertId: string;
+  title: string;          // Artist Name + Tour Name
+  status: string;
+  movieId?: string;
+}
+
+export interface SiteLink {
+  name: string;
+  url: string;
+  autoTrack: boolean;
+  lastCheckedAt?: string;
+  lastSuccessAt?: string;
+  matchedKeywords?: string[];
+  lastHitAt?: string;
+  acknowledgedAt?: string;
+  trackingStatus?: TrackingStatus;
+  errorMessage?: TrackingErrorType;
+  trackCapability?: 'supported' | 'unsupported' | 'unjudged';
+  trackCapabilityCheckedAt?: string;
+}
+
+export interface Concert {
+  id: string;
+  date: string;
+  venue: string;
+  price: number;
+  saleLink: string;
+  status: Status;
+  isParticipated: boolean;
+  imageIds: string[];
+  images?: string[]; 
+  saleAt?: string | null;
+  deadlineAt?: string | null;
+  resultAt?: string | null;
+  concertAt?: string | null;
+  lotteryName?: string | null;
+  lotteryResult?: 'WON' | 'LOST' | null;
+
+  /**
+   * 抽選結果の履歴（当選/落選）。
+   * 1回の抽選につき複数回記録される可能性があるため append-only。
+   */
+  lotteryHistory?: LotteryHistoryItem[];
+}
+
+export interface LotteryHistoryItem {
+  /** 記録した時刻（ISO） */
+  at: string;
+  /** 結果 */
+  result: 'WON' | 'LOST';
+  /** 抽選名（例：FC先行） */
+  lotteryName?: string | null;
+  /** 結果発表日時（保存されている resultAt のスナップショット） */
+  resultAt?: string | null;
+}
+
+export interface Tour {
+  id: string;
+  name: string;
+  imageUrl: string;
+  memo?: string;
+  concerts: Concert[];
+  officialUrl?: string;
+}
+
+export interface Artist {
+  id: string;
+  name: string;
+  imageUrl: string;
+  links: SiteLink[];
+  autoTrackConcerts: boolean;
+  autoTrackTickets: boolean;
+  tours: Tour[];
+  order?: number;
+}
+
+// --- Exhibition Types ---
+export type ExhibitionTicketStatus = 'none' | 'reserved' | 'bought' | 'visited';
+export type ExhibitionTicketSalesStatus = 'none' | 'before_sale' | 'not_purchased' | 'purchased';
+export type ExhibitionStatus = 'NONE' | 'PLANNED' | 'RESERVED' | 'SKIPPED' | 'VISITED' | 'ENDED';
+
+export interface ExhibitionArtist {
+  name: string;
+  note?: string;
+}
+
+export interface Exhibition {
+  id: string;
+  title: string;
+  imageUrl?: string;
+  startDate: string; // YYYY-MM-DD
+  endDate: string;   // YYYY-MM-DD
+  
+  // Basic & Venue
+  websiteUrl?: string;
+  area?: string;      // e.g. 新宿区
+  venueName?: string; // e.g. 森美術館
+  venue?: string;     // legacy backup
+  
+  // Opening Hours
+  weekdayStartTime?: string; // HH:mm
+  weekdayEndTime?: string;   // HH:mm
+  holidaySameAsWeekday: boolean;
+  holidayStartTime?: string;
+  holidayEndTime?: string;
+
+  // Pricing
+  weekdayPrice?: number;
+  holidayPrice?: number;
+  holidayPriceSameAsWeekday: boolean;
+
+  // Ticket & Status
+  ticketSalesStatus: ExhibitionTicketSalesStatus;
+  saleStartAt?: string;
+  hasAdvanceTicket?: boolean;
+  advanceSaleAt?: string;
+  advanceTicketPurchased?: boolean;
+  needsReservation: boolean;
+  reservationStartAt?: string;
+  reservationEndAt?: string;
+  
+  // Visit Tracking
+  visitedAt?: string; // YYYY-MM-DD HH:mm
+  status: ExhibitionStatus;
+
+  // Content
+  description?: string;
+  artists?: ExhibitionArtist[];
+  imageIds?: string[];
+}
+
+
+
+export type MovieStatus = '未上映' | '抽選中' | '上映中' | '鑑賞予定' | '鑑賞済み' | '見送り' | '上映終了';
+export type MovieTicketType = '通常' | '舞台挨拶';
+
+export interface MovieLotteryHistoryItem {
+  at: string;
+  result: 'WON' | 'LOST';
+  lotteryName?: string;
+  lotteryResultAt?: string;
+}
+
+export interface Movie {
+  id: string;
+  title: string;
+  posterUrl: string;
+  theaterName: string;
+  screenName: string;
+  seat: string;
+  releaseDate?: string;
+  watchDate?: string;
+  startTime?: string;
+  endTime?: string;
+  memo?: string;
+  actors: string[];
+  directors: string[];
+  price?: number;
+  ticketType: MovieTicketType;
+  status: MovieStatus;
+  websiteUrl?: string;
+
+  lotteryName?: string;
+  lotteryUrl?: string;
+  lotteryResultAt?: string;
+  lotteryPrice?: number;
+  lotteryResult?: 'WON' | 'LOST' | null;
+  lotteryHistory?: MovieLotteryHistoryItem[];
+
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GlobalSettings {
+  autoTrackIntervalDays: 3 | 7 | 14 | 21 | 30;
+}
+
+export interface DisplaySettings {
+  showAttended: boolean;
+  showSkipped: boolean;
+}
+
+// Concert list page (local UI state)
+// NOTE: These types are additive and do not affect existing persisted data.
+export type ConcertListSortKey = 'date' | 'artist' | 'status_group';
+
+export interface ConcertListFilters {
+  // If empty / undefined => show all statuses.
+  statuses?: Status[];
+}
+
+export type StatusItem = {
+  id: string;
+  type: 'concert' | 'exhibition' | 'movie';
+  parentId: string;
+  title: string;
+  date: string;
+  status: string;
+  actionType: 'lottery' | 'result' | 'ticket' | 'exhibition_start' | 'exhibition_end' | 'movie';
+  displayStatus: string;
+  raw: any;
+};
+
+export type PageId = 
+  | 'CONTENT'
+  | 'STATUS'
+  | 'EXHIBITIONS'  
+  | 'EXHIBITION_DETAIL'
+  | 'MUSIC'        
+  | 'ARTIST_LIST'  
+  | 'CONCERT_LIST' 
+  | 'CALENDAR' 
+  | 'ARTIST_DETAIL' 
+  | 'CONCERT_HOME' 
+  | 'ARTIST_EDITOR' 
+  | 'CONCERT_EDITOR'
+  | 'MOVIE_DETAIL';
