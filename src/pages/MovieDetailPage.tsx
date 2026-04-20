@@ -112,7 +112,7 @@ const collapseButtonStyle: React.CSSProperties = {
 
 const infoGridStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(160px, 100%), 1fr))',
   gap: 16,
 };
 
@@ -143,7 +143,7 @@ const ViewSection: React.FC<{
 };
 
 const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
     <label style={{ fontSize: 12, color: theme.colors.textSecondary, fontWeight: 800, marginLeft: 4 }}>{label}</label>
     {children}
   </div>
@@ -192,7 +192,7 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, onUpdat
   };
 
   const Input: React.FC<{ value: string; onChange: (v: string) => void; placeholder?: string; readOnly?: boolean; type?: string; suffix?: string }> = ({ value, onChange, placeholder, readOnly, type = 'text', suffix }) => (
-    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', minWidth: 0, width: '100%', maxWidth: '100%' }}>
       <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} readOnly={readOnly} type={type} style={inputStyle} />
       {suffix && <span style={{ position: 'absolute', right: 16, fontSize: 14, color: theme.colors.textSecondary, fontWeight: 800 }}>{suffix}</span>}
     </div>

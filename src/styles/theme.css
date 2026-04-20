@@ -179,4 +179,27 @@
     font-weight: var(--font-weight-normal);
     line-height: 1.5;
   }
+
+  input,
+  textarea,
+  select {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  input[type="month"],
+  input[type="url"],
+  input[type="text"],
+  input[type="number"],
+  textarea,
+  select {
+    appearance: none;
+    -webkit-appearance: none;
+    border-radius: 0;
+  }
 }

@@ -348,7 +348,7 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
         <>
           {isEditMode ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
                 <div>
                   <Label>ポスター画像 (URL)</Label>
                   <Input value={exhibition.imageUrl} onChange={(e) => onChange({ imageUrl: e.target.value })} placeholder="https://..." />
@@ -361,7 +361,7 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
 
               <div>
                 <Label>会期</Label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px' }}>
                   <CustomExhibitionDatePicker
                     value={exhibition.startDate}
                     placeholder="開始日"
@@ -389,7 +389,7 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
                 <div>
                   <Label>エリア</Label>
                   <Input
@@ -421,7 +421,7 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
               </div>
 
               <SectionTitle title="ステータス・チケット" />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
                 <div>
                   <Label>参戦日時</Label>
                   <CustomExhibitionDatePicker showTime value={exhibition.visitedAt} placeholder="参戦日時" onChange={(v) => onChange({ visitedAt: v })} />
@@ -464,7 +464,7 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
               <Checkbox checked={exhibition.holidaySameAsWeekday} onChange={(e) => onChange({ holidaySameAsWeekday: e.target.checked })}>
                 休日は平日と同じ
               </Checkbox>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
                 <TimePicker.RangePicker
                   format="HH:mm"
                   getPopupContainer={() => document.body}
@@ -499,7 +499,7 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
               <Checkbox checked={exhibition.holidayPriceSameAsWeekday} onChange={(e) => onChange({ holidayPriceSameAsWeekday: e.target.checked })}>
                 休日は平日と同じ
               </Checkbox>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
                 <InputNumber style={{ width: '100%' }} value={exhibition.weekdayPrice} onChange={(v) => onChange({ weekdayPrice: v || undefined })} placeholder="平日料金" />
                 {!exhibition.holidayPriceSameAsWeekday && (
                   <InputNumber style={{ width: '100%' }} value={exhibition.holidayPrice} onChange={(v) => onChange({ holidayPrice: v || undefined })} placeholder="休日料金" />
@@ -511,7 +511,7 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
                 予約が必要
               </Checkbox>
               {exhibition.needsReservation && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px' }}>
                   <div>
                     <Label>受付開始</Label>
                     <CustomExhibitionDatePicker
@@ -549,7 +549,7 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
             </div>
           ) : (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '16px', marginBottom: '16px' }}>
                 <div>
                   <Label>エリア</Label>
                   <Value>{exhibition.area}</Value>
@@ -631,7 +631,7 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
                   <Value>{exhibition.weekdayPrice ? `${exhibition.weekdayPrice.toLocaleString()} 円` : null}</Value>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '16px' }}>
                   <div>
                     <Label>平日料金</Label>
                     <Value>{exhibition.weekdayPrice ? `${exhibition.weekdayPrice.toLocaleString()} 円` : null}</Value>
