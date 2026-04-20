@@ -35,15 +35,15 @@ const statusTone = (status: MovieStatus) => {
 
 const week = ['日', '月', '火', '水', '木', '金', '土'];
 const formatDateWithWeek = (date?: string) => {
-  if (!date) return '未設定';
+  if (!date) return ''; 
   const d = dayjs(date);
-  if (!d.isValid()) return '未設定';
+  if (!d.isValid()) return ''; 
   return `${d.format('YYYY/MM/DD')}（${week[d.day()]}）`;
 };
 const formatDateTimeWithWeek = (value?: string) => {
-  if (!value) return '未設定';
+  if (!value) return ''; 
   const d = dayjs(value.replace('T', ' '));
-  if (!d.isValid()) return '未設定';
+  if (!d.isValid()) return ''; 
   return `${d.format('YYYY/MM/DD')}（${week[d.day()]}） ${d.format('HH:mm')}`;
 };
 const calcDuration = (start?: string, end?: string) => {
@@ -74,6 +74,8 @@ const getEffectiveMovieStatus = (movie: Movie): MovieStatus => {
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
+  maxWidth: '100%',
+  boxSizing: 'border-box',
   minHeight: 54,
   borderRadius: 18,
   border: '1px solid rgba(15,23,42,0.08)',
@@ -167,6 +169,7 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, onUpdat
   const durationLabel = calcDuration(formData.startTime, formData.endTime);
   const hasPosterLink = !!formData.posterUrl;
   const hasLotteryLink = !!(formData.status === '発売前' ? formData.saleLink : formData.lotteryUrl);
+  const movieLotteryHistory = useMemo(() => ([...(formData.lotteryHistory || [])].sort((a, b) => dayjs(b.at).valueOf() - dayjs(a.at).valueOf())), [formData.lotteryHistory]);
   const availableStatuses = formData.ticketType === '舞台挨拶' ? STAGE_GREETING_STATUSES : NORMAL_STATUSES;
 
   const updateField = (field: keyof Movie, value: any) => {
@@ -315,7 +318,7 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, onUpdat
                 <Field label="鑑賞日">{isEditMode ? <CustomDatePicker value={formData.watchDate} onChange={(v) => updateField('watchDate', v)} /> : <StaticText>{formatDateWithWeek(formData.watchDate)}</StaticText>}</Field>
                 <Field label="開演"><TimePicker value={formData.startTime} onChange={(v) => updateField('startTime', v)} readOnly={!isEditMode} /></Field>
                 <Field label="終演"><TimePicker value={formData.endTime} onChange={(v) => updateField('endTime', v)} readOnly={!isEditMode} /></Field>
-                <Field label="上映時間"><StaticText>{durationLabel || '未設定'}</StaticText></Field>
+                <Field label="上映時間"><StaticText>{durationLabel || ''}</StaticText></Field>
               </Section>
 
               <Section title="出演者">
@@ -374,11 +377,11 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, onUpdat
                   <div style={infoGridStyle}>
                     <div>
                       <Label>発売日</Label>
-                      <Value>{formData.saleAt ? formatDateTimeWithWeek(formData.saleAt) : null}</Value>
+                      <Value placeholder="">{formData.saleAt ? formatDateTimeWithWeek(formData.saleAt) : null}</Value>
                     </div>
                     <div>
                       <Label>締切日</Label>
-                      <Value>{formData.deadlineAt ? formatDateTimeWithWeek(formData.deadlineAt) : null}</Value>
+                      <Value placeholder="">{formData.deadlineAt ? formatDateTimeWithWeek(formData.deadlineAt) : null}</Value>
                     </div>
                     {formData.saleLink && (
                       <div>
@@ -409,11 +412,11 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, onUpdat
                   <div style={infoGridStyle}>
                     <div>
                       <Label>抽選名</Label>
-                      <Value>{formData.lotteryName}</Value>
+                      <Value placeholder="">{formData.lotteryName}</Value>
                     </div>
                     <div>
                       <Label>抽選結果日時</Label>
-                      <Value>{formData.lotteryResultAt ? formatDateTimeWithWeek(formData.lotteryResultAt) : null}</Value>
+                      <Value placeholder="">{formData.lotteryResultAt ? formatDateTimeWithWeek(formData.lotteryResultAt) : null}</Value>
                     </div>
                     {formData.lotteryUrl && (
                       <div>
@@ -439,27 +442,78 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, onUpdat
                 </ViewSection>
               )}
 
+
+              {formData.ticketType === '舞台挨拶' && movieLotteryHistory.length > 0 && (
+                <ViewSection title="抽選履歴" countLabel={`${movieLotteryHistory.length}件`}>
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {movieLotteryHistory.map((entry, index) => (
+                      <div
+                        key={`${entry.at}-${index}`}
+                        style={{
+                          borderRadius: 18,
+                          border: '1px solid rgba(0,0,0,0.06)',
+                          background: 'rgba(255,255,255,0.72)',
+                          padding: '12px 14px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          gap: 12,
+                          alignItems: 'flex-start',
+                        }}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: theme.colors.textMain }}>
+                            {entry.result === 'WON' ? '当選' : '落選'}
+                          </div>
+                          <div style={{ fontSize: 12, color: theme.colors.textSecondary, fontWeight: 700, marginTop: 2, wordBreak: 'break-word' }}>
+                            {entry.lotteryName || '舞台挨拶抽選'}
+                          </div>
+                          {(entry.lotteryResultAt || entry.at) && (
+                            <div style={{ fontSize: 12, color: theme.colors.textWeak, marginTop: 4 }}>
+                              結果：{formatDateTimeWithWeek(entry.lotteryResultAt || entry.at)}
+                            </div>
+                          )}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 900,
+                            padding: '4px 10px',
+                            borderRadius: 999,
+                            background: entry.result === 'WON' ? 'rgba(83,190,232,0.14)' : 'rgba(226,232,240,1)',
+                            color: entry.result === 'WON' ? theme.colors.primary : theme.colors.textSecondary,
+                            whiteSpace: 'nowrap',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {entry.result === 'WON' ? '当選' : '落選'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ViewSection>
+              )}
+
               <ViewSection title="日時情報">
                 <div style={infoGridStyle}>
                   <div>
                     <Label>公開日</Label>
-                    <Value>{formatDateWithWeek(formData.releaseDate)}</Value>
+                    <Value placeholder="">{formatDateWithWeek(formData.releaseDate)}</Value>
                   </div>
                   <div>
                     <Label>鑑賞日</Label>
-                    <Value>{formatDateWithWeek(formData.watchDate)}</Value>
+                    <Value placeholder="">{formatDateWithWeek(formData.watchDate)}</Value>
                   </div>
                   <div>
                     <Label>開演</Label>
-                    <Value>{formData.startTime}</Value>
+                    <Value placeholder="">{formData.startTime}</Value>
                   </div>
                   <div>
                     <Label>終演</Label>
-                    <Value>{formData.endTime}</Value>
+                    <Value placeholder="">{formData.endTime}</Value>
                   </div>
                   <div>
                     <Label>上映時間</Label>
-                    <Value>{durationLabel || null}</Value>
+                    <Value placeholder="">{durationLabel || null}</Value>
                   </div>
                 </div>
               </ViewSection>

@@ -24,7 +24,7 @@ const statusTone = (status: MovieStatus) => {
     case '未上映':
       return { label: '未上映', color: '#9CA3AF' };
     case '発売前':
-      return { label: '発売前', color: '#F59E0B' };
+      return { label: '発売前', color: '#2AC69E' };
     case '抽選中':
       return { label: '抽選中', color: '#F59E0B' };
     case '上映中':

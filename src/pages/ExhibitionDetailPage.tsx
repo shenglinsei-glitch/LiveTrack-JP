@@ -90,7 +90,7 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
             tags={
               <>
                 <DetailChip label={exhibitionStatusLabelMap[effectiveStatus]} bg={statusColors[effectiveStatus]} />
-                <DetailChip label={`${formData.startDate?.replace(/-/g, '/') || '未設定'} ～ ${formData.endDate?.replace(/-/g, '/') || '未設定'}`} subtle />
+                <DetailChip label={`${formData.startDate?.replace(/-/g, '/') || ''}${formData.startDate || formData.endDate ? ' ～ ' : ''}${formData.endDate?.replace(/-/g, '/') || ''}`} subtle />
                 {!isEditMode && formData.websiteUrl ? <DetailLinkIconButton onClick={() => window.open(formData.websiteUrl, '_blank', 'noopener,noreferrer')} title="公式サイトを開く" /> : null}
               </>
             }

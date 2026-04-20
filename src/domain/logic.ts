@@ -92,10 +92,20 @@ export const EVENT_PRIORITY: Record<CalendarEventType, number> = {
   ['映画']: 6,
 };
 
+const normalizeCalendarDateKey = (raw: string | null | undefined): string | null => {
+  if (!raw || raw === TEXT.GLOBAL.TBD) return null;
+  const match = raw.match(/(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
+  if (!match) return null;
+  const [, y, m, d] = match;
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+};
+
 const extractDateAndTime = (str: string | null | undefined): { date: string; time?: string } | null => {
   if (!str || str === TEXT.GLOBAL.TBD) return null;
-  const parts = str.split(' ');
-  return { date: parts[0], time: parts[1] ? parts[1].substring(0, 5) : undefined };
+  const date = normalizeCalendarDateKey(str);
+  if (!date) return null;
+  const timeMatch = str.match(/(\d{1,2}:\d{2})/);
+  return { date, time: timeMatch ? timeMatch[1] : undefined };
 };
 
 export const buildCalendarEvents = (artists: Artist[], settings: { showAttended: boolean; showSkipped: boolean }, movies: Movie[] = []): CalendarEvent[] => {
@@ -175,19 +185,49 @@ export const buildCalendarEvents = (artists: Artist[], settings: { showAttended:
   });
 
   (movies || []).forEach(movie => {
-    const dateStr = movie.watchDate || movie.lotteryResultAt || movie.releaseDate;
-    const info = extractDateAndTime(dateStr);
+    const resolvedStatus = autoAdvanceMovieStatus(movie);
+
+    let info: { date: string; time?: string } | null = null;
+
+    switch (resolvedStatus.status) {
+      case '発売前':
+        info = extractDateAndTime(resolvedStatus.saleAt || resolvedStatus.deadlineAt);
+        break;
+      case '抽選中':
+        info = extractDateAndTime(resolvedStatus.lotteryResultAt);
+        break;
+      case '鑑賞予定':
+      case '鑑賞済み': {
+        const watchSource = resolvedStatus.watchDate
+          ? `${resolvedStatus.watchDate}${resolvedStatus.startTime ? ` ${resolvedStatus.startTime}` : ''}`
+          : null;
+        info = extractDateAndTime(watchSource);
+        if (info && resolvedStatus.startTime) info.time = resolvedStatus.startTime;
+        break;
+      }
+      case '見送り':
+      case '上映終了':
+        info = extractDateAndTime(resolvedStatus.updatedAt || resolvedStatus.releaseDate);
+        break;
+      case '未上映':
+      case '上映中':
+      default:
+        info = extractDateAndTime(resolvedStatus.releaseDate);
+        break;
+    }
+
     if (!info) return;
+
     events.push({
       dateKey: info.date,
-      timeLabel: movie.startTime || undefined,
+      timeLabel: info.time,
       type: '映画',
       artistId: '',
       tourId: '',
       concertId: '',
-      movieId: movie.id,
-      title: movie.title,
-      status: movie.status,
+      movieId: resolvedStatus.id,
+      title: resolvedStatus.title,
+      status: resolvedStatus.status,
     });
   });
 
@@ -316,12 +356,15 @@ export const applyMovieLotteryDecision = (
     };
   }
 
+  const releaseTime = parseConcertDate(movie.releaseDate, 'NORMAL');
+  const now = new Date();
+
   return {
     ...movie,
-    status: '見送り',
+    status: releaseTime && now >= releaseTime ? '上映中' : '未上映',
     lotteryResult: 'LOST',
     lotteryHistory: [...(movie.lotteryHistory || []), historyItem],
-    updatedAt: new Date().toISOString(),
+    updatedAt: now.toISOString(),
   };
 };
 

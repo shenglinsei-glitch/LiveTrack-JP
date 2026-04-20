@@ -1,14 +1,14 @@
 import React, { useMemo, useRef, useState } from 'react';
-import dayjs from 'dayjs';
 import { theme } from '../ui/theme';
 import { GlassCard } from '../ui/GlassCard';
 import { Artist, Concert, Exhibition, StatusItem, Movie } from '../domain/types';
 import { generateStatusItems } from '../utils/statusGenerator';
 import { TopCapsuleNav } from '../components/TopCapsuleNav';
-import { applyMovieLotteryDecision, getDueAction, getMovieDueAction, parseConcertDate } from '../domain/logic';
-import { TEXT } from '../ui/constants';
+import { applyMovieLotteryDecision, getDueAction, parseConcertDate } from '../domain/logic';
 import { ConcertStatusCard } from '../components/ConcertStatusCard';
-import { RemoteImage } from '../components/RemoteImage';
+import { ExhibitionStatusCard } from '../components/ExhibitionStatusCard';
+import { MovieStatusCard, MovieLotteryActionState } from '../components/MovieStatusCard';
+import { fromDateTimeLocal, getMovieLotteryResultAt, getMovieSaleStart, parseMovieFlexibleDate, toDateTimeLocal } from '../domain/statusHelpers';
 
 interface Props {
   artists: Artist[];
@@ -30,60 +30,7 @@ type SectionKey = 'all' | 'pending' | 'decided' | 'history';
 type SortKey = 'date_asc' | 'date_desc' | 'type' | 'status';
 
 type ExhibitionActionMode = 'reserve' | 'visit';
-type MovieLotteryAction = {
-  id: string;
-  title: string;
-  value: string;
-  theaterName: string;
-  screenName: string;
-  seat: string;
-  price: string;
-};
-
-const formatCompactDate = (dateStr: string) => {
-  if (!dateStr || dateStr === TEXT.GLOBAL.TBD) return '';
-  const normalized = dateStr.replace('T', ' ');
-  const parts = normalized.split(' ')[0].split('-');
-  if (parts.length === 3) return `${parts[1]}/${parts[2]}`;
-  return normalized;
-};
-
-const formatTimeLabel = (dateStr: string) => {
-  if (!dateStr) return '';
-  const normalized = dateStr.replace('T', ' ');
-  return normalized.split(' ')[1] || '';
-};
-
-const toDateTimeLocal = (value?: string) => (value ? value.replace(' ', 'T').slice(0, 16) : '');
-const fromDateTimeLocal = (value: string) => value.replace('T', ' ');
-
-const parseMovieFlexibleDate = (value?: string): Date | null => {
-  if (!value || value === TEXT.GLOBAL.TBD) return null;
-
-  const normalized = String(value).trim().replace(/T/g, ' ').replace(/\./g, '/').replace(/-/g, '/');
-
-  const full = normalized.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?$/);
-  if (full) {
-    const [, y, m, d, hh = '0', mm = '0'] = full;
-    const dt = new Date(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), 0, 0);
-    return Number.isNaN(dt.getTime()) ? null : dt;
-  }
-
-  const partial = normalized.match(/^(\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?$/);
-  if (partial) {
-    const [, m, d, hh = '0', mm = '0'] = partial;
-    const year = new Date().getFullYear();
-    const dt = new Date(year, Number(m) - 1, Number(d), Number(hh), Number(mm), 0, 0);
-    return Number.isNaN(dt.getTime()) ? null : dt;
-  }
-
-  const fallback = new Date(normalized);
-  return Number.isNaN(fallback.getTime()) ? null : fallback;
-};
-
-const getMovieSaleStart = (movie: any): string => movie.saleAt || movie.saleStartAt || movie.releaseDate || '';
-
-const getMovieLotteryResultAt = (movie: any): string => movie.lotteryResultAt || movie.resultAt || '';
+type MovieLotteryAction = MovieLotteryActionState;
 
 const getSectionLabel = (key: SectionKey) => {
   switch (key) {
@@ -99,77 +46,6 @@ const getSectionLabel = (key: SectionKey) => {
 };
 
 const MENU_WIDTH = 300;
-
-const badgeBgFromColor = (color: string) => {
-  const normalized = color.toLowerCase();
-  if (normalized === theme.colors.status['発売前'].toLowerCase()) return theme.colors.badges.processing.bg;
-  if (normalized === theme.colors.status['検討中'].toLowerCase()) return theme.colors.badges.considering.bg;
-  if (normalized === theme.colors.status['抽選中'].toLowerCase()) return theme.colors.badges.lottery.bg;
-  if (normalized === theme.colors.status['参戦予定'].toLowerCase()) return theme.colors.badges.confirmed.bg;
-  if (normalized === theme.colors.status['参戦済み'].toLowerCase()) return theme.colors.badges.completed.bg;
-  if (normalized === theme.colors.status['見送'].toLowerCase()) return theme.colors.badges.skipped.bg;
-  return 'rgba(83, 190, 232, 0.12)';
-};
-
-const getExhibitionStatusTone = (status: string) => {
-  switch (status) {
-    case 'PLANNED':
-      return { color: theme.colors.status['参戦予定'], bg: theme.colors.badges.confirmed.bg, label: '開催中' };
-    case 'RESERVED':
-      return { color: theme.colors.status['抽選中'], bg: theme.colors.badges.lottery.bg, label: '予約済' };
-    case 'VISITED':
-      return { color: theme.colors.status['参戦済み'], bg: theme.colors.badges.completed.bg, label: '訪問済' };
-    case 'SKIPPED':
-      return { color: theme.colors.status['見送'], bg: theme.colors.badges.skipped.bg, label: '見送る' };
-    case 'ENDED':
-      return { color: theme.colors.textWeak, bg: 'rgba(0,0,0,0.04)', label: '終了' };
-    default:
-      return { color: theme.colors.primary, bg: 'rgba(83, 190, 232, 0.12)', label: '開催中' };
-  }
-};
-
-
-const getMovieStatusTone = (status: string, displayStatus?: string) => {
-  switch (status) {
-    case '未上映':
-      return { color: '#9CA3AF', bg: 'rgba(156,163,175,0.12)', label: displayStatus || '未上映' };
-    case '発売前':
-      return { color: theme.colors.status['発売前'], bg: theme.colors.badges.processing.bg, label: displayStatus || '発売前' };
-    case '抽選中':
-      return { color: theme.colors.status['抽選中'], bg: theme.colors.badges.lottery.bg, label: displayStatus || '抽選中' };
-    case '上映中':
-      return { color: theme.colors.primary, bg: 'rgba(83,190,232,0.12)', label: displayStatus || '上映中' };
-    case '鑑賞予定':
-      return { color: '#3B82F6', bg: 'rgba(59,130,246,0.12)', label: displayStatus || '鑑賞予定' };
-    case '鑑賞済み':
-      return { color: '#10B981', bg: 'rgba(16,185,129,0.12)', label: displayStatus || '鑑賞済み' };
-    case '見送り':
-      return { color: theme.colors.textSecondary, bg: 'rgba(107,114,128,0.10)', label: displayStatus || '見送り' };
-    default:
-      return { color: '#94A3B8', bg: 'rgba(148,163,184,0.12)', label: displayStatus || '上映終了' };
-  }
-};
-
-const getExhibitionMeta = (item: StatusItem) => {
-  if (item.status === 'RESERVED') {
-    return {
-      type: '訪問予定',
-      value: item.raw.visitedAt || item.date || '',
-    };
-  }
-
-  if (item.status === 'VISITED') {
-    return {
-      type: '訪問日時',
-      value: item.raw.visitedAt || item.date || '',
-    };
-  }
-
-  return {
-    type: '会期',
-    value: item.raw.endDate ? `${formatCompactDate(item.raw.startDate)} - ${formatCompactDate(item.raw.endDate)}` : formatCompactDate(item.date),
-  };
-};
 
 export const StatusPage: React.FC<Props> = ({
   artists,
@@ -217,12 +93,16 @@ export const StatusPage: React.FC<Props> = ({
       }
 
       if (item.type === 'movie') {
-        const movieDue = item.status === '抽選中' ? (getMovieDueAction(item.raw, now) || (parseMovieFlexibleDate(getMovieLotteryResultAt(item.raw)) && now >= parseMovieFlexibleDate(getMovieLotteryResultAt(item.raw))! ? 'ASK_MOVIE_LOTTERY_RESULT' : null)) : null;
+        const saleStart = parseMovieFlexibleDate(getMovieSaleStart(item.raw));
+        const resultAt = parseMovieFlexibleDate(getMovieLotteryResultAt(item.raw));
+        const hasMovieAction =
+          (item.status === '発売前' && !!saleStart && now >= saleStart) ||
+          (item.status === '抽選中' && !!resultAt && now >= resultAt);
         if (item.status === '鑑賞済み' || item.status === '見送り' || item.status === '上映終了') {
           history.push(item);
         } else if (item.status === '鑑賞予定') {
           decided.push(item);
-        } else if (movieDue || item.status === '未上映' || item.status === '発売前' || item.status === '上映中' || item.status === '抽選中') {
+        } else if (hasMovieAction || item.status === '未上映' || item.status === '発売前' || item.status === '上映中' || item.status === '抽選中') {
           pending.push(item);
         } else {
           decided.push(item);
@@ -350,88 +230,6 @@ export const StatusPage: React.FC<Props> = ({
     setMovieLotteryAction(null);
   };
 
-  const renderExhibitionActions = (item: StatusItem) => {
-    if (item.status === 'PLANNED') {
-      return (
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', padding: '0 4px' }}>
-          <button onClick={(e) => { e.stopPropagation(); openExhibitionDateModal(item, 'reserve'); }} style={actionPrimaryBtn}>予約済</button>
-          <button onClick={(e) => { e.stopPropagation(); openExhibitionDateModal(item, 'visit'); }} style={actionGhostBtn}>訪問済</button>
-          <button onClick={(e) => { e.stopPropagation(); onUpdateExhibitionStatus(item.parentId, { status: 'SKIPPED', visitedAt: undefined }); }} style={actionGhostBtn}>見送る</button>
-        </div>
-      );
-    }
-
-    if (item.status === 'RESERVED') {
-      const reservedAt = item.raw.visitedAt ? parseConcertDate(item.raw.visitedAt, 'NORMAL') : null;
-      const canActOnReserved = !reservedAt || new Date() >= reservedAt;
-      if (!canActOnReserved) return null;
-      return (
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', padding: '0 4px' }}>
-          <button onClick={(e) => { e.stopPropagation(); onUpdateExhibitionStatus(item.parentId, { status: 'VISITED' }); }} style={actionPrimaryBtn}>訪問済</button>
-          <button onClick={(e) => { e.stopPropagation(); onUpdateExhibitionStatus(item.parentId, { status: 'SKIPPED', visitedAt: undefined }); }} style={actionGhostBtn}>見送る</button>
-        </div>
-      );
-    }
-
-    return null;
-  };
-
-  const renderMovieActions = (item: StatusItem) => {
-    if (item.status === '発売前') {
-      const saleStart = parseMovieFlexibleDate(getMovieSaleStart(item.raw));
-      if (!saleStart || new Date() < saleStart) return null;
-
-      return (
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', padding: '0 4px' }}>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              const nextStatus = item.raw.ticketType === '舞台挨拶' ? '抽選中' : '上映中';
-              onUpdateMovieStatus(item.parentId, { status: nextStatus } as Partial<Movie>);
-            }}
-            style={actionPrimaryBtn}
-          >
-            購入・申込
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); onUpdateMovieStatus(item.parentId, { status: '上映中' } as Partial<Movie>); }} style={actionGhostBtn}>検討</button>
-          <button onClick={(e) => { e.stopPropagation(); onUpdateMovieStatus(item.parentId, { status: '見送り' } as Partial<Movie>); }} style={actionGhostBtn}>見送り</button>
-        </div>
-      );
-    }
-
-    if (item.status === '抽選中') {
-      const resultAt = parseMovieFlexibleDate(getMovieLotteryResultAt(item.raw));
-      const canDecide = !!resultAt && new Date() >= resultAt;
-      if (!canDecide) return null;
-
-      return (
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', padding: '0 4px' }}>
-          <button onClick={(e) => { e.stopPropagation(); openMovieLotteryWinModal(item); }} style={actionPrimaryBtn}>当選</button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              const updated = applyMovieLotteryDecision(item.raw, 'LOST');
-              onUpdateMovieStatus(item.parentId, updated);
-            }}
-            style={actionGhostBtn}
-          >
-            落選
-          </button>
-        </div>
-      );
-    }
-
-    if (item.status !== '上映中' && item.status !== '鑑賞予定') return null;
-
-    return (
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', padding: '0 4px' }}>
-        <button onClick={(e) => { e.stopPropagation(); onUpdateMovieStatus(item.parentId, { status: '鑑賞済み', watchDate: item.raw.watchDate || dayjs().format('YYYY-MM-DD') } as Partial<Movie>); }} style={actionPrimaryBtn}>鑑賞済み</button>
-        <button onClick={(e) => { e.stopPropagation(); onUpdateMovieStatus(item.parentId, { status: '見送り' } as Partial<Movie>); }} style={actionGhostBtn}>見送り</button>
-        <button onClick={(e) => { e.stopPropagation(); onUpdateMovieStatus(item.parentId, { status: '上映終了' } as Partial<Movie>); }} style={actionGhostBtn}>上映終了</button>
-      </div>
-    );
-  };
-
   const renderItem = (item: StatusItem) => {
     if (item.type === 'concert') {
       return (
@@ -446,222 +244,25 @@ export const StatusPage: React.FC<Props> = ({
     }
 
     if (item.type === 'movie') {
-      const statusTone = getMovieStatusTone(item.status, item.displayStatus);
-      const metaLabel = item.status === '抽選中'
-        ? '結果日'
-        : item.status === '発売前'
-          ? '発売日'
-          : item.status === '鑑賞予定'
-            ? '鑑賞予定'
-            : item.raw.watchDate
-              ? '鑑賞日'
-              : '公開日';
-      const metaValue = formatCompactDate(
-        item.status === '抽選中'
-          ? (getMovieLotteryResultAt(item.raw) || item.date || '')
-          : item.status === '発売前'
-            ? (getMovieSaleStart(item.raw) || item.date || '')
-            : (item.raw.watchDate || item.raw.releaseDate || item.date || '')
-      );
-
       return (
-        <div key={item.id}>
-          <div
-            onClick={() => onOpenMovieDetail(item.parentId)}
-            style={{
-              background: 'white',
-              borderRadius: '24px',
-              border: '1px solid rgba(0, 0, 0, 0.04)',
-              padding: '14px 18px',
-              display: 'flex',
-              flexDirection: 'column',
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
-              transition: 'all 0.2s',
-              marginBottom: item.status === '上映中' || item.status === '発売前' || item.status === '抽選中' ? '4px' : '12px',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-              <div
-                style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '50%',
-                  background: '#F3F4F6',
-                  flexShrink: 0,
-                  overflow: 'hidden',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {item.raw.posterUrl ? (
-                  <img src={item.raw.posterUrl} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  <span style={{ fontSize: '18px', opacity: 0.2 }}>🎬</span>
-                )}
-              </div>
-
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
-                  <div style={{ fontSize: '12px', color: theme.colors.textSecondary, fontWeight: '700', minWidth: 0 }}>
-                    <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {item.raw.theaterName || '映画'}
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '10px',
-                      fontWeight: '800',
-                      color: statusTone.color,
-                      background: statusTone.bg,
-                      padding: '2px 8px',
-                      borderRadius: '9999px',
-                      border: '1px solid rgba(0,0,0,0.06)',
-                      whiteSpace: 'nowrap',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {statusTone.label}
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    fontWeight: '800',
-                    fontSize: '15px',
-                    color: theme.colors.text,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    marginTop: 2,
-                  }}
-                >
-                  {item.title}
-                </div>
-
-                <div
-                  style={{
-                    fontSize: '12px',
-                    color: theme.colors.textSecondary,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    marginTop: 2,
-                  }}
-                >
-                  <span style={{ fontWeight: '800', color: theme.colors.textMain }}>{metaLabel}：</span> {metaValue || '未設定'}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {renderMovieActions(item)}
-        </div>
+        <MovieStatusCard
+          key={item.id}
+          item={item}
+          now={new Date()}
+          onOpenMovieDetail={onOpenMovieDetail}
+          onUpdateMovieStatus={onUpdateMovieStatus}
+          onOpenMovieLotteryWinModal={openMovieLotteryWinModal}
+        />
       );
     }
-
-    const statusTone = getExhibitionStatusTone(item.status);
-    const imageId = Array.isArray(item.raw.imageIds) && item.raw.imageIds.length > 0 ? item.raw.imageIds[0] : undefined;
-    const meta = getExhibitionMeta(item);
-
     return (
-      <div key={item.id}>
-        <div
-          onClick={() => onOpenExhibitionDetail(item.parentId)}
-          style={{
-            background: 'white',
-            borderRadius: '24px',
-            border: '1px solid rgba(0, 0, 0, 0.04)',
-            padding: '14px 18px',
-            display: 'flex',
-            flexDirection: 'column',
-            cursor: 'pointer',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
-            transition: 'all 0.2s',
-            marginBottom: item.status === 'PLANNED' || item.status === 'RESERVED' ? '4px' : '12px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div
-              style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '50%',
-                background: '#F3F4F6',
-                flexShrink: 0,
-                overflow: 'hidden',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <RemoteImage
-                imageUrl={item.raw.imageUrl}
-                imageId={imageId}
-                alt={item.title}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                fallback={<span style={{ fontSize: '18px', opacity: 0.2 }}>🖼️</span>}
-              />
-            </div>
-
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
-                <div style={{ fontSize: '12px', color: theme.colors.textSecondary, fontWeight: '700', minWidth: 0 }}>
-                  <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {item.raw.venueName || item.raw.venue || '展覧会'}
-                  </div>
-                </div>
-                <div
-                  style={{
-                    fontSize: '10px',
-                    fontWeight: '800',
-                    color: statusTone.color,
-                    background: statusTone.bg || badgeBgFromColor(statusTone.color),
-                    padding: '2px 8px',
-                    borderRadius: '9999px',
-                    border: '1px solid rgba(0,0,0,0.06)',
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0,
-                  }}
-                >
-                  {item.displayStatus || statusTone.label}
-                </div>
-              </div>
-
-              <div
-                style={{
-                  fontWeight: '800',
-                  fontSize: '15px',
-                  color: theme.colors.text,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  marginTop: 2,
-                }}
-              >
-                {item.title}
-              </div>
-
-              <div
-                style={{
-                  fontSize: '12px',
-                  color: theme.colors.textSecondary,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  marginTop: 2,
-                }}
-                title={`${meta.type}：${meta.value}`}
-              >
-                <span style={{ fontWeight: '800', color: theme.colors.textMain }}>{meta.type}：</span> {meta.value}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {renderExhibitionActions(item)}
-      </div>
+      <ExhibitionStatusCard
+        key={item.id}
+        item={item}
+        onOpenExhibitionDetail={onOpenExhibitionDetail}
+        onOpenExhibitionDateModal={openExhibitionDateModal}
+        onUpdateExhibitionStatus={onUpdateExhibitionStatus}
+      />
     );
   };
 

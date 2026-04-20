@@ -216,10 +216,10 @@ export const ConcertHomePage: React.FC<Props> = ({
 
         <CollapsibleSection title="抽選・販売情報" defaultOpen={!!(concert.lotteryName || concert.saleAt || concert.deadlineAt || concert.resultAt || concert.saleLink)} rightAction={salesLinkHeaderAction}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16, width: '100%' }}>
-            <div><Label>発売開始</Label><Value>{concert.saleAt || null}</Value></div>
-            <div><Label>申込締切</Label><Value>{concert.deadlineAt || null}</Value></div>
-            <div><Label>抽選結果日時</Label><Value>{concert.resultAt || null}</Value></div>
-            <div><Label>抽選名</Label><Value>{concert.lotteryName || null}</Value></div>
+            <div><Label>発売開始</Label><Value placeholder="">{concert.saleAt || null}</Value></div>
+            <div><Label>申込締切</Label><Value placeholder="">{concert.deadlineAt || null}</Value></div>
+            <div><Label>抽選結果日時</Label><Value placeholder="">{concert.resultAt || null}</Value></div>
+            <div><Label>抽選名</Label><Value placeholder="">{concert.lotteryName || null}</Value></div>
           </div>
         </CollapsibleSection>
 

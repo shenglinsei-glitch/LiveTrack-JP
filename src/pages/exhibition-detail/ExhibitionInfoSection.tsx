@@ -23,7 +23,7 @@ const CustomExhibitionDatePicker = ({
   value,
   onChange,
   showTime = false,
-  placeholder = '未設定'
+  placeholder = ''
 }: {
   value: string | null | undefined;
   onChange: (val: string) => void;
@@ -33,7 +33,7 @@ const CustomExhibitionDatePicker = ({
   const [isOpen, setIsOpen] = useState(false);
   const valStr = value || '';
   const initialDateStr = valStr === 'TBD' || !valStr ? '' : valStr.split(' ')[0];
-  const initialTimeStr = showTime && valStr && valStr.includes(' ') ? valStr.split('12:00')[1] : '12:00';
+  const initialTimeStr = showTime && valStr && valStr.includes(' ') ? (valStr.split(' ')[1] || '12:00').slice(0,5) : '12:00';
 
   const [viewDate, setViewDate] = useState(initialDateStr ? dayjs(initialDateStr) : dayjs());
   const [selectedTime, setSelectedTime] = useState(initialTimeStr);
@@ -76,6 +76,7 @@ const CustomExhibitionDatePicker = ({
         style={{
           width: '100%',
           padding: '10px 12px',
+          boxSizing: 'border-box',
           borderRadius: '10px',
           border: '1px solid rgba(0,0,0,0.08)',
           background: 'white',
@@ -649,11 +650,11 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
                     <div style={{ color: theme.colors.error, fontSize: '14px', fontWeight: '800' }}>予約 要</div>
                     {exhibition.reservationStartAt || exhibition.reservationEndAt ? (
                       <div style={{ fontSize: '13px', color: theme.colors.textSecondary, fontWeight: '600' }}>
-                        受付: {exhibition.reservationStartAt?.replace(/-/g, '/').replace('T', ' ') || '未設定'}
-                        <br />～ {exhibition.reservationEndAt?.replace(/-/g, '/').replace('T', ' ') || '未設定'}
+                        受付: {exhibition.reservationStartAt?.replace(/-/g, '/').replace('T', ' ') || ''}
+                        <br />～ {exhibition.reservationEndAt?.replace(/-/g, '/').replace('T', ' ') || ''}
                       </div>
                     ) : (
-                      <Value color={theme.colors.textWeak}>期間 未設定</Value>
+                      <Value placeholder="" color={theme.colors.textWeak}>{null}</Value>
                     )}
                   </div>
                 ) : (
