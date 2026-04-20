@@ -77,7 +77,6 @@ const inputStyle: React.CSSProperties = {
   width: '100%',
   maxWidth: '100%',
   minWidth: 0,
-  maxWidth: '100%',
   boxSizing: 'border-box',
   minHeight: 54,
   borderRadius: 18,
@@ -115,8 +114,13 @@ const collapseButtonStyle: React.CSSProperties = {
 
 const infoGridStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(0, 1fr))',
+  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
   gap: 16,
+};
+
+const infoItemStyle: React.CSSProperties = {
+  minWidth: 0,
+  wordBreak: 'break-word',
 };
 
 const ViewSection: React.FC<{
@@ -170,7 +174,7 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, onUpdat
   const effectiveStatus = getEffectiveMovieStatus(formData);
   const tone = statusTone(effectiveStatus);
   const durationLabel = calcDuration(formData.startTime, formData.endTime);
-  const hasPosterLink = !!formData.posterUrl;
+  const hasMovieWebsite = !!formData.websiteUrl;
   const hasLotteryLink = !!(formData.status === '発売前' ? formData.saleLink : formData.lotteryUrl);
   const movieLotteryHistory = useMemo(() => ([...(formData.lotteryHistory || [])].sort((a, b) => dayjs(b.at).valueOf() - dayjs(a.at).valueOf())), [formData.lotteryHistory]);
   const availableStatuses = formData.ticketType === '舞台挨拶' ? STAGE_GREETING_STATUSES : NORMAL_STATUSES;
@@ -376,7 +380,7 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, onUpdat
               <>
                 <DetailChip label={tone.label} bg={tone.bg} />
                 <DetailChip label={formData.ticketType} subtle />
-                {!isEditMode && hasPosterLink ? <DetailLinkIconButton onClick={() => openExternal(formData.posterUrl)} title="ポスターを開く" /> : null}
+                {!isEditMode && hasMovieWebsite ? <DetailLinkIconButton onClick={() => openExternal(formData.websiteUrl)} title="映画ホームページを開く" /> : null}
                 {!isEditMode && hasLotteryLink ? <DetailLinkIconButton onClick={() => openExternal(formData.status === '発売前' ? formData.saleLink : formData.lotteryUrl)} title={formData.status === '発売前' ? '販売ページを開く' : '抽選ページを開く'} /> : null}
               </>
             }
@@ -390,6 +394,7 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, onUpdat
                 <Field label="スクリーン"><Input value={formData.screenName} onChange={(v) => updateField('screenName', v)} placeholder="スクリーン名" /></Field>
                 <Field label="座席"><Input value={formData.seat} onChange={(v) => updateField('seat', v)} placeholder="例：C列 12番" /></Field>
                 <Field label="料金"><Input value={formData.price?.toString() || ''} onChange={(v) => updateField('price', v ? Number(v) : undefined)} placeholder="0" type="number" suffix="円" /></Field>
+                <Field label="映画ホームページURL"><Input value={formData.websiteUrl || ''} onChange={(v) => updateField('websiteUrl', v)} placeholder="https://..." /></Field>
                 <Field label="チケット種別">{isEditMode ? <SelectRow options={TICKET_TYPES} value={formData.ticketType} onChange={(v) => updateField('ticketType', v as MovieTicketType)} /> : <StaticText>{formData.ticketType}</StaticText>}</Field>
                 <Field label="ステータス">{isEditMode ? <SelectRow options={availableStatuses} value={formData.status} onChange={(v) => updateField('status', v as MovieStatus)} /> : <StaticText>{effectiveStatus}</StaticText>}</Field>
               </Section>
@@ -446,25 +451,25 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, onUpdat
             <>
               <ViewSection title="基本情報">
                 <div style={infoGridStyle}>
-                  <div>
+                  <div style={infoItemStyle}>
                     <Label>劇場名</Label>
-                    <Value>{formData.theaterName}</Value>
+                    <Value placeholder="">{formData.theaterName}</Value>
                   </div>
-                  <div>
+                  <div style={infoItemStyle}>
                     <Label>スクリーン</Label>
-                    <Value>{formData.screenName}</Value>
+                    <Value placeholder="">{formData.screenName}</Value>
                   </div>
-                  <div>
+                  <div style={infoItemStyle}>
                     <Label>座席</Label>
-                    <Value>{formData.seat}</Value>
+                    <Value placeholder="">{formData.seat}</Value>
                   </div>
-                  <div>
+                  <div style={infoItemStyle}>
                     <Label>料金</Label>
-                    <Value>{formData.price !== undefined ? `${formData.price.toLocaleString()} 円` : null}</Value>
+                    <Value placeholder="">{formData.price !== undefined ? `${formData.price.toLocaleString()} 円` : null}</Value>
                   </div>
-                  <div>
+                  <div style={infoItemStyle}>
                     <Label>チケット種別</Label>
-                    <Value>{formData.ticketType}</Value>
+                    <Value placeholder="">{formData.ticketType}</Value>
                   </div>
                 </div>
               </ViewSection>
@@ -472,11 +477,11 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, onUpdat
               {formData.ticketType === '舞台挨拶' && formData.status === '発売前' && (
                 <ViewSection title="舞台挨拶販売">
                   <div style={infoGridStyle}>
-                    <div>
+                    <div style={infoItemStyle}>
                       <Label>発売日</Label>
                       <Value placeholder="">{formData.saleAt ? formatDateTimeWithWeek(formData.saleAt) : null}</Value>
                     </div>
-                    <div>
+                    <div style={infoItemStyle}>
                       <Label>締切日</Label>
                       <Value placeholder="">{formData.deadlineAt ? formatDateTimeWithWeek(formData.deadlineAt) : null}</Value>
                     </div>
@@ -507,11 +512,11 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, onUpdat
               {formData.ticketType === '舞台挨拶' && formData.status === '抽選中' && (
                 <ViewSection title="舞台挨拶抽選">
                   <div style={infoGridStyle}>
-                    <div>
+                    <div style={infoItemStyle}>
                       <Label>抽選名</Label>
                       <Value placeholder="">{formData.lotteryName}</Value>
                     </div>
-                    <div>
+                    <div style={infoItemStyle}>
                       <Label>抽選結果日時</Label>
                       <Value placeholder="">{formData.lotteryResultAt ? formatDateTimeWithWeek(formData.lotteryResultAt) : null}</Value>
                     </div>
@@ -592,23 +597,23 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, onUpdat
 
               <ViewSection title="日時情報">
                 <div style={infoGridStyle}>
-                  <div>
+                  <div style={infoItemStyle}>
                     <Label>公開日</Label>
                     <Value placeholder="">{formatDateWithWeek(formData.releaseDate)}</Value>
                   </div>
-                  <div>
+                  <div style={infoItemStyle}>
                     <Label>鑑賞日</Label>
                     <Value placeholder="">{formatDateWithWeek(formData.watchDate)}</Value>
                   </div>
-                  <div>
+                  <div style={infoItemStyle}>
                     <Label>開演</Label>
                     <Value placeholder="">{formData.startTime}</Value>
                   </div>
-                  <div>
+                  <div style={infoItemStyle}>
                     <Label>終演</Label>
                     <Value placeholder="">{formData.endTime}</Value>
                   </div>
-                  <div>
+                  <div style={infoItemStyle}>
                     <Label>上映時間</Label>
                     <Value placeholder="">{durationLabel || null}</Value>
                   </div>

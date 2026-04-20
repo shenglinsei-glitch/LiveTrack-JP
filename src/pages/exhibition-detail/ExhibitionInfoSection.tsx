@@ -554,11 +554,11 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '16px', marginBottom: '16px' }}>
                 <div>
                   <Label>エリア</Label>
-                  <Value>{exhibition.area}</Value>
+                  <Value placeholder="">{exhibition.area}</Value>
                 </div>
                 <div>
                   <Label>会場名</Label>
-                  <Value>{exhibition.venueName || exhibition.venue}</Value>
+                  <Value placeholder="">{exhibition.venueName || exhibition.venue}</Value>
                 </div>
               </div>
 
@@ -600,7 +600,7 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
               <SectionTitle title="開館時間" />
               {exhibition.holidaySameAsWeekday ? (
                 <div>
-                  <Value>
+                  <Value placeholder="">
                     {exhibition.weekdayStartTime && exhibition.weekdayEndTime
                       ? `${exhibition.weekdayStartTime} ～ ${exhibition.weekdayEndTime}`
                       : null}
@@ -618,7 +618,7 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
                   </div>
                   <div>
                     <Label>休日</Label>
-                    <Value>
+                    <Value placeholder="">
                       {exhibition.holidayStartTime && exhibition.holidayEndTime
                         ? `${exhibition.holidayStartTime} ～ ${exhibition.holidayEndTime}`
                         : null}
@@ -630,17 +630,17 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
               <SectionTitle title="料金" />
               {exhibition.holidayPriceSameAsWeekday ? (
                 <div>
-                  <Value>{exhibition.weekdayPrice ? `${exhibition.weekdayPrice.toLocaleString()} 円` : null}</Value>
+                  <Value placeholder="">{exhibition.weekdayPrice ? `${exhibition.weekdayPrice.toLocaleString()} 円` : null}</Value>
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '16px' }}>
                   <div>
                     <Label>平日料金</Label>
-                    <Value>{exhibition.weekdayPrice ? `${exhibition.weekdayPrice.toLocaleString()} 円` : null}</Value>
+                    <Value placeholder="">{exhibition.weekdayPrice ? `${exhibition.weekdayPrice.toLocaleString()} 円` : null}</Value>
                   </div>
                   <div>
                     <Label>休日料金</Label>
-                    <Value>{exhibition.holidayPrice ? `${exhibition.holidayPrice.toLocaleString()} 円` : null}</Value>
+                    <Value placeholder="">{exhibition.holidayPrice ? `${exhibition.holidayPrice.toLocaleString()} 円` : null}</Value>
                   </div>
                 </div>
               )}
