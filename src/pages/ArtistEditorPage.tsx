@@ -270,7 +270,7 @@ export const ArtistEditorPage: React.FC<Props> = ({
                 />
               </Field>
               <Field label="画像URL">
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px', width: '100%', minWidth: 0, alignItems: 'stretch' }}>
                   <input
                     type="url"
                     value={imageUrlDraft}
@@ -446,6 +446,9 @@ const sectionTitleStyle: React.CSSProperties = {
 };
 const inputStyle: React.CSSProperties = {
   width: '100%',
+  maxWidth: '100%',
+  minWidth: 0,
+  boxSizing: 'border-box',
   padding: '10px 12px',
   borderRadius: '10px',
   border: '1px solid rgba(0,0,0,0.08)',
@@ -455,6 +458,7 @@ const inputStyle: React.CSSProperties = {
 };
 const loadButtonStyle: React.CSSProperties = {
   padding: '0 16px',
+  flex: '0 0 auto',
   borderRadius: '12px',
   border: '1px solid rgba(0,0,0,0.08)',
   background: 'white',

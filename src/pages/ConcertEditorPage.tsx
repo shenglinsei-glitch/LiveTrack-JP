@@ -185,7 +185,7 @@ const CustomDatePicker = ({ value, onChange, showTime = false, placeholder }: { 
 };
 
 const navBtnStyle = { border: 'none', background: 'none', padding: '4px 8px', cursor: 'pointer' };
-const selectTimeStyle = { flex: 1, padding: '8px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: 'white' };
+const selectTimeStyle = { flex: 1, minWidth: 0, width: '100%', maxWidth: '100%', boxSizing: 'border-box', padding: '8px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: 'white' };
 
 export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, allArtists, onSave, onCancel, onDeleteTour }) => {
   const getInitialData = (): Tour => {
@@ -275,7 +275,7 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
           <GlassCard padding={theme.spacing.md} style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
             <Field label="ツアー名"><input type="text" value={formData.name} onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} style={inputStyle} /></Field>
             <Field label="画像URL">
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', width: '100%', minWidth: 0, alignItems: 'stretch' }}>
                 <input 
                   type="url" 
                   value={imageUrlDraft} 
@@ -321,17 +321,17 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
                   </div>
                   {exp && (
                     <div style={{ padding: theme.spacing.md, borderTop: '1px solid rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
                         <Field label="状态"><StatusPicker value={c.status} onChange={v => handleUpdateConcert(c.id, { status: v })} /></Field>
                         <Field label="会場"><input type="text" value={c.venue} onChange={e => handleUpdateConcert(c.id, { venue: e.target.value })} style={inputStyle} /></Field>
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
                         {c.status === '発売前' && <Field label="発売日"><CustomDatePicker value={c.saleAt} onChange={v => handleUpdateConcert(c.id, { saleAt: v })} showTime /></Field>}
                         {(c.status === '検討中' || c.status === '発売前') && <Field label="締切日"><CustomDatePicker value={c.deadlineAt} onChange={v => handleUpdateConcert(c.id, { deadlineAt: v })} showTime /></Field>}
                         {c.status === '抽選中' && <Field label="結果日"><CustomDatePicker value={c.resultAt} onChange={v => handleUpdateConcert(c.id, { resultAt: v })} showTime /></Field>}
                         <Field label="公演日"><CustomDatePicker value={c.concertAt || (c.date === 'TBD' ? '' : c.date)} onChange={v => handleUpdateConcert(c.id, { concertAt: v, date: v.split(' ')[0] })} /></Field>
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
                         <Field label="チケット価格"><input type="number" value={c.price || ''} onChange={e => handleUpdateConcert(c.id, { price: Number(e.target.value) })} style={inputStyle} /></Field>
                         <Field label="抽選名"><input type="text" value={c.lotteryName || ''} onChange={e => handleUpdateConcert(c.id, { lotteryName: e.target.value })} style={inputStyle} /></Field>
                       </div>

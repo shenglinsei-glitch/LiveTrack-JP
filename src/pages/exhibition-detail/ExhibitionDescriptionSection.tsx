@@ -165,7 +165,7 @@ export const ExhibitionDescriptionSection: React.FC<Props> = ({
               value={exhibition.description ?? ''}
               onChange={(e) => onUpdateDescription(e.target.value)}
               placeholder="展覧会の内容、見どころなどを入力..."
-              style={{ ...inputStyle, resize: 'vertical', minHeight: 120, borderRadius: 12 }}
+              style={{ ...inputStyle, width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', resize: 'vertical', minHeight: 120, borderRadius: 12 }}
             />
           ) : (
             <div style={{ fontSize: 15, lineHeight: '1.8', color: theme.colors.textMain, whiteSpace: 'pre-wrap' }}>

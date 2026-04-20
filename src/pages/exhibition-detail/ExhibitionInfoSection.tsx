@@ -351,11 +351,11 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
                 <div>
                   <Label>ポスター画像 (URL)</Label>
-                  <Input value={exhibition.imageUrl} onChange={(e) => onChange({ imageUrl: e.target.value })} placeholder="https://..." />
+                  <Input style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }} value={exhibition.imageUrl} onChange={(e) => onChange({ imageUrl: e.target.value })} placeholder="https://..." />
                 </div>
                 <div>
                   <Label>ポスター画像 (ID)</Label>
-                  <Input value={exhibition.imageId} onChange={(e) => onChange({ imageId: e.target.value })} placeholder="ID..." />
+                  <Input style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }} value={exhibition.imageId} onChange={(e) => onChange({ imageId: e.target.value })} placeholder="ID..." />
                 </div>
               </div>
 
@@ -393,6 +393,7 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
                 <div>
                   <Label>エリア</Label>
                   <Input
+                    style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}
                     value={exhibition.area}
                     onChange={(e) => onChange({ area: e.target.value })}
                     placeholder="エリアを入力/選択"
@@ -407,6 +408,7 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
                 <div>
                   <Label>会場名</Label>
                   <Input
+                    style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}
                     value={exhibition.venueName || exhibition.venue}
                     onChange={(e) => onChange({ venueName: e.target.value })}
                     placeholder="会場名を入力/選択"
@@ -457,7 +459,7 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
 
               <div>
                 <Label>公式サイトURL</Label>
-                <Input value={exhibition.websiteUrl} onChange={(e) => onChange({ websiteUrl: e.target.value })} placeholder="https://..." />
+                <Input style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }} value={exhibition.websiteUrl} onChange={(e) => onChange({ websiteUrl: e.target.value })} placeholder="https://..." />
               </div>
 
               <SectionTitle title="開館時間" />
@@ -500,9 +502,9 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
                 休日は平日と同じ
               </Checkbox>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
-                <InputNumber style={{ width: '100%' }} value={exhibition.weekdayPrice} onChange={(v) => onChange({ weekdayPrice: v || undefined })} placeholder="平日料金" />
+                <InputNumber style={{ width: '100%', maxWidth: '100%', minWidth: 0 }} value={exhibition.weekdayPrice} onChange={(v) => onChange({ weekdayPrice: v || undefined })} placeholder="平日料金" />
                 {!exhibition.holidayPriceSameAsWeekday && (
-                  <InputNumber style={{ width: '100%' }} value={exhibition.holidayPrice} onChange={(v) => onChange({ holidayPrice: v || undefined })} placeholder="休日料金" />
+                  <InputNumber style={{ width: '100%', maxWidth: '100%', minWidth: 0 }} value={exhibition.holidayPrice} onChange={(v) => onChange({ holidayPrice: v || undefined })} placeholder="休日料金" />
                 )}
               </div>
 
