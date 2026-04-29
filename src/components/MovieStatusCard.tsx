@@ -50,11 +50,9 @@ const actionGhostBtn: React.CSSProperties = {
 };
 
 const buildLostMovieUpdate = (movie: Movie, now: Date): Partial<Movie> => {
-  const releaseTime = parseMovieFlexibleDate(movie.releaseDate);
-  const nextStatus = releaseTime && now >= releaseTime ? '上映中' : '未上映';
-
   return {
-    status: nextStatus,
+    status: '未上映',
+    ticketType: '通常',
     lotteryResult: 'LOST',
     lotteryHistory: [
       ...(movie.lotteryHistory || []),

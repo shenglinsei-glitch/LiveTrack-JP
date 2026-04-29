@@ -10,7 +10,6 @@ import {
   Select,
   Input,
   Checkbox,
-  TimePicker,
   DatePicker,
   Button,
   InputNumber,
@@ -277,6 +276,146 @@ const selectTimeStyle: React.CSSProperties = {
   fontWeight: '600'
 };
 
+const CustomExhibitionTimePicker = ({
+  value,
+  onChange,
+  placeholder = '未設定'
+}: {
+  value?: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const safeValue = value && /^\d{2}:\d{2}$/.test(value) ? value : '10:00';
+  const [selectedTime, setSelectedTime] = useState(safeValue);
+  const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+  const minuteOptions = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
+
+  useEffect(() => {
+    if (isOpen) setSelectedTime(value && /^\d{2}:\d{2}$/.test(value) ? value : '10:00');
+  }, [isOpen, value]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isOpen]);
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <div
+        onClick={() => setIsOpen(true)}
+        style={{
+          width: '100%',
+          padding: '10px 12px',
+          boxSizing: 'border-box',
+          borderRadius: '10px',
+          border: '1px solid rgba(0,0,0,0.08)',
+          background: 'white',
+          fontSize: '14px',
+          outline: 'none',
+          cursor: 'pointer',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          minHeight: '40px'
+        }}
+      >
+        <span style={{ color: !value ? theme.colors.textWeak : 'inherit' }}>
+          {value || placeholder}
+        </span>
+        <Icons.Clock style={{ width: 16 }} />
+      </div>
+
+      {isOpen &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 5000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px'
+            }}
+          >
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'rgba(15, 23, 42, 0.45)',
+                backdropFilter: 'blur(4px)',
+                WebkitBackdropFilter: 'blur(4px)'
+              }}
+              onClick={() => setIsOpen(false)}
+            />
+            <GlassCard
+              padding="20px"
+              style={{
+                position: 'relative',
+                width: '100%',
+                maxWidth: '300px',
+                zIndex: 5001,
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                borderRadius: '24px'
+              }}
+            >
+              <div style={{ fontWeight: 900, fontSize: 15, textAlign: 'center', marginBottom: 16 }}>時間を選択</div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <select
+                  value={selectedTime.split(':')[0]}
+                  onChange={(e) => setSelectedTime(`${e.target.value}:${selectedTime.split(':')[1]}`)}
+                  style={selectTimeStyle}
+                >
+                  {hours.map((h) => (
+                    <option key={h} value={h}>{h}時</option>
+                  ))}
+                </select>
+                <select
+                  value={selectedTime.split(':')[1]}
+                  onChange={(e) => setSelectedTime(`${selectedTime.split(':')[0]}:${e.target.value}`)}
+                  style={selectTimeStyle}
+                >
+                  {minuteOptions.map((m) => (
+                    <option key={m} value={m}>{m}分</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange('');
+                    setIsOpen(false);
+                  }}
+                  style={{ flex: 1, padding: '12px', background: 'rgba(0,0,0,0.05)', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', color: theme.colors.textSecondary }}
+                >
+                  クリア
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(selectedTime);
+                    setIsOpen(false);
+                  }}
+                  style={{ flex: 1, padding: '12px', background: theme.colors.primary, color: 'white', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                >
+                  確定
+                </button>
+              </div>
+            </GlassCard>
+          </div>,
+          document.body
+        )}
+    </div>
+  );
+};
+
 interface Props {
   exhibition: Exhibition;
   allExhibitions: Exhibition[];
@@ -467,33 +606,25 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
                 休日は平日と同じ
               </Checkbox>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
-                <TimePicker.RangePicker
-                  format="HH:mm"
-                  getPopupContainer={() => document.body}
-                  dropdownStyle={{ zIndex: 3000 }}
-                  style={{ width: '100%' }}
-                  value={
-                    exhibition.weekdayStartTime
-                      ? [dayjs(`2000-01-01 ${exhibition.weekdayStartTime}`), dayjs(`2000-01-01 ${exhibition.weekdayEndTime}`)]
-                      : null
-                  }
-                  onChange={(t) => onChange({ weekdayStartTime: t?.[0]?.format('HH:mm'), weekdayEndTime: t?.[1]?.format('HH:mm') })}
-                  placeholder={['平日始', '終']}
-                />
+                <div>
+                  <Label>平日 開館</Label>
+                  <CustomExhibitionTimePicker value={exhibition.weekdayStartTime} placeholder="開始" onChange={(v) => onChange({ weekdayStartTime: v || undefined })} />
+                </div>
+                <div>
+                  <Label>平日 閉館</Label>
+                  <CustomExhibitionTimePicker value={exhibition.weekdayEndTime} placeholder="終了" onChange={(v) => onChange({ weekdayEndTime: v || undefined })} />
+                </div>
                 {!exhibition.holidaySameAsWeekday && (
-                  <TimePicker.RangePicker
-                    format="HH:mm"
-                    getPopupContainer={() => document.body}
-                    dropdownStyle={{ zIndex: 3000 }}
-                    style={{ width: '100%' }}
-                    value={
-                      exhibition.holidayStartTime
-                        ? [dayjs(`2000-01-01 ${exhibition.holidayStartTime}`), dayjs(`2000-01-01 ${exhibition.holidayEndTime}`)]
-                        : null
-                    }
-                    onChange={(t) => onChange({ holidayStartTime: t?.[0]?.format('HH:mm'), holidayEndTime: t?.[1]?.format('HH:mm') })}
-                    placeholder={['休日始', '終']}
-                  />
+                  <>
+                    <div>
+                      <Label>休日 開館</Label>
+                      <CustomExhibitionTimePicker value={exhibition.holidayStartTime} placeholder="開始" onChange={(v) => onChange({ holidayStartTime: v || undefined })} />
+                    </div>
+                    <div>
+                      <Label>休日 閉館</Label>
+                      <CustomExhibitionTimePicker value={exhibition.holidayEndTime} placeholder="終了" onChange={(v) => onChange({ holidayEndTime: v || undefined })} />
+                    </div>
+                  </>
                 )}
               </div>
 

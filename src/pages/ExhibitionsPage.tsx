@@ -56,7 +56,7 @@ export const ExhibitionsPage: React.FC<ExhibitionsPageProps> = ({
   const [isMobile] = useState(window.innerWidth <= 480);
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
   const [stagedImportData, setStagedImportData] = useState<any>(null);
-  const [sortKey, setSortKey] = useState<ExhibitionSortKey>('date_asc');
+  const [sortKey, setSortKey] = useState<ExhibitionSortKey>('status_time');
   const [selectedStatuses, setSelectedStatuses] = useState<ExhibitionStatus[] | undefined>(undefined);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -96,7 +96,27 @@ export const ExhibitionsPage: React.FC<ExhibitionsPageProps> = ({
     const allowed = new Set<ExhibitionStatus>(selectedStatuses && selectedStatuses.length ? selectedStatuses : ['NONE', 'PLANNED', 'RESERVED', 'VISITED', 'SKIPPED', 'ENDED']);
     const list = (exhibitions || []).filter((ex) => allowed.has(getEffectiveExhibitionStatus(ex)));
     const getStart = (ex: Exhibition) => dayjs(ex.startDate).valueOf() || 0;
+    const getEnd = (ex: Exhibition) => dayjs(ex.endDate || ex.startDate).valueOf() || getStart(ex);
+    const exhibitionStatusOrder: Record<ExhibitionStatus, number> = {
+      PLANNED: 0,   // 開催中
+      RESERVED: 1,  // 予約済（開催中寄り）
+      NONE: 2,      // 準備中
+      VISITED: 3,   // 参戦済み
+      SKIPPED: 4,   // 見送る
+      ENDED: 5,     // 終了
+    };
+    const getStatusTime = (ex: Exhibition) => {
+      const status = getEffectiveExhibitionStatus(ex);
+      if (status === 'VISITED' && ex.visitedAt) return dayjs(ex.visitedAt).valueOf() || getEnd(ex);
+      if (status === 'ENDED' || status === 'SKIPPED') return getEnd(ex);
+      return getStart(ex);
+    };
     const sorted = [...list].sort((a, b) => {
+      if (sortKey === 'status_time') {
+        const statusDiff = exhibitionStatusOrder[getEffectiveExhibitionStatus(a)] - exhibitionStatusOrder[getEffectiveExhibitionStatus(b)];
+        if (statusDiff !== 0) return statusDiff;
+        return getStatusTime(a) - getStatusTime(b);
+      }
       if (sortKey === 'date_asc') return getStart(a) - getStart(b);
       if (sortKey === 'date_desc') return getStart(b) - getStart(a);
       if (sortKey === 'name_desc') return (b.title || '').localeCompare(a.title || '');

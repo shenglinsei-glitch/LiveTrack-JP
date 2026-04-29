@@ -15,7 +15,7 @@ interface MoviesPageProps {
   hideHeader?: boolean;
 }
 
-type MovieSortKey = 'date_asc' | 'date_desc' | 'title';
+type MovieSortKey = 'status_time' | 'date_asc' | 'date_desc' | 'title';
 
 const MOVIE_STATUSES: MovieStatus[] = ['未上映', '発売前', '抽選中', '上映中', '鑑賞予定', '鑑賞済み', '見送り', '上映終了'];
 
@@ -43,7 +43,7 @@ const statusTone = (status: MovieStatus) => {
 const fmtDate = (date?: string) => (date ? dayjs(date).format('YYYY/MM/DD') : '未設定');
 
 export const MoviesPage: React.FC<MoviesPageProps> = ({ movies, onOpenDetail, onExport, onImport, isMenuOpenExternally, onMenuClose, hideHeader = false }) => {
-  const [sortKey, setSortKey] = useState<MovieSortKey>('date_asc');
+  const [sortKey, setSortKey] = useState<MovieSortKey>('status_time');
   const [selectedStatuses, setSelectedStatuses] = useState<MovieStatus[] | undefined>(undefined);
   const [internalMenuOpen, setInternalMenuOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,7 +58,32 @@ export const MoviesPage: React.FC<MoviesPageProps> = ({ movies, onOpenDetail, on
     const allowed = new Set<MovieStatus>(selectedStatuses && selectedStatuses.length ? selectedStatuses : MOVIE_STATUSES);
     const base = (movies || []).filter((movie) => allowed.has(movie.status));
     const getDate = (movie: Movie) => dayjs(movie.watchDate || movie.lotteryResultAt || movie.releaseDate || '2999-12-31').valueOf();
+    const movieStatusOrder: Record<MovieStatus, number> = {
+      発売前: 0,
+      抽選中: 1,
+      上映中: 2,
+      鑑賞予定: 3,
+      未上映: 4,
+      鑑賞済み: 5,
+      見送り: 6,
+      上映終了: 7,
+    };
+    const getStatusTime = (movie: Movie) => {
+      const source =
+        movie.status === '発売前' ? movie.saleAt || movie.releaseDate :
+        movie.status === '抽選中' ? movie.lotteryResultAt || movie.deadlineAt || movie.saleAt || movie.releaseDate :
+        movie.status === '鑑賞予定' ? movie.watchDate || movie.releaseDate :
+        movie.status === '鑑賞済み' ? movie.watchDate || movie.releaseDate :
+        movie.status === '見送り' || movie.status === '上映終了' ? movie.updatedAt || movie.releaseDate :
+        movie.releaseDate || movie.updatedAt;
+      return dayjs(source || '2999-12-31').valueOf();
+    };
     return [...base].sort((a, b) => {
+      if (sortKey === 'status_time') {
+        const statusDiff = movieStatusOrder[a.status] - movieStatusOrder[b.status];
+        if (statusDiff !== 0) return statusDiff;
+        return getStatusTime(a) - getStatusTime(b);
+      }
       if (sortKey === 'date_desc') return getDate(b) - getDate(a);
       if (sortKey === 'title') return (a.title || '').localeCompare(b.title || '');
       return getDate(a) - getDate(b);
@@ -100,6 +125,7 @@ export const MoviesPage: React.FC<MoviesPageProps> = ({ movies, onOpenDetail, on
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <section>
                 <div style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary, marginBottom: 8 }}>並び替え</div>
+                <MenuItem label="状態 + 状態時間" active={sortKey === 'status_time'} onClick={() => setSortKey('status_time')} />
                 <MenuItem label="公開日近い順" active={sortKey === 'date_asc'} onClick={() => setSortKey('date_asc')} />
                 <MenuItem label="公開日遠い順" active={sortKey === 'date_desc'} onClick={() => setSortKey('date_desc')} />
                 <MenuItem label="タイトル順" active={sortKey === 'title'} onClick={() => setSortKey('title')} />

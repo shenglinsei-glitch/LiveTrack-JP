@@ -4,7 +4,7 @@ import { theme } from '../ui/theme';
 import { Icons } from '../ui/IconButton';
 import { ExhibitionStatus } from '../domain/types';
 
-export type ExhibitionSortKey = 'date_asc' | 'date_desc' | 'name_asc' | 'name_desc';
+export type ExhibitionSortKey = 'status_time' | 'date_asc' | 'date_desc' | 'name_asc' | 'name_desc';
 
 interface ExhibitionMenuProps {
   isOpen: boolean;
@@ -72,6 +72,7 @@ export const ExhibitionMenu: React.FC<ExhibitionMenuProps> = ({
           <section style={{ borderTop: '0.5px solid rgba(0,0,0,0.1)', paddingTop: theme.spacing.md }}>
             <h4 style={sectionTitleStyle}>並び替え</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <MenuButton label="状態 + 状態時間" active={sortKey === 'status_time'} onClick={() => onSetSortKey('status_time')} />
               <MenuButton label="開始日順" active={sortKey === 'date_asc'} onClick={() => onSetSortKey('date_asc')} />
               <MenuButton label="開始日逆順" active={sortKey === 'date_desc'} onClick={() => onSetSortKey('date_desc')} />
               <MenuButton label="名前順" active={sortKey === 'name_asc'} onClick={() => onSetSortKey('name_asc')} />
