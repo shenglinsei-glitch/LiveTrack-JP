@@ -15,8 +15,8 @@ import { ContentPage } from '@/pages/ContentPage';
 import { StatusPage } from '@/pages/StatusPage';
 import { ExhibitionDetailPage } from '@/pages/ExhibitionDetailPage';
 import { MovieDetailPage } from '@/pages/MovieDetailPage';
-import { GlassCard } from '@/ui/GlassCard';
-import { theme } from '@/ui/theme';
+import { GlassCard } from '@/components/common/GlassCard';
+import { theme } from '@/components/common/theme';
 import { shouldTriggerAutoTrack, getTrackTargetConcerts, getDueAction, autoAdvanceConcertStatus, autoAdvanceMovieStatus, prepareFullDataForExport, migrateAlbumImagesToIndexedDB, migrateExhibitionImagesToIndexedDB } from '@/domain/logic';
 import dayjs from 'dayjs';
 
@@ -29,6 +29,7 @@ type NavContext = {
   movieId?: string;
   from?: PageId;
   edit?: boolean; // Navigation flag to start in edit mode
+  isNew?: boolean; // New draft flag for unsaved/discard behavior
 };
 
 const STORAGE_KEYS = {
@@ -314,7 +315,7 @@ export default function App() {
     setContentActiveTab('exhibitions');
   };
 
-  const navigateToExhibitionDetail = (exhibitionId: string, edit?: boolean) => setNav({ path: 'EXHIBITION_DETAIL', exhibitionId, edit });
+  const navigateToExhibitionDetail = (exhibitionId: string, edit?: boolean, isNew?: boolean) => setNav({ path: 'EXHIBITION_DETAIL', exhibitionId, edit, isNew });
   const navigateToMovieDetail = (movieId: string, edit?: boolean) => setNav({ path: 'MOVIE_DETAIL', movieId, edit, from: 'CONTENT' });
 
   const addNewExhibition = () => {
@@ -334,7 +335,7 @@ export default function App() {
       imageIds: []
     };
     setExhibitions(prev => [...prev, newEx]);
-    navigateToExhibitionDetail(newEx.id, true);
+    navigateToExhibitionDetail(newEx.id, true, true);
   };
 
   const addNewMovie = () => {
@@ -521,6 +522,7 @@ export default function App() {
             }}
             onBack={navigateToExhibitionList}
             initialEditMode={nav.edit}
+            initialIsNew={nav.isNew}
           />
         );
       }

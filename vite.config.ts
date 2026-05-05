@@ -3,24 +3,26 @@ import path from "path";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
+
 function figmaAssetResolver() {
   return {
-    name: "figma-asset-resolver",
-    resolveId(id: string) {
-      if (id.startsWith("figma:asset/")) {
-        const filename = id.replace("figma:asset/", "");
-        return path.resolve(__dirname, "src/assets", filename);
+    name: 'figma-asset-resolver',
+    resolveId(id) {
+      if (id.startsWith('figma:asset/')) {
+        const filename = id.replace('figma:asset/', '')
+        return path.resolve(__dirname, 'src/assets', filename)
       }
     },
-  };
+  }
 }
 
 export default defineConfig({
   base: "/LiveTrack-JP/",
-  plugins: [figmaAssetResolver(), react(), tailwindcss()],
+  plugins: [
+    figmaAssetResolver(),react(), tailwindcss()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "src"),
+      "@": path.resolve(__dirname, "src", "app"),
     },
   },
   build: {
