@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ArtistListPage } from '@/pages/ArtistListPage';
 import { ConcertListPage } from '@/pages/ConcertListPage';
 import { ExhibitionsPage } from '@/pages/ExhibitionsPage';
 import { MoviesPage } from '@/pages/MoviesPage';
-import { Artist, GlobalSettings, Concert, Exhibition, Movie } from '@/domain/types';
+import { ActorListPage } from '@/pages/ActorListPage';
+import { Artist, GlobalSettings, Concert, Exhibition, Movie, Actor } from '@/domain/types';
 import { TopCapsuleNav } from '@/components/TopCapsuleNav';
+import { theme } from '@/components/common/theme';
 
 interface ContentPageProps {
   activeTab: string;
@@ -41,7 +43,9 @@ interface ContentPageProps {
   onAddNewExhibition: () => void;
 
   movies: Movie[];
+  actors: Actor[];
   onOpenMovieDetail: (movieId: string) => void;
+  onOpenActorDetail: (actorId: string) => void;
   onAddNewMovie: () => void;
   onUpdateMovies: (movies: Movie[]) => void;
 
@@ -49,11 +53,70 @@ interface ContentPageProps {
   onImport: (data: any) => void;
 }
 
+type LeafTab = 'artists' | 'concerts' | 'exhibitions' | 'movies' | 'actors';
+type TopTab = 'music' | 'exhibitions' | 'movies';
+
+const getTopTab = (leaf: string): TopTab => {
+  if (leaf === 'exhibitions') return 'exhibitions';
+  if (leaf === 'movies' || leaf === 'actors') return 'movies';
+  return 'music';
+};
+
+const secondaryTabsStyle: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  gap: 10,
+  width: 'fit-content',
+  margin: '0 auto',
+  padding: '0 4px',
+};
+
+const SegmentButton: React.FC<{ active: boolean; children: React.ReactNode; onClick: () => void }> = ({ active, children, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    style={{
+      border: 'none',
+      background: 'transparent',
+      color: active ? theme.colors.primary : '#8F98A7',
+      fontSize: 12,
+      fontWeight: 900,
+      cursor: 'pointer',
+      whiteSpace: 'nowrap',
+      padding: '2px 0',
+      lineHeight: 1,
+      textShadow: active ? '0 1px 8px rgba(255,255,255,0.80)' : '0 1px 8px rgba(255,255,255,0.72)',
+      transition: 'color 0.16s ease, opacity 0.16s ease',
+    }}
+  >
+    {children}
+  </button>
+);
+
+const SecondaryDivider = () => (
+  <span
+    aria-hidden="true"
+    style={{
+      color: 'rgba(143,152,167,0.54)',
+      fontSize: 12,
+      fontWeight: 900,
+      lineHeight: 1,
+      transform: 'translateY(-1px)',
+    }}
+  >
+    ・
+  </span>
+);
+
 export const ContentPage: React.FC<ContentPageProps> = (props) => {
   const [isArtistToolsOpen, setIsArtistToolsOpen] = useState(false);
   const [isConcertToolsOpen, setIsConcertToolsOpen] = useState(false);
   const [isExhibitionToolsOpen, setIsExhibitionToolsOpen] = useState(false);
   const [isMovieToolsOpen, setIsMovieToolsOpen] = useState(false);
+
+  const leafTab = (['artists', 'concerts', 'exhibitions', 'movies', 'actors'].includes(props.activeTab) ? props.activeTab : 'artists') as LeafTab;
+  const topTab = getTopTab(leafTab);
 
   const closeAllMenus = () => {
     setIsArtistToolsOpen(false);
@@ -62,31 +125,33 @@ export const ContentPage: React.FC<ContentPageProps> = (props) => {
     setIsMovieToolsOpen(false);
   };
 
+  const openCurrentMenu = () => {
+    if (leafTab === 'artists') {
+      setIsArtistToolsOpen(v => !v);
+      setIsConcertToolsOpen(false);
+      setIsExhibitionToolsOpen(false);
+      setIsMovieToolsOpen(false);
+    } else if (leafTab === 'concerts') {
+      setIsConcertToolsOpen(v => !v);
+      setIsArtistToolsOpen(false);
+      setIsExhibitionToolsOpen(false);
+      setIsMovieToolsOpen(false);
+    } else if (leafTab === 'exhibitions') {
+      setIsExhibitionToolsOpen(v => !v);
+      setIsArtistToolsOpen(false);
+      setIsConcertToolsOpen(false);
+      setIsMovieToolsOpen(false);
+    } else if (leafTab === 'movies' || leafTab === 'actors') {
+      setIsMovieToolsOpen(v => !v);
+      setIsArtistToolsOpen(false);
+      setIsConcertToolsOpen(false);
+      setIsExhibitionToolsOpen(false);
+    }
+  };
+
   const leftControl = (
     <button
-      onClick={() => {
-        if (props.activeTab === 'artists') {
-          setIsArtistToolsOpen(v => !v);
-          setIsConcertToolsOpen(false);
-          setIsExhibitionToolsOpen(false);
-          setIsMovieToolsOpen(false);
-        } else if (props.activeTab === 'concerts') {
-          setIsConcertToolsOpen(v => !v);
-          setIsArtistToolsOpen(false);
-          setIsExhibitionToolsOpen(false);
-          setIsMovieToolsOpen(false);
-        } else if (props.activeTab === 'exhibitions') {
-          setIsExhibitionToolsOpen(v => !v);
-          setIsArtistToolsOpen(false);
-          setIsConcertToolsOpen(false);
-          setIsMovieToolsOpen(false);
-        } else {
-          setIsMovieToolsOpen(v => !v);
-          setIsArtistToolsOpen(false);
-          setIsConcertToolsOpen(false);
-          setIsExhibitionToolsOpen(false);
-        }
-      }}
+      onClick={openCurrentMenu}
       style={{
         width: '44px',
         height: '44px',
@@ -119,24 +184,71 @@ export const ContentPage: React.FC<ContentPageProps> = (props) => {
   );
 
   const tabs = [
-    { key: 'artists', label: 'アーティスト' },
-    { key: 'concerts', label: '公演' },
+    { key: 'music', label: '音楽' },
     { key: 'exhibitions', label: '展覧' },
     { key: 'movies', label: '映画' },
   ];
 
+  const setTopTab = (tab: string) => {
+    closeAllMenus();
+    if (tab === 'music') props.onTabChange('artists');
+    else if (tab === 'movies') props.onTabChange('movies');
+    else props.onTabChange('exhibitions');
+  };
+
+  const followedActors = useMemo(() => (props.actors || []).filter(actor => actor.isFollowed), [props.actors]);
+
+  const hasSecondaryTabs = topTab === 'music' || topTab === 'movies';
+
+  const secondaryTabs = topTab === 'music' ? (
+    <div style={secondaryTabsStyle}>
+      <SegmentButton active={leafTab === 'artists'} onClick={() => { closeAllMenus(); props.onTabChange('artists'); }}>歌手</SegmentButton>
+      <SecondaryDivider />
+      <SegmentButton active={leafTab === 'concerts'} onClick={() => { closeAllMenus(); props.onTabChange('concerts'); }}>公演</SegmentButton>
+    </div>
+  ) : topTab === 'movies' ? (
+    <div style={secondaryTabsStyle}>
+      <SegmentButton active={leafTab === 'movies'} onClick={() => { closeAllMenus(); props.onTabChange('movies'); }}>映画</SegmentButton>
+      <SecondaryDivider />
+      <SegmentButton active={leafTab === 'actors'} onClick={() => { closeAllMenus(); props.onTabChange('actors'); }}>出演者</SegmentButton>
+    </div>
+  ) : null;
+
   return (
-    <div style={{ position: 'relative', paddingTop: 'calc(12px + env(safe-area-inset-top) + 44px + 16px)' }}>
+    <div style={{ position: 'relative', paddingTop: hasSecondaryTabs ? 'calc(12px + env(safe-area-inset-top) + 44px + 34px)' : 'calc(12px + env(safe-area-inset-top) + 44px + 16px)' }}>
       <TopCapsuleNav
-        activeTab={props.activeTab}
-        onTabChange={(tab) => { closeAllMenus(); props.onTabChange(tab); }}
+        activeTab={topTab}
+        onTabChange={setTopTab}
         onRefresh={props.onRefreshAll}
         tabs={tabs}
         leftControl={leftControl}
       />
 
+      {secondaryTabs && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 'calc(12px + env(safe-area-inset-top) + 44px + 9px)',
+            left: 0,
+            right: 0,
+            height: 18,
+            zIndex: 121,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            pointerEvents: 'none',
+            background: 'transparent',
+          }}
+        >
+          <div style={{ pointerEvents: 'auto', width: 'fit-content' }}>
+            {secondaryTabs}
+          </div>
+        </div>
+      )}
+
       <div className="content-area">
-        {props.activeTab === 'artists' && (
+
+        {leafTab === 'artists' && (
           <ArtistListPage
             artists={props.artists}
             onOpenArtist={props.onOpenArtist}
@@ -156,7 +268,7 @@ export const ContentPage: React.FC<ContentPageProps> = (props) => {
             onExport={props.onExport}
           />
         )}
-        {props.activeTab === 'concerts' && (
+        {leafTab === 'concerts' && (
           <ConcertListPage
             artists={props.artists}
             onOpenArtist={props.onOpenArtist}
@@ -173,7 +285,7 @@ export const ContentPage: React.FC<ContentPageProps> = (props) => {
             onImportData={props.onImportData}
           />
         )}
-        {props.activeTab === 'exhibitions' && (
+        {leafTab === 'exhibitions' && (
           <ExhibitionsPage
             exhibitions={props.exhibitions}
             onUpdateExhibitions={props.onUpdateExhibitions}
@@ -186,7 +298,7 @@ export const ContentPage: React.FC<ContentPageProps> = (props) => {
             hideHeader={true}
           />
         )}
-        {props.activeTab === 'movies' && (
+        {leafTab === 'movies' && (
           <MoviesPage
             movies={props.movies}
             onOpenDetail={props.onOpenMovieDetail}
@@ -196,6 +308,25 @@ export const ContentPage: React.FC<ContentPageProps> = (props) => {
             onMenuClose={() => setIsMovieToolsOpen(false)}
             hideHeader={true}
           />
+        )}
+        {leafTab === 'actors' && (
+          <>
+            <MoviesPage
+              movies={props.movies}
+              onOpenDetail={props.onOpenMovieDetail}
+              onExport={props.onExport}
+              onImport={props.onImportData}
+              isMenuOpenExternally={isMovieToolsOpen}
+              onMenuClose={() => setIsMovieToolsOpen(false)}
+              hideHeader={true}
+              menuOnly={true}
+            />
+            <ActorListPage
+              actors={followedActors}
+              movies={props.movies}
+              onOpenActor={props.onOpenActorDetail}
+            />
+          </>
         )}
       </div>
     </div>

@@ -14,6 +14,7 @@ interface MoviesPageProps {
   isMenuOpenExternally?: boolean;
   onMenuClose?: () => void;
   hideHeader?: boolean;
+  menuOnly?: boolean;
 }
 
 type MovieSortKey = 'status_time' | 'date_asc' | 'date_desc' | 'title';
@@ -22,7 +23,7 @@ const MOVIE_STATUSES: MovieStatus[] = ['未上映', '発売前', '抽選中', '�
 
 const fmtDate = (date?: string) => (date ? dayjs(date).format('YYYY/MM/DD') : '未設定');
 
-export const MoviesPage: React.FC<MoviesPageProps> = ({ movies, onOpenDetail, onExport, onImport, isMenuOpenExternally, onMenuClose, hideHeader = false }) => {
+export const MoviesPage: React.FC<MoviesPageProps> = ({ movies, onOpenDetail, onExport, onImport, isMenuOpenExternally, onMenuClose, hideHeader = false, menuOnly = false }) => {
   const [sortKey, setSortKey] = useState<MovieSortKey>('status_time');
   const [selectedStatuses, setSelectedStatuses] = useState<MovieStatus[] | undefined>(undefined);
   const [internalMenuOpen, setInternalMenuOpen] = useState(false);
@@ -95,10 +96,9 @@ export const MoviesPage: React.FC<MoviesPageProps> = ({ movies, onOpenDetail, on
     reader.readAsText(file);
   };
 
-  return (
-    <PageShell disablePadding>
+  const menuLayer = (
+    <>
       <input ref={fileInputRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleFileChange} />
-
       {isMenuOpen && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 120 }} onClick={() => setIsMenuOpen(false)}>
           <GlassCard style={{ position: 'fixed', top: 'calc(12px + env(safe-area-inset-top) + 52px)', left: 16, width: 300, maxWidth: 'calc(100vw - 32px)' }} onClick={(e: any) => e.stopPropagation()}>
@@ -127,6 +127,14 @@ export const MoviesPage: React.FC<MoviesPageProps> = ({ movies, onOpenDetail, on
           </GlassCard>
         </div>
       )}
+    </>
+  );
+
+  if (menuOnly) return menuLayer;
+
+  return (
+    <PageShell disablePadding>
+      {menuLayer}
 
       <div style={{ padding: hideHeader ? '8px 16px 140px' : '24px 16px 140px', marginTop: hideHeader ? 0 : 'calc(env(safe-area-inset-top) + 20px)' }}>
         {!hideHeader && (

@@ -219,6 +219,16 @@ export interface Movie {
   updatedAt: string;
 }
 
+
+export interface Actor {
+  id: string;
+  name: string;
+  avatar?: string;
+  isFollowed: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface GlobalSettings {
   autoTrackIntervalDays: 3 | 7 | 14 | 21 | 30;
 }
@@ -262,4 +272,5 @@ export type PageId =
   | 'CONCERT_HOME' 
   | 'ARTIST_EDITOR' 
   | 'CONCERT_EDITOR'
-  | 'MOVIE_DETAIL';
+  | 'MOVIE_DETAIL'
+  | 'ACTOR_DETAIL';

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import dayjs from 'dayjs';
-import { Movie, MovieStatus, MovieTicketType } from '@/domain/types';
+import { Actor, Movie, MovieStatus, MovieTicketType } from '@/domain/types';
 import { theme } from '@/components/common/theme';
 import { Icons, IconButton } from '@/components/common/IconButton';
 import { GlassCard } from '@/components/common/GlassCard';
@@ -12,6 +12,9 @@ import { DetailPageLayout } from '@/components/detail/DetailPageLayout';
 
 interface MovieDetailPageProps {
   movie: Movie;
+  actors?: Actor[];
+  onFollowActor?: (name: string) => void;
+  onOpenActorDetail?: (actorId: string) => void;
   onUpdateMovie: (movie: Movie) => void;
   onDeleteMovie: (id: string) => void;
   onBack: () => void;
@@ -159,7 +162,7 @@ const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title
   </GlassCard>
 );
 
-export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, onUpdateMovie, onDeleteMovie, onBack, initialEditMode = false }) => {
+export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, actors = [], onFollowActor, onOpenActorDetail, onUpdateMovie, onDeleteMovie, onBack, initialEditMode = false }) => {
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
   const [formData, setFormData] = useState<Movie>(movie);
 
@@ -173,6 +176,8 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, onUpdat
   const hasLotteryLink = !!(formData.status === '発売前' ? formData.saleLink : formData.lotteryUrl);
   const movieLotteryHistory = useMemo(() => ([...(formData.lotteryHistory || [])].sort((a, b) => dayjs(b.at).valueOf() - dayjs(a.at).valueOf())), [formData.lotteryHistory]);
   const availableStatuses = formData.ticketType === '舞台挨拶' ? STAGE_GREETING_STATUSES : NORMAL_STATUSES;
+  const normalizeActorName = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase();
+  const findFollowedActor = (name: string) => actors.find(actor => actor.isFollowed && normalizeActorName(actor.name) === normalizeActorName(name));
 
   const updateField = (field: keyof Movie, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -610,9 +615,31 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, onUpdat
 
               <ViewSection title="出演者" countLabel={formData.actors.length ? `${formData.actors.length}名` : undefined}>
                 <div style={{ display: 'grid', gap: 10 }}>
-                  {(formData.actors.length ? formData.actors : ['']).map((actor, index) => (
-                    <Value key={`actor-${index}`}>{actor}</Value>
-                  ))}
+                  {(formData.actors.length ? formData.actors : ['']).map((actor, index) => {
+                    const followedActor = actor ? findFollowedActor(actor) : undefined;
+                    return (
+                      <div key={`actor-${index}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: 'rgba(255,255,255,0.62)', borderRadius: 16, padding: '10px 12px', border: '1px solid rgba(15,23,42,0.05)' }}>
+                        {followedActor ? (
+                          <button
+                            type="button"
+                            onClick={() => onOpenActorDetail?.(followedActor.id)}
+                            style={{ border: 'none', background: 'transparent', padding: 0, color: theme.colors.text, fontSize: 14, fontWeight: 900, cursor: 'pointer', textAlign: 'left', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                          >
+                            {actor}
+                          </button>
+                        ) : (
+                          <span style={{ color: theme.colors.text, fontSize: 14, fontWeight: 800, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{actor}</span>
+                        )}
+                        {actor && (
+                          followedActor ? (
+                            <button type="button" onClick={() => onOpenActorDetail?.(followedActor.id)} style={{ border: 'none', borderRadius: 999, padding: '8px 12px', background: 'rgba(83,190,232,0.12)', color: theme.colors.primary, fontSize: 12, fontWeight: 900, cursor: 'pointer', whiteSpace: 'nowrap' }}>詳細</button>
+                          ) : (
+                            <button type="button" onClick={() => onFollowActor?.(actor)} style={{ border: 'none', borderRadius: 999, padding: '8px 12px', background: 'rgba(83,190,232,0.12)', color: theme.colors.primary, fontSize: 12, fontWeight: 900, cursor: 'pointer', whiteSpace: 'nowrap' }}>+ フォロー</button>
+                          )
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </ViewSection>
 

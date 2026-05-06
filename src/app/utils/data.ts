@@ -1,4 +1,4 @@
-import { Artist, Exhibition, SiteLink, Tour, Concert, Movie } from '@/domain/types';
+import { Artist, Exhibition, SiteLink, Tour, Concert, Movie, Actor } from '@/domain/types';
 
 export const normalizeArtistData = (artist: any): Artist => {
   return {
@@ -80,5 +80,19 @@ export const normalizeMovieData = (movie: any): Movie => {
     lotteryHistory: Array.isArray(movie.lotteryHistory) ? movie.lotteryHistory : [],
     createdAt: movie.createdAt || now,
     updatedAt: movie.updatedAt || movie.createdAt || now,
+  };
+};
+
+
+export const normalizeActorData = (actor: any): Actor => {
+  const now = new Date().toISOString();
+  return {
+    ...actor,
+    id: String(actor?.id || Math.random().toString(36).substr(2, 9)),
+    name: String(actor?.name || '').trim() || '名前未設定',
+    avatar: actor?.avatar || '',
+    isFollowed: actor?.isFollowed !== false,
+    createdAt: actor?.createdAt || now,
+    updatedAt: actor?.updatedAt || actor?.createdAt || now,
   };
 };

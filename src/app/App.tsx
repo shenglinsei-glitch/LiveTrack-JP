@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { normalizeArtistData, normalizeExhibitionData, normalizeMovieData } from '@/utils/data';
+import { normalizeArtistData, normalizeExhibitionData, normalizeMovieData, normalizeActorData } from '@/utils/data';
 import { safeSave, safeGet } from '@/utils/storage';
-import { PageId, Artist, Tour, DisplaySettings, Status, GlobalSettings, SiteLink, TrackingStatus, TrackingErrorType, Concert, Exhibition, Movie } from '@/domain/types';
+import { PageId, Artist, Tour, DisplaySettings, Status, GlobalSettings, SiteLink, TrackingStatus, TrackingErrorType, Concert, Exhibition, Movie, Actor } from '@/domain/types';
 import { Layout } from '@/components/Layout';
 import { ArtistListPage } from '@/pages/ArtistListPage';
 import { ConcertListPage } from '@/pages/ConcertListPage';
@@ -15,6 +15,7 @@ import { ContentPage } from '@/pages/ContentPage';
 import { StatusPage } from '@/pages/StatusPage';
 import { ExhibitionDetailPage } from '@/pages/ExhibitionDetailPage';
 import { MovieDetailPage } from '@/pages/MovieDetailPage';
+import { ActorDetailPage } from '@/pages/ActorDetailPage';
 import { GlassCard } from '@/components/common/GlassCard';
 import { theme } from '@/components/common/theme';
 import { shouldTriggerAutoTrack, getTrackTargetConcerts, getDueAction, autoAdvanceConcertStatus, autoAdvanceMovieStatus, prepareFullDataForExport, migrateAlbumImagesToIndexedDB, migrateExhibitionImagesToIndexedDB } from '@/domain/logic';
@@ -27,6 +28,8 @@ type NavContext = {
   concertId?: string;
   exhibitionId?: string;
   movieId?: string;
+  actorId?: string;
+  fromActorId?: string;
   from?: PageId;
   edit?: boolean; // Navigation flag to start in edit mode
   isNew?: boolean; // New draft flag for unsaved/discard behavior
@@ -36,6 +39,7 @@ const STORAGE_KEYS = {
   ARTISTS: 'livetrack_jp_artists',
   EXHIBITIONS: 'livetrack_jp_exhibitions',
   MOVIES: 'livetrack_jp_movies',
+  ACTORS: 'livetrack_jp_actors',
   GLOBAL_SETTINGS: 'livetrack_jp_global_settings',
   DISPLAY_SETTINGS: 'livetrack_jp_display_settings',
   ARTIST_SORT: 'livetrack_jp_artist_sort',
@@ -104,9 +108,15 @@ export default function App() {
     return (raw || []).map(normalizeMovieData);
   });
 
+  const [actors, setActors] = useState<Actor[]>(() => {
+    const raw = safeGet<any[]>(STORAGE_KEYS.ACTORS, []);
+    return (raw || []).map(normalizeActorData);
+  });
+
   useEffect(() => { safeSave(STORAGE_KEYS.ARTISTS, artists); }, [artists]);
   useEffect(() => { safeSave(STORAGE_KEYS.EXHIBITIONS, exhibitions); }, [exhibitions]);
   useEffect(() => { safeSave(STORAGE_KEYS.MOVIES, movies); }, [movies]);
+  useEffect(() => { safeSave(STORAGE_KEYS.ACTORS, actors); }, [actors]);
   useEffect(() => { safeSave(STORAGE_KEYS.GLOBAL_SETTINGS, globalSettings); }, [globalSettings]);
   useEffect(() => { safeSave(STORAGE_KEYS.DISPLAY_SETTINGS, displaySettings); }, [displaySettings]);
   useEffect(() => { safeSave(STORAGE_KEYS.ARTIST_SORT, artistSortMode); }, [artistSortMode]);
@@ -226,7 +236,7 @@ export default function App() {
   // Unified Export Logic
   const handleExportAll = async () => {
     try {
-      const fullData = await prepareFullDataForExport(artists, exhibitions, movies);
+      const fullData = { ...(await prepareFullDataForExport(artists, exhibitions, movies)), actors };
       const dataStr = JSON.stringify(fullData, null, 2);
       const blob = new Blob([dataStr], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -259,9 +269,12 @@ export default function App() {
     const moviesRaw: Movie[] | null = (!Array.isArray(importedData) && importedData?.movies)
       ? importedData.movies
       : null;
+    const actorsRaw: Actor[] | null = (!Array.isArray(importedData) && importedData?.actors)
+      ? importedData.actors
+      : null;
 
     // Guard: if payload shape is not recognized, do nothing but surface a clear message.
-    if (!artistsRaw && !exhibitionsRaw && !moviesRaw) {
+    if (!artistsRaw && !exhibitionsRaw && !moviesRaw && !actorsRaw) {
       window.alert('インポートに失敗しました:データ形式が不正です(artists / exhibitions / movies が見つかりません)。');
       return;
     }
@@ -270,7 +283,8 @@ export default function App() {
     const artistCount = Array.isArray(artistsRaw) ? artistsRaw.length : 0;
     const exhibitionCount = Array.isArray(exhibitionsRaw) ? exhibitionsRaw.length : 0;
     const movieCount = Array.isArray(moviesRaw) ? moviesRaw.length : 0;
-    if (artistCount === 0 && exhibitionCount === 0 && movieCount === 0) {
+    const actorCount = Array.isArray(actorsRaw) ? actorsRaw.length : 0;
+    if (artistCount === 0 && exhibitionCount === 0 && movieCount === 0 && actorCount === 0) {
       const ok = window.confirm('このバックアップには artists / exhibitions / movies が 0 件です。\nこのまま上書きインポートしますか?');
       if (!ok) return;
     }
@@ -278,6 +292,7 @@ export default function App() {
     if (artistsRaw) setArtists((artistsRaw || []).map(normalizeArtistData));
     if (exhibitionsRaw) setExhibitions((exhibitionsRaw || []).map(normalizeExhibitionData));
     if (moviesRaw) setMovies((moviesRaw || []).map(normalizeMovieData));
+    if (actorsRaw) setActors((actorsRaw || []).map(normalizeActorData));
 
     // Post-migrate in background (still on the main thread), then update state again.
     (async () => {
@@ -317,6 +332,41 @@ export default function App() {
 
   const navigateToExhibitionDetail = (exhibitionId: string, edit?: boolean, isNew?: boolean) => setNav({ path: 'EXHIBITION_DETAIL', exhibitionId, edit, isNew });
   const navigateToMovieDetail = (movieId: string, edit?: boolean) => setNav({ path: 'MOVIE_DETAIL', movieId, edit, from: 'CONTENT' });
+  const navigateToActorDetail = (actorId: string) => setNav({ path: 'ACTOR_DETAIL', actorId, from: 'CONTENT' });
+
+  const normalizeActorName = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase();
+
+  const followActorByName = (name: string) => {
+    const actorName = name.trim();
+    if (!actorName) return;
+    const nowIso = new Date().toISOString();
+    setActors(prev => {
+      const idx = prev.findIndex(a => normalizeActorName(a.name) === normalizeActorName(actorName));
+      if (idx >= 0) {
+        return prev.map((a, i) => i === idx ? { ...a, name: a.name || actorName, isFollowed: true, updatedAt: nowIso } : a);
+      }
+      return [...prev, { id: Math.random().toString(36).substr(2, 9), name: actorName, avatar: '', isFollowed: true, createdAt: nowIso, updatedAt: nowIso }];
+    });
+  };
+
+  const updateActor = (updated: Actor) => {
+    const oldActor = actors.find(a => a.id === updated.id);
+    const normalized = normalizeActorData({ ...updated, updatedAt: new Date().toISOString() });
+    setActors(prev => prev.map(a => a.id === updated.id ? normalized : a));
+    if (oldActor && normalizeActorName(oldActor.name) !== normalizeActorName(normalized.name)) {
+      setMovies(prev => prev.map(movie => ({
+        ...movie,
+        actors: (movie.actors || []).map(name => normalizeActorName(name) === normalizeActorName(oldActor.name) ? normalized.name : name),
+        updatedAt: new Date().toISOString(),
+      })));
+    }
+  };
+
+  const unfollowActor = (actorId: string) => {
+    setActors(prev => prev.map(a => a.id === actorId ? { ...a, isFollowed: false, updatedAt: new Date().toISOString() } : a));
+    setContentActiveTab('actors');
+    setNav({ path: 'CONTENT' });
+  };
 
   const addNewExhibition = () => {
     const newEx: Exhibition = {
@@ -438,7 +488,7 @@ export default function App() {
       setIsArtistPickerOpen(true);
     } else if (contentActiveTab === 'exhibitions') {
       addNewExhibition();
-    } else if (contentActiveTab === 'movies') {
+    } else if (contentActiveTab === 'movies' || contentActiveTab === 'actors') {
       addNewMovie();
     }
   }, [nav.path, contentActiveTab]);
@@ -478,6 +528,8 @@ export default function App() {
             onExhibitionMenuClose={() => setIsExhibitionMenuOpen(false)}
             onAddNewExhibition={addNewExhibition}
             movies={movies}
+            actors={actors}
+            onOpenActorDetail={navigateToActorDetail}
             onOpenMovieDetail={navigateToMovieDetail}
             onAddNewMovie={addNewMovie}
             onUpdateMovies={setMovies}
@@ -533,6 +585,9 @@ export default function App() {
         return (
           <MovieDetailPage
             movie={movie}
+            actors={actors}
+            onFollowActor={followActorByName}
+            onOpenActorDetail={navigateToActorDetail}
             onUpdateMovie={(updated) => {
               setMovies(prev => prev.map(m => m.id === updated.id ? normalizeMovieData(updated) : m));
             }}
@@ -542,10 +597,25 @@ export default function App() {
               setContentActiveTab('movies');
             }}
             onBack={() => {
-              setNav({ path: 'CONTENT' });
-              setContentActiveTab('movies');
+              if (nav.from === 'ACTOR_DETAIL' && nav.fromActorId) setNav({ path: 'ACTOR_DETAIL', actorId: nav.fromActorId });
+              else { setNav({ path: 'CONTENT' }); setContentActiveTab('movies'); }
             }}
             initialEditMode={!!nav.edit}
+          />
+        );
+      }
+
+      case 'ACTOR_DETAIL': {
+        const actor = actors.find(a => a.id === nav.actorId);
+        if (!actor) return null;
+        return (
+          <ActorDetailPage
+            actor={actor}
+            movies={movies}
+            onBack={() => { setContentActiveTab('actors'); setNav({ path: 'CONTENT' }); }}
+            onOpenMovieDetail={(movieId) => setNav({ path: 'MOVIE_DETAIL', movieId, from: 'ACTOR_DETAIL', fromActorId: actor.id })}
+            onUpdateActor={updateActor}
+            onUnfollowActor={unfollowActor}
           />
         );
       }
