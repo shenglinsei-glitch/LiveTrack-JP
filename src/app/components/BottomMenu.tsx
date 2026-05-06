@@ -148,9 +148,9 @@ export const BottomMenu: React.FC<BottomMenuProps> = ({
               {([
                 { key: 'manual', label: '手順' },
                 { key: 'name', label: '名前' },
-                { key: 'dateFar', label: '公演日遠' },
-                { key: 'dateNear', label: '公演日近' },
-                { key: 'status', label: '状態' },
+                { key: 'dateFar', label: '公演日が遠い順' },
+                { key: 'dateNear', label: '公演日が近い順' },
+                { key: 'status', label: 'ステータス' },
               ] as { key: ArtistSortKey; label: string }[]).map(opt => (
                 <MenuButton
                   key={opt.key}
@@ -165,7 +165,7 @@ export const BottomMenu: React.FC<BottomMenuProps> = ({
           <section style={{ borderTop: '0.5px solid rgba(0,0,0,0.1)', paddingTop: theme.spacing.md }}>
             <h4 style={sectionTitleStyle}>絞り込み</h4>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-              <SmallChip label="全て" active={isAllSelected} onClick={() => setArtistFilters([])} />
+              <SmallChip label="すべて" active={isAllSelected} onClick={() => setArtistFilters([])} />
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {filterLabels.map(item => (

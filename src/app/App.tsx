@@ -250,7 +250,7 @@ export default function App() {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Unified Export failed:', error);
-      window.alert('エクスポートに失敗しました。');
+      window.alert('書き出しに失敗しました。');
     }
   };
 
@@ -275,7 +275,7 @@ export default function App() {
 
     // Guard: if payload shape is not recognized, do nothing but surface a clear message.
     if (!artistsRaw && !exhibitionsRaw && !moviesRaw && !actorsRaw) {
-      window.alert('インポートに失敗しました:データ形式が不正です(artists / exhibitions / movies が見つかりません)。');
+      window.alert('読み込みに失敗しました。データ形式が正しくありません。');
       return;
     }
 
@@ -285,7 +285,7 @@ export default function App() {
     const movieCount = Array.isArray(moviesRaw) ? moviesRaw.length : 0;
     const actorCount = Array.isArray(actorsRaw) ? actorsRaw.length : 0;
     if (artistCount === 0 && exhibitionCount === 0 && movieCount === 0 && actorCount === 0) {
-      const ok = window.confirm('このバックアップには artists / exhibitions / movies が 0 件です。\nこのまま上書きインポートしますか?');
+      const ok = window.confirm('このバックアップにはデータがありません。\nこのまま上書き読み込みしますか？');
       if (!ok) return;
     }
 
@@ -371,7 +371,7 @@ export default function App() {
   const addNewExhibition = () => {
     const newEx: Exhibition = {
       id: Math.random().toString(36).substr(2, 9),
-      title: '新規展覧会',
+      title: '新規展覧',
       startDate: dayjs().format('YYYY-MM-DD'),
       endDate: dayjs().add(1, 'month').format('YYYY-MM-DD'),
       status: 'NONE',

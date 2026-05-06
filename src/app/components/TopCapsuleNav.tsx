@@ -24,6 +24,13 @@ export const TopCapsuleNav: React.FC<TopCapsuleNavProps> = ({
     { key: 'concerts', label: '公演' }
   ]
 }) => {
+  const isCompact = typeof window !== 'undefined' && window.innerWidth <= 480;
+  const navHeight = isCompact ? 40 : 44;
+  const controlSize = 44;
+  const capsulePadding = isCompact ? 3 : 4;
+  const buttonPaddingX = isCompact ? 15 : 16;
+  const buttonFontSize = isCompact ? 14 : 14;
+
   const glassStyle: React.CSSProperties = {
     background: 'rgba(255, 255, 255, 0.72)',
     backdropFilter: 'blur(16px)',
@@ -35,10 +42,10 @@ export const TopCapsuleNav: React.FC<TopCapsuleNavProps> = ({
   };
 
   return (
-    <div style={{ position: 'fixed', top: 'calc(12px + env(safe-area-inset-top))', left: '16px', right: '16px', height: '44px', zIndex: 120, pointerEvents: 'none' }}>
+    <div style={{ position: 'fixed', top: 'calc(12px + env(safe-area-inset-top))', left: '16px', right: '16px', height: `${controlSize}px`, zIndex: 120, pointerEvents: 'none' }}>
       <div style={{ position: 'relative', width: '100%', height: '100%' }}>
         {leftControl && (
-          <div style={{ position: 'absolute', left: 0, height: '44px', pointerEvents: 'auto' }}>
+          <div style={{ position: 'absolute', left: 0, height: `${controlSize}px`, pointerEvents: 'auto' }}>
             {leftControl}
           </div>
         )}
@@ -52,9 +59,9 @@ export const TopCapsuleNav: React.FC<TopCapsuleNavProps> = ({
             margin: '0 auto',
             width: 'fit-content',
             maxWidth: `calc(100% - ${(leftControl ? 52 : 0) + 52 + (rightControl ? 52 : 52)}px)`,
-            height: '44px',
-            padding: '4px',
-            borderRadius: '9999px',
+            height: `${navHeight}px`,
+            padding: `${capsulePadding}px`,
+            borderRadius: `${navHeight / 2}px`,
             pointerEvents: 'auto',
             overflowX: 'auto',
             overflowY: 'hidden',
@@ -75,8 +82,8 @@ export const TopCapsuleNav: React.FC<TopCapsuleNavProps> = ({
                   border: 'none',
                   height: '100%',
                   background: isActive ? 'rgba(83, 190, 232, 0.12)' : 'transparent',
-                  borderRadius: '9999px',
-                  fontSize: '14px',
+                  borderRadius: `${(navHeight - capsulePadding * 2) / 2}px`,
+                  fontSize: `${buttonFontSize}px`,
                   fontWeight: '800',
                   color: isActive ? theme.colors.primary : '#9CA3AF',
                   cursor: 'pointer',
@@ -85,7 +92,7 @@ export const TopCapsuleNav: React.FC<TopCapsuleNavProps> = ({
                   justifyContent: 'center',
                   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                   outline: 'none',
-                  padding: '0 16px',
+                  padding: `0 ${buttonPaddingX}px`,
                   whiteSpace: 'nowrap',
                   flexShrink: 0,
                 }}
@@ -104,8 +111,8 @@ export const TopCapsuleNav: React.FC<TopCapsuleNavProps> = ({
               ...glassStyle,
               position: 'absolute',
               right: 0,
-              width: '44px',
-              height: '44px',
+              width: `${controlSize}px`,
+              height: `${controlSize}px`,
               borderRadius: '9999px',
               justifyContent: 'center',
               cursor: isRefreshing ? 'default' : 'pointer',

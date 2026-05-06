@@ -42,7 +42,7 @@ const getSectionLabel = (key: SectionKey) => {
     case 'history':
       return '履歴';
     default:
-      return '全部';
+      return 'すべて';
   }
 };
 
@@ -172,7 +172,7 @@ export const StatusPage: React.FC<Props> = ({
         setIsMenuOpen(false);
       } catch (err) {
         console.error('Import parse failed:', err);
-        window.alert('読み込みに失敗しました。JSONファイルを確認してください。');
+        window.alert('ファイルの読み込みに失敗しました。JSONを確認してください。');
       }
     };
     reader.readAsText(file);
@@ -308,7 +308,7 @@ export const StatusPage: React.FC<Props> = ({
   };
 
   const tabs = [
-    { key: 'ALL', label: '全部' },
+    { key: 'ALL', label: 'すべて' },
     { key: 'CONCERT', label: '公演' },
     { key: 'EXHIBITION', label: '展覧' },
     { key: 'MOVIE', label: '映画' },
@@ -349,7 +349,7 @@ export const StatusPage: React.FC<Props> = ({
                   <MenuItem label="日付近い順" active={sortKey === 'date_asc'} onClick={() => setSortKey('date_asc')} />
                   <MenuItem label="日付遠い順" active={sortKey === 'date_desc'} onClick={() => setSortKey('date_desc')} />
                   <MenuItem label="種別優先" active={sortKey === 'type'} onClick={() => setSortKey('type')} />
-                  <MenuItem label="状態優先" active={sortKey === 'status'} onClick={() => setSortKey('status')} />
+                  <MenuItem label="ステータス優先" active={sortKey === 'status'} onClick={() => setSortKey('status')} />
                 </div>
               </section>
 
@@ -365,8 +365,8 @@ export const StatusPage: React.FC<Props> = ({
               <section style={{ borderTop: '0.5px solid rgba(0,0,0,0.1)', paddingTop: 16 }}>
                 <div style={sectionTitle}>データ</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <MenuItem label="データを書き出す" onClick={() => { onExport(); setIsMenuOpen(false); }} />
-                  <MenuItem label="データを読み込む" onClick={() => importInputRef.current?.click()} />
+                  <MenuItem label="データ書き出し" onClick={() => { onExport(); setIsMenuOpen(false); }} />
+                  <MenuItem label="データ読み込み" onClick={() => importInputRef.current?.click()} />
                 </div>
                 <input ref={importInputRef} type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={handleImportFileChange} />
               </section>

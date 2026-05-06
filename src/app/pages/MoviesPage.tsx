@@ -105,13 +105,13 @@ export const MoviesPage: React.FC<MoviesPageProps> = ({ movies, onOpenDetail, on
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <section>
                 <div style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary, marginBottom: 8 }}>並び替え</div>
-                <MenuItem label="状態 + 状態時間" active={sortKey === 'status_time'} onClick={() => setSortKey('status_time')} />
-                <MenuItem label="公開日近い順" active={sortKey === 'date_asc'} onClick={() => setSortKey('date_asc')} />
-                <MenuItem label="公開日遠い順" active={sortKey === 'date_desc'} onClick={() => setSortKey('date_desc')} />
+                <MenuItem label="ステータス + 更新日時" active={sortKey === 'status_time'} onClick={() => setSortKey('status_time')} />
+                <MenuItem label="公開日が近い順" active={sortKey === 'date_asc'} onClick={() => setSortKey('date_asc')} />
+                <MenuItem label="公開日が遠い順" active={sortKey === 'date_desc'} onClick={() => setSortKey('date_desc')} />
                 <MenuItem label="タイトル順" active={sortKey === 'title'} onClick={() => setSortKey('title')} />
               </section>
               <section style={{ borderTop: '0.5px solid rgba(0,0,0,0.1)', paddingTop: 16 }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary, marginBottom: 8 }}>状態絞り込み</div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary, marginBottom: 8 }}>ステータス絞り込み</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {MOVIE_STATUSES.map((status) => (
                     <SmallChip key={status} label={status} active={!selectedStatuses || selectedStatuses.includes(status)} onClick={() => toggleStatus(status)} />
@@ -120,8 +120,8 @@ export const MoviesPage: React.FC<MoviesPageProps> = ({ movies, onOpenDetail, on
               </section>
               <section style={{ borderTop: '0.5px solid rgba(0,0,0,0.1)', paddingTop: 16 }}>
                 <div style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary, marginBottom: 8 }}>データ</div>
-                <MenuItem label="データを書き出す" onClick={() => { onExport(); setIsMenuOpen(false); }} />
-                <MenuItem label="データを読み込む" onClick={() => fileInputRef.current?.click()} />
+                <MenuItem label="データ書き出し" onClick={() => { onExport(); setIsMenuOpen(false); }} />
+                <MenuItem label="データ読み込み" onClick={() => fileInputRef.current?.click()} />
               </section>
             </div>
           </GlassCard>

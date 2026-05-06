@@ -100,7 +100,7 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
           <DetailHeader
             title={formData.title}
             onTitleChange={(value) => setFormData((prev) => ({ ...prev, title: value }))}
-            titlePlaceholder="展覧会名未設定"
+            titlePlaceholder="展覧名未設定"
             isEditMode={isEditMode}
             posterUrl={backgroundUrl}
             posterAlt={formData.title}
@@ -185,7 +185,7 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
           <ConfirmDialog
             isOpen={isDeleteConfirmOpen}
             title="削除しますか？"
-            message="この展覧会を削除すると元に戻せません。"
+            message="この展覧を削除すると元に戻せません。"
             confirmLabel="削除"
             isDestructive
             onClose={() => setIsDeleteConfirmOpen(false)}
@@ -218,10 +218,10 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
                 WebkitBackdropFilter: 'blur(18px)'
               }}>
                 <h3 style={{ margin: '0 0 8px 0', fontSize: 17, fontWeight: 900, color: theme.colors.textMain }}>未保存の変更があります</h3>
-                <p style={{ margin: '0 0 22px 0', fontSize: 14, color: theme.colors.textSecondary, lineHeight: 1.45 }}>保存して退出するか、変更を放棄して退出してください。</p>
+                <p style={{ margin: '0 0 22px 0', fontSize: 14, color: theme.colors.textSecondary, lineHeight: 1.45 }}>保存するか、変更を破棄して戻ってください。</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <button onClick={saveAndLeave} style={{ height: 44, borderRadius: 14, border: 'none', background: theme.colors.primary, color: 'white', fontWeight: 900, cursor: 'pointer' }}>保存して退出</button>
-                  <button onClick={discardChanges} style={{ height: 44, borderRadius: 14, border: 'none', background: 'rgba(239,68,68,0.10)', color: theme.colors.error, fontWeight: 900, cursor: 'pointer' }}>放棄して退出</button>
+                  <button onClick={saveAndLeave} style={{ height: 44, borderRadius: 14, border: 'none', background: theme.colors.primary, color: 'white', fontWeight: 900, cursor: 'pointer' }}>保存して戻る</button>
+                  <button onClick={discardChanges} style={{ height: 44, borderRadius: 14, border: 'none', background: 'rgba(239,68,68,0.10)', color: theme.colors.error, fontWeight: 900, cursor: 'pointer' }}>破棄して戻る</button>
                   <button onClick={() => setIsUnsavedConfirmOpen(false)} style={{ height: 40, borderRadius: 14, border: 'none', background: 'rgba(0,0,0,0.05)', color: theme.colors.textSecondary, fontWeight: 800, cursor: 'pointer' }}>キャンセル</button>
                 </div>
               </div>

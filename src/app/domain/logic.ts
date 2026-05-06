@@ -87,8 +87,8 @@ export const EVENT_PRIORITY: Record<CalendarEventType, number> = {
   [TEXT.CALENDAR.EVENT_RESULT]: 2,
   [TEXT.CALENDAR.EVENT_DEADLINE]: 3,
   [TEXT.CALENDAR.EVENT_SALE]: 4,
-  // Fix: Added missing '展覧会' property to Record
-  ['展覧会']: 5,
+  // Fix: Added missing '展覧' property to Record
+  ['展覧']: 5,
   ['映画']: 6,
 };
 

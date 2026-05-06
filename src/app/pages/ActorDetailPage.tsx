@@ -87,7 +87,7 @@ export const ActorDetailPage: React.FC<ActorDetailPageProps> = ({ actor, movies,
         <GlassCard padding="20px" style={{ marginBottom: 14 }}>
           <div style={{ display: 'grid', gap: 14 }}>
             <div>
-              <Label>头像 / 背景画像URL</Label>
+              <Label>プロフィール画像 / 背景画像URL</Label>
               <input
                 value={formData.avatar || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, avatar: e.target.value }))}

@@ -26,8 +26,8 @@ const STATUS_LABELS: Record<ExhibitionStatus, string> = {
   NONE: '準備中',
   PLANNED: '開催中',
   RESERVED: '予約済',
-  VISITED: '参戦済み',
-  SKIPPED: '見送る',
+  VISITED: '訪問済み',
+  SKIPPED: '見送り',
   ENDED: '終了',
 };
 
@@ -65,25 +65,25 @@ export const ExhibitionMenu: React.FC<ExhibitionMenuProps> = ({
         <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
           {showAddAction && onAddNew && (
             <section>
-              <MenuButton label="新規展覧を追加" primary icon={<Icons.Plus />} onClick={() => { onAddNew(); onClose(); }} />
+              <MenuButton label="展覧を追加" primary icon={<Icons.Plus />} onClick={() => { onAddNew(); onClose(); }} />
             </section>
           )}
 
           <section style={{ borderTop: '0.5px solid rgba(0,0,0,0.1)', paddingTop: theme.spacing.md }}>
             <h4 style={sectionTitleStyle}>並び替え</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <MenuButton label="状態 + 状態時間" active={sortKey === 'status_time'} onClick={() => onSetSortKey('status_time')} />
-              <MenuButton label="開始日順" active={sortKey === 'date_asc'} onClick={() => onSetSortKey('date_asc')} />
-              <MenuButton label="開始日逆順" active={sortKey === 'date_desc'} onClick={() => onSetSortKey('date_desc')} />
+              <MenuButton label="ステータス + 更新日時" active={sortKey === 'status_time'} onClick={() => onSetSortKey('status_time')} />
+              <MenuButton label="開始日が近い順" active={sortKey === 'date_asc'} onClick={() => onSetSortKey('date_asc')} />
+              <MenuButton label="開始日が遠い順" active={sortKey === 'date_desc'} onClick={() => onSetSortKey('date_desc')} />
               <MenuButton label="名前順" active={sortKey === 'name_asc'} onClick={() => onSetSortKey('name_asc')} />
-              <MenuButton label="名前逆順" active={sortKey === 'name_desc'} onClick={() => onSetSortKey('name_desc')} />
+              <MenuButton label="名前降順" active={sortKey === 'name_desc'} onClick={() => onSetSortKey('name_desc')} />
             </div>
           </section>
 
           <section style={{ borderTop: '0.5px solid rgba(0,0,0,0.1)', paddingTop: theme.spacing.md }}>
             <h4 style={sectionTitleStyle}>絞り込み</h4>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-              <SmallChip label="全部" active={isAllSelected} onClick={onSelectAllStatuses} />
+              <SmallChip label="すべて" active={isAllSelected} onClick={onSelectAllStatuses} />
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {ALL_STATUSES.map((status) => (

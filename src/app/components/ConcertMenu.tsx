@@ -47,17 +47,17 @@ export const ConcertMenu: React.FC<ConcertMenuProps> = ({
           <section>
             <h4 style={sectionTitleStyle}>{TEXT.MENU.SORT}</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <MenuButton label="アーティスト名前順" active={sortKey === 'artist'} onClick={() => onSetSort('artist')} />
-              <MenuButton label="公演日遠" active={sortKey === 'date_desc'} onClick={() => onSetSort('date_desc')} />
-              <MenuButton label="公演日近" active={sortKey === 'date_asc'} onClick={() => onSetSort('date_asc')} />
-              <MenuButton label="状態 + 状態時間" active={sortKey === 'status_time'} onClick={() => onSetSort('status_time')} />
+              <MenuButton label="アーティスト名順" active={sortKey === 'artist'} onClick={() => onSetSort('artist')} />
+              <MenuButton label="公演日が遠い順" active={sortKey === 'date_desc'} onClick={() => onSetSort('date_desc')} />
+              <MenuButton label="公演日が近い順" active={sortKey === 'date_asc'} onClick={() => onSetSort('date_asc')} />
+              <MenuButton label="ステータス + 更新日時" active={sortKey === 'status_time'} onClick={() => onSetSort('status_time')} />
             </div>
           </section>
 
           <section style={{ borderTop: `0.5px solid rgba(0,0,0,0.1)`, paddingTop: theme.spacing.md }}>
             <h4 style={sectionTitleStyle}>絞り込み</h4>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-              <SmallChip label="全て" active={isAllSelected} onClick={onSelectAllStatuses} />
+              <SmallChip label="すべて" active={isAllSelected} onClick={onSelectAllStatuses} />
               <SmallChip label="重要" active={!isAllSelected && selectedStatuses?.length === 4} onClick={onSelectImportantStatuses} />
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

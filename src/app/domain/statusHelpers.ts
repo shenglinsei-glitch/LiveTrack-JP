@@ -82,9 +82,9 @@ export const getExhibitionStatusTone = (status: string | ExhibitionStatus, displ
     case 'RESERVED':
       return { color: theme.colors.status['抽選中'], bg: theme.colors.badges.lottery.bg, label: displayStatus || '予約済' };
     case 'VISITED':
-      return { color: theme.colors.status['参戦済み'], bg: theme.colors.badges.completed.bg, label: displayStatus || '参戦済み' };
+      return { color: theme.colors.status['参戦済み'], bg: theme.colors.badges.completed.bg, label: displayStatus || '訪問済み' };
     case 'SKIPPED':
-      return { color: theme.colors.status['見送'], bg: theme.colors.badges.skipped.bg, label: displayStatus || '見送る' };
+      return { color: theme.colors.status['見送'], bg: theme.colors.badges.skipped.bg, label: displayStatus || '見送り' };
     case 'ENDED':
       return { color: theme.colors.textWeak, bg: 'rgba(0,0,0,0.04)', label: displayStatus || '終了' };
     default:

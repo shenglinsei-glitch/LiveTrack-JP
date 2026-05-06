@@ -53,7 +53,7 @@ export const ExhibitionDescriptionSection: React.FC<Props> = ({
           marginBottom: isExpanded || isEditMode ? 12 : 0
         }}
       >
-        <h3 style={{ fontSize: 16, fontWeight: 900, margin: 0, color: theme.colors.primary }}>展覧会について</h3>
+        <h3 style={{ fontSize: 16, fontWeight: 900, margin: 0, color: theme.colors.primary }}>展覧について</h3>
         {!isEditMode && (
           <Icons.ChevronLeft
             style={{
@@ -158,13 +158,13 @@ export const ExhibitionDescriptionSection: React.FC<Props> = ({
           <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', margin: '16px 0' }} />
 
           {/* Description */}
-          <SubTitle title="展覧会紹介" />
+          <SubTitle title="展覧紹介" />
           {isEditMode ? (
             <textarea
               rows={6}
               value={exhibition.description ?? ''}
               onChange={(e) => onUpdateDescription(e.target.value)}
-              placeholder="展覧会の内容、見どころなどを入力..."
+              placeholder="展覧の内容、見どころなどを入力..."
               style={{ ...inputStyle, width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', resize: 'vertical', minHeight: 120, borderRadius: 12 }}
             />
           ) : (

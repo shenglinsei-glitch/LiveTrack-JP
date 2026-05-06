@@ -330,7 +330,7 @@ export const ArtistListPage: React.FC<Props> = ({
           return;
         }
         if (Array.isArray(rawArtists) && rawArtists.length === 0) {
-          const ok = window.confirm('このファイルの artists は 0 件です。\nこのままインポートしますか？');
+          const ok = window.confirm('このファイルのアーティストは0件です。\nこのまま読み込みますか？');
           if (!ok) return;
         }
         const normalizedArtists: Artist[] = rawArtists.map(normalizeArtistData);
@@ -339,7 +339,7 @@ export const ArtistListPage: React.FC<Props> = ({
         setIsImportConfirmOpen(true);
       } catch (err) {
         console.error('Import failed:', err);
-        alert('読み込みに失敗しました。JSON を確認してください。');
+        alert('ファイルの読み込みに失敗しました。JSONを確認してください。');
       } finally {
         if (fileInputRef.current) fileInputRef.current.value = '';
       }

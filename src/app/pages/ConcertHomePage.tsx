@@ -209,7 +209,7 @@ export const ConcertHomePage: React.FC<Props> = ({
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16, width: '100%' }}>
             <div><Label>公演日</Label><Value>{concert.concertAt || concert.date}</Value></div>
             <div><Label>会場</Label><Value>{concert.venue}</Value></div>
-            <div><Label>チケット状態</Label><Value>{concert.status || '未設定'}</Value></div>
+            <div><Label>チケットステータス</Label><Value>{concert.status || '未設定'}</Value></div>
             <div><Label>料金</Label><Value>{concert.price ? `${concert.price.toLocaleString()} 円` : null}</Value></div>
           </div>
         </CollapsibleSection>

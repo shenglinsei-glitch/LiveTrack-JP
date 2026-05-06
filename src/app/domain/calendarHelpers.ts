@@ -20,7 +20,7 @@ export const typeColorMap: Record<CalendarEventType, string> = {
   [TEXT.CALENDAR.EVENT_RESULT]: theme.colors.status['抽選中'],
   [TEXT.CALENDAR.EVENT_DEADLINE]: theme.colors.status['検討中'],
   [TEXT.CALENDAR.EVENT_SALE]: theme.colors.status['発売前'],
-  展覧会: theme.colors.primary,
+  展覧: theme.colors.primary,
   映画: '#8B5CF6',
 };
 

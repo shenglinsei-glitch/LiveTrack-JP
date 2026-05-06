@@ -106,7 +106,7 @@ export function generateStatusItems(artists: Artist[], exhibitions: Exhibition[]
         date: visitDate,
         status: 'VISITED',
         actionType: 'exhibition_end',
-        displayStatus: '参戦済み',
+        displayStatus: '訪問済み',
         raw: baseRaw,
       });
       return;
@@ -121,7 +121,7 @@ export function generateStatusItems(artists: Artist[], exhibitions: Exhibition[]
         date: endDate || startDate,
         status: 'SKIPPED',
         actionType: 'exhibition_end',
-        displayStatus: '見送る',
+        displayStatus: '見送り',
         raw: baseRaw,
       });
       return;

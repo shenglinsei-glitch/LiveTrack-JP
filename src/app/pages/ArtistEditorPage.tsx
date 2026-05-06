@@ -293,13 +293,13 @@ export const ArtistEditorPage: React.FC<Props> = ({
             <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
               <ToggleRow
                 label="公演自動追跡"
-                subLabel="新規ツアー・公演情報を自动取得します"
+                subLabel="新規ツアー・公演情報を自動取得します"
                 active={formData.autoTrackConcerts}
                 onToggle={() => handleUpdateField('autoTrackConcerts', !formData.autoTrackConcerts)}
               />
               <ToggleRow
                 label="チケット自動追跡"
-                subLabel="販売・抽選情報を自动更新します"
+                subLabel="販売・抽選情報を自動更新します"
                 active={formData.autoTrackTickets}
                 onToggle={() => handleUpdateField('autoTrackTickets', !formData.autoTrackTickets)}
               />

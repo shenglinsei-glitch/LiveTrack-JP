@@ -115,6 +115,11 @@ export const ContentPage: React.FC<ContentPageProps> = (props) => {
   const [isExhibitionToolsOpen, setIsExhibitionToolsOpen] = useState(false);
   const [isMovieToolsOpen, setIsMovieToolsOpen] = useState(false);
 
+  const isCompact = typeof window !== 'undefined' && window.innerWidth <= 480;
+  const topNavHeight = isCompact ? 40 : 44;
+  const secondaryGap = isCompact ? 16 : 9;
+  const contentReservedHeight = topNavHeight + secondaryGap + 26;
+
   const leafTab = (['artists', 'concerts', 'exhibitions', 'movies', 'actors'].includes(props.activeTab) ? props.activeTab : 'artists') as LeafTab;
   const topTab = getTopTab(leafTab);
 
@@ -198,11 +203,10 @@ export const ContentPage: React.FC<ContentPageProps> = (props) => {
 
   const followedActors = useMemo(() => (props.actors || []).filter(actor => actor.isFollowed), [props.actors]);
 
-  const hasSecondaryTabs = topTab === 'music' || topTab === 'movies';
 
   const secondaryTabs = topTab === 'music' ? (
     <div style={secondaryTabsStyle}>
-      <SegmentButton active={leafTab === 'artists'} onClick={() => { closeAllMenus(); props.onTabChange('artists'); }}>歌手</SegmentButton>
+      <SegmentButton active={leafTab === 'artists'} onClick={() => { closeAllMenus(); props.onTabChange('artists'); }}>アーティスト</SegmentButton>
       <SecondaryDivider />
       <SegmentButton active={leafTab === 'concerts'} onClick={() => { closeAllMenus(); props.onTabChange('concerts'); }}>公演</SegmentButton>
     </div>
@@ -215,7 +219,7 @@ export const ContentPage: React.FC<ContentPageProps> = (props) => {
   ) : null;
 
   return (
-    <div style={{ position: 'relative', paddingTop: hasSecondaryTabs ? 'calc(12px + env(safe-area-inset-top) + 44px + 34px)' : 'calc(12px + env(safe-area-inset-top) + 44px + 16px)' }}>
+    <div style={{ position: 'relative', paddingTop: `calc(12px + env(safe-area-inset-top) + ${contentReservedHeight}px)` }}>
       <TopCapsuleNav
         activeTab={topTab}
         onTabChange={setTopTab}
@@ -228,7 +232,7 @@ export const ContentPage: React.FC<ContentPageProps> = (props) => {
         <div
           style={{
             position: 'fixed',
-            top: 'calc(12px + env(safe-area-inset-top) + 44px + 9px)',
+            top: `calc(12px + env(safe-area-inset-top) + ${topNavHeight + secondaryGap}px)`,
             left: 0,
             right: 0,
             height: 18,

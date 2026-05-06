@@ -135,7 +135,7 @@ export const ExhibitionGallerySection: React.FC<Props> = ({ exhibition, onChange
         isOpen={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
         onAdd={handleAdd}
-        title="写真を展示风景に追加"
+        title="写真を展示風景に追加"
       />
 
       {fullscreenUrl && (

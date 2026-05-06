@@ -667,7 +667,7 @@ export const ConcertListPage: React.FC<Props> = ({
         onSelectAllStatuses={onSelectAllStatuses}
         onSelectImportantStatuses={onSelectImportantStatuses}
         onExport={onExport}
-        onImport={onImportData ? (() => { const input = document.createElement('input'); input.type = 'file'; input.accept = '.json'; input.onchange = (event: any) => { const file = event?.target?.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = (e) => { try { const parsed = JSON.parse(String(e?.target?.result || '')); onImportData(parsed); } catch (err) { console.error('Import failed:', err); alert('読み込みに失敗しました。JSON を確認してください。'); } }; reader.readAsText(file); }; input.click(); }) : undefined}
+        onImport={onImportData ? (() => { const input = document.createElement('input'); input.type = 'file'; input.accept = '.json'; input.onchange = (event: any) => { const file = event?.target?.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = (e) => { try { const parsed = JSON.parse(String(e?.target?.result || '')); onImportData(parsed); } catch (err) { console.error('Import failed:', err); alert('ファイルの読み込みに失敗しました。JSONを確認してください。'); } }; reader.readAsText(file); }; input.click(); }) : undefined}
       />
     </PageShell>
   );

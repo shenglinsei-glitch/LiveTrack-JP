@@ -336,7 +336,7 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
                         <Field label="チケット価格"><input type="number" value={c.price || ''} onChange={e => handleUpdateConcert(c.id, { price: Number(e.target.value) })} style={inputStyle} /></Field>
                         <Field label="抽選名"><input type="text" value={c.lotteryName || ''} onChange={e => handleUpdateConcert(c.id, { lotteryName: e.target.value })} style={inputStyle} /></Field>
                       </div>
-                      <Field label="販売页面URL"><input type="url" value={c.saleLink} onChange={e => handleUpdateConcert(c.id, { saleLink: e.target.value })} style={inputStyle} /></Field>
+                      <Field label="販売サイトURL"><input type="url" value={c.saleLink} onChange={e => handleUpdateConcert(c.id, { saleLink: e.target.value })} style={inputStyle} /></Field>
                       <button type="button" onClick={() => setIsDeleteConcertModalOpen(c.id)} style={{ padding: '8px', color: theme.colors.error, background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px' }}>この公演を削除</button>
                     </div>
                   )}
@@ -358,7 +358,7 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
           保存
         </button>
         <ConfirmDialog isOpen={conflictDates.length > 0} title="重复警告" message={`同日に他公演があります：${conflictDates.join(', ')}`} confirmLabel="強制保存" onClose={() => setConflictDates([])} onConfirm={() => onSave(formData)} />
-        <ConfirmDialog isOpen={isDeleteTourModalOpen} title="ツアー削除" message="全て削除されます。復元不可。" confirmLabel="削除" isDestructive onClose={() => setIsDeleteTourModalOpen(false)} onConfirm={() => onDeleteTour(artistId, formData.id)} />
+        <ConfirmDialog isOpen={isDeleteTourModalOpen} title="ツアー削除" message="すべて削除されます。復元不可。" confirmLabel="削除" isDestructive onClose={() => setIsDeleteTourModalOpen(false)} onConfirm={() => onDeleteTour(artistId, formData.id)} />
         <ConfirmDialog isOpen={!!isDeleteConcertModalOpen} title="公演削除" message="この公演を削除しますか？" confirmLabel="削除" isDestructive onClose={() => setIsDeleteConcertModalOpen(null)} onConfirm={() => isDeleteConcertModalOpen && setFormData(p => ({ ...p, concerts: p.concerts.filter(c => c.id !== isDeleteConcertModalOpen) }))} />
       </div>
     </PageShell>

@@ -562,12 +562,12 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
                   <CustomExhibitionDatePicker showTime value={exhibition.visitedAt} placeholder="参戦日時" onChange={(v) => onChange({ visitedAt: v })} />
                   {exhibition.visitedAt && (
                     <Button size="small" danger type="text" onClick={() => onChange({ visitedAt: undefined })} style={{ padding: 0 }}>
-                      记录解除
+                      記録解除
                     </Button>
                   )}
                 </div>
                 <div>
-                  <Label>チケット状態</Label>
+                  <Label>チケットステータス</Label>
                   <Select
                     style={{ width: '100%' }}
                     value={exhibition.ticketSalesStatus || 'none'}
@@ -690,7 +690,7 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
               <div style={{ display: 'grid', gridTemplateColumns: exhibition.ticketSalesStatus && exhibition.ticketSalesStatus !== 'none' ? '1fr 1fr' : '1fr', gap: '16px', marginBottom: '16px' }}>
                 {exhibition.ticketSalesStatus && exhibition.ticketSalesStatus !== 'none' && (
                   <div>
-                    <Label>チケット状態</Label>
+                    <Label>チケットステータス</Label>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       <Tag
                         color={ticketStatusColors[exhibition.ticketSalesStatus || 'none']}

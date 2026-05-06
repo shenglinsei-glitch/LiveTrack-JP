@@ -84,7 +84,7 @@ export const ExhibitionsPage: React.FC<ExhibitionsPageProps> = ({
       RESERVED: 1,  // 予約済（開催中寄り）
       NONE: 2,      // 準備中
       VISITED: 3,   // 参戦済み
-      SKIPPED: 4,   // 見送る
+      SKIPPED: 4,   // 見送り
       ENDED: 5,     // 終了
     };
     const getStatusTime = (ex: Exhibition) => {
@@ -132,8 +132,8 @@ export const ExhibitionsPage: React.FC<ExhibitionsPageProps> = ({
           display: 'grid',
           gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))',
           gap: '16px',
-          padding: '24px 16px 140px 16px',
-          marginTop: 'calc(env(safe-area-inset-top) + 20px)'
+          padding: hideHeader ? '8px 16px 140px 16px' : '24px 16px 140px 16px',
+          marginTop: hideHeader ? 0 : 'calc(env(safe-area-inset-top) + 20px)'
         }}
       >
         {displayExhibitions.length === 0 ? (
@@ -152,7 +152,7 @@ export const ExhibitionsPage: React.FC<ExhibitionsPageProps> = ({
             <div style={{ fontSize: '48px', opacity: 0.3 }}>
               <Icons.Exhibitions />
             </div>
-            <div style={{ fontWeight: '600' }}>展覧会情報がありません。</div>
+            <div style={{ fontWeight: '600' }}>展覧情報がありません。</div>
           </div>
         ) : (
           displayExhibitions.map((ex) => {
@@ -268,7 +268,7 @@ export const ExhibitionsPage: React.FC<ExhibitionsPageProps> = ({
 
       <ConfirmDialog
         isOpen={isImportConfirmOpen}
-        title="データを読み込む"
+        title="データ読み込み"
         message="選択されたファイルで現在のすべてのデータが上書きされます。よろしいですか？"
         confirmLabel="読み込む"
         isDestructive

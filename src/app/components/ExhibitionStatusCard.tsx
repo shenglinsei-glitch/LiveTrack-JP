@@ -81,7 +81,7 @@ export const ExhibitionStatusCard: React.FC<Props> = ({
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', padding: '0 4px' }}>
           <button onClick={(e) => { e.stopPropagation(); onOpenExhibitionDateModal(item, 'reserve'); }} style={actionPrimaryBtn}>予約済</button>
           <button onClick={(e) => { e.stopPropagation(); onOpenExhibitionDateModal(item, 'visit'); }} style={actionGhostBtn}>訪問済</button>
-          <button onClick={(e) => { e.stopPropagation(); onUpdateExhibitionStatus(item.parentId, { status: 'SKIPPED', visitedAt: undefined }); }} style={actionGhostBtn}>見送る</button>
+          <button onClick={(e) => { e.stopPropagation(); onUpdateExhibitionStatus(item.parentId, { status: 'SKIPPED', visitedAt: undefined }); }} style={actionGhostBtn}>見送り</button>
         </div>
       );
     }
@@ -93,7 +93,7 @@ export const ExhibitionStatusCard: React.FC<Props> = ({
       return (
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', padding: '0 4px' }}>
           <button onClick={(e) => { e.stopPropagation(); onUpdateExhibitionStatus(item.parentId, { status: 'VISITED' }); }} style={actionPrimaryBtn}>訪問済</button>
-          <button onClick={(e) => { e.stopPropagation(); onUpdateExhibitionStatus(item.parentId, { status: 'SKIPPED', visitedAt: undefined }); }} style={actionGhostBtn}>見送る</button>
+          <button onClick={(e) => { e.stopPropagation(); onUpdateExhibitionStatus(item.parentId, { status: 'SKIPPED', visitedAt: undefined }); }} style={actionGhostBtn}>見送り</button>
         </div>
       );
     }
@@ -147,7 +147,7 @@ export const ExhibitionStatusCard: React.FC<Props> = ({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
               <div style={{ fontSize: '12px', color: theme.colors.textSecondary, fontWeight: '700', minWidth: 0 }}>
                 <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {item.raw.venueName || item.raw.venue || '展覧会'}
+                  {item.raw.venueName || item.raw.venue || '展覧'}
                 </div>
               </div>
               <div
