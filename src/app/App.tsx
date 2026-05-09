@@ -544,6 +544,7 @@ export default function App() {
             exhibitions={exhibitions}
             movies={movies}
             onOpenConcert={(aid, tid, cid) => navigateToConcertHome(aid, tid, cid, 'STATUS')}
+            onOpenArtist={(id) => navigateToArtistDetail(id, 'STATUS')}
             onOpenConcertEditor={(aid, tid) => navigateToConcertEditor(aid, tid)}
             onUpdateConcert={updateConcert}
             onOpenExhibitionDetail={navigateToExhibitionDetail}

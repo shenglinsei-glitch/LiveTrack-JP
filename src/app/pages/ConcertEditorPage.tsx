@@ -330,7 +330,7 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
                         {c.status === '発売前' && <Field label="発売日"><CustomDatePicker value={c.saleAt} onChange={v => handleUpdateConcert(c.id, { saleAt: v })} showTime /></Field>}
                         {(c.status === '検討中' || c.status === '発売前') && <Field label="締切日"><CustomDatePicker value={c.deadlineAt} onChange={v => handleUpdateConcert(c.id, { deadlineAt: v })} showTime /></Field>}
                         {c.status === '抽選中' && <Field label="結果日"><CustomDatePicker value={c.resultAt} onChange={v => handleUpdateConcert(c.id, { resultAt: v })} showTime /></Field>}
-                        <Field label="公演日"><CustomDatePicker value={c.concertAt || (c.date === 'TBD' ? '' : c.date)} onChange={v => handleUpdateConcert(c.id, { concertAt: v, date: v.split(' ')[0] })} /></Field>
+                        <Field label="開演日時"><CustomDatePicker value={c.concertAt || (c.date === 'TBD' ? '' : c.date)} onChange={v => handleUpdateConcert(c.id, { concertAt: v, date: v.split(' ')[0] })} showTime placeholder="開演日時を設定" /></Field>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
                         <Field label="チケット価格"><input type="number" value={c.price || ''} onChange={e => handleUpdateConcert(c.id, { price: Number(e.target.value) })} style={inputStyle} /></Field>

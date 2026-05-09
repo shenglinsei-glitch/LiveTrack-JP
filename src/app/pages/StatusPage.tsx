@@ -15,6 +15,7 @@ interface Props {
   exhibitions: Exhibition[];
   movies: Movie[];
   onOpenConcert: (aid: string, tid: string, cid: string) => void;
+  onOpenArtist: (artistId: string) => void;
   onOpenConcertEditor: (aid: string, tid: string) => void;
   onUpdateConcert: (aid: string, tid: string, cid: string, updates: Partial<Concert>) => void;
   onOpenExhibitionDetail: (id: string) => void;
@@ -53,6 +54,7 @@ export const StatusPage: React.FC<Props> = ({
   exhibitions,
   movies,
   onOpenConcert,
+  onOpenArtist,
   onOpenConcertEditor,
   onUpdateConcert,
   onOpenExhibitionDetail,
@@ -264,7 +266,10 @@ export const StatusPage: React.FC<Props> = ({
         <ConcertStatusCard
           key={item.id}
           concert={item.raw}
-          onClick={() => onOpenConcert(item.raw.artistId, item.raw.tourId, item.raw.concertId)}
+          onClick={() => {
+            if (item.raw.status === '参戦予定' || item.raw.status === '参戦済み') onOpenConcert(item.raw.artistId, item.raw.tourId, item.raw.concertId);
+            else onOpenArtist(item.raw.artistId);
+          }}
           onUpdate={onUpdateConcert}
           onOpenEditor={() => onOpenConcertEditor(item.raw.artistId, item.raw.tourId)}
         />

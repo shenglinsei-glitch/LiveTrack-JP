@@ -1,12 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { PageShell } from '@/components/common/PageShell';
+import { DetailPageLayout } from '@/components/detail/DetailPageLayout';
+import { DetailHeader, DetailChip } from '@/components/detail/DetailHeader';
 import { theme } from '@/components/common/theme';
 import { IconButton, Icons } from '@/components/common/IconButton';
 import { GlassCard } from '@/components/common/GlassCard';
 import { Artist, Concert, DisplaySettings, Status } from '@/domain/types';
 import { calcArtistStatus, sortPerformancesForDisplay } from '@/domain/logic';
 import { TEXT } from '@/components/common/constants';
-
 import { RemoteImage } from '@/components/RemoteImage';
 
 interface Props {
@@ -19,6 +19,30 @@ interface Props {
   onChangeSettings: (settings: Partial<DisplaySettings>) => void;
   onBack: () => void;
 }
+
+const formatConcertDateTime = (concert: Concert) => {
+  const raw = concert.concertAt || concert.date;
+  if (!raw || raw === TEXT.GLOBAL.TBD) return concert.date || TEXT.GLOBAL.TBD;
+
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return concert.date || raw;
+
+  const hasTime = /T\d{2}:\d{2}|\s\d{1,2}:\d{2}/.test(raw);
+  const dateText = date.toLocaleDateString('ja-JP', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+  });
+
+  if (!hasTime) return dateText;
+
+  const timeText = date.toLocaleTimeString('ja-JP', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  return `${dateText} ${timeText}`;
+};
 
 const InstanceRow: React.FC<{ 
   concert: Concert; 
@@ -43,11 +67,11 @@ const InstanceRow: React.FC<{
   return (
     <div
       style={{
-        padding: '16px 20px',
+        padding: '16px 12px',
         display: 'flex',
         flexDirection: 'column',
         gap: '10px',
-        borderBottom: isLast ? 'none' : '1px solid rgba(0, 0, 0, 0.05)',
+        borderBottom: isLast ? 'none' : '1px solid rgba(15,23,42,0.06)',
         opacity: disabled ? 0.6 : 1,
       }}
       onClick={disabled ? undefined : onClick}
@@ -61,52 +85,47 @@ const InstanceRow: React.FC<{
           transition: 'background 0.2s',
         }}
       >
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontWeight: '800', fontSize: '15px' }}>{concert.date}</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: dotColor }} />
-            <span style={{ fontSize: '11px', fontWeight: '700', color: theme.colors.textSecondary }}>{concert.status}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 900, fontSize: 15, color: theme.colors.text }}>{formatConcertDateTime(concert)}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor }} />
+              <span style={{ fontSize: 11, fontWeight: 800, color: theme.colors.textSecondary }}>{concert.status}</span>
+            </div>
+          </div>
+          <div style={{ fontSize: 13, color: theme.colors.textSecondary, marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {concert.venue || '会場未定'}
           </div>
         </div>
-        <div style={{ fontSize: '13px', color: theme.colors.textSecondary, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {concert.venue || '会場未定'}
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {concert.saleLink && (
+            <button 
+              onClick={handleLinkClick}
+              style={{ 
+                border: 'none', 
+                background: 'rgba(83, 190, 232, 0.12)', 
+                color: theme.colors.primary, 
+                padding: 8, 
+                borderRadius: 10, 
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center'
+              }}
+            >
+              <Icons.ExternalLink style={{ width: 16, height: 16 }} />
+            </button>
+          )}
+          {onClick && !disabled && (
+            <div style={{ color: theme.colors.primary, fontWeight: 900, fontSize: 20 }}>›</div>
+          )}
         </div>
-      </div>
-      
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        {concert.saleLink && (
-          <button 
-            onClick={handleLinkClick}
-            style={{ 
-              border: 'none', 
-              background: 'rgba(83, 190, 232, 0.1)', 
-              color: theme.colors.primary, 
-              padding: '8px', 
-              borderRadius: '10px', 
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center'
-            }}
-          >
-            <Icons.ExternalLink style={{ width: 16, height: 16 }} />
-          </button>
-        )}
-        {onClick && !disabled && (
-          <div style={{ color: '#D1D5DB' }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="9 18 15 12 9 6"></polyline>
-            </svg>
-          </div>
-        )}
-      </div>
-
       </div>
 
       {historyCount > 0 && (
         <div
           onClick={(e) => e.stopPropagation()}
-          style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
+          style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
         >
           <button
             onClick={() => setShowHistory(v => !v)}
@@ -115,9 +134,9 @@ const InstanceRow: React.FC<{
               background: 'rgba(0,0,0,0.04)',
               color: theme.colors.textSecondary,
               padding: '8px 10px',
-              borderRadius: '10px',
-              fontSize: '12px',
-              fontWeight: '800',
+              borderRadius: 10,
+              fontSize: 12,
+              fontWeight: 800,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -129,19 +148,19 @@ const InstanceRow: React.FC<{
           </button>
 
           {showHistory && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingLeft: '2px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingLeft: 2 }}>
               {[...history].slice().reverse().map((h, idx) => (
                 <div
                   key={`${h.at}_${idx}`}
                   style={{
                     display: 'flex',
                     justifyContent: 'space-between',
-                    gap: '10px',
-                    fontSize: '12px',
+                    gap: 10,
+                    fontSize: 12,
                     color: theme.colors.textSecondary,
                     background: 'rgba(255,255,255,0.7)',
                     border: '1px solid rgba(0,0,0,0.05)',
-                    borderRadius: '10px',
+                    borderRadius: 10,
                     padding: '8px 10px',
                   }}
                 >
@@ -179,7 +198,6 @@ export const ArtistDetailPage: React.FC<Props> = ({
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
   
   const status = calcArtistStatus(artist);
 
@@ -206,6 +224,10 @@ export const ArtistDetailPage: React.FC<Props> = ({
       .filter(tour => tour.concerts.length > 0 || isSelectionMode);
   }, [artist.tours, settings, isSelectionMode]);
 
+  const backgroundUrl = artist.imageUrl || (artist.tours || []).find(tour => tour.imageUrl)?.imageUrl || '';
+  const tourCount = (artist.tours || []).length;
+  const concertCount = (artist.tours || []).reduce((sum, tour) => sum + (tour.concerts || []).length, 0);
+
   const handleEditConcertClick = () => {
     setIsMenuOpen(false);
     if (artist.tours.length === 0) {
@@ -218,56 +240,24 @@ export const ArtistDetailPage: React.FC<Props> = ({
   };
 
   return (
-    <PageShell
-      header={
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: '44px' }}>
-          {!isSelectionMode ? (
-            <button 
-              onClick={onBack} 
-              style={{ border: 'none', background: 'none', color: '#9CA3AF', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center' }}
-            >
-              <Icons.ChevronLeft />
-            </button>
-          ) : (
-            <div style={{ flex: 1, paddingRight: '16px' }}>
-              <h2 style={{ fontSize: '15px', fontWeight: '800', color: theme.colors.primary, margin: 0 }}>
-                編集するツアーを選択してください
-              </h2>
-            </div>
-          )}
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {isSelectionMode ? (
-              <button 
-                onClick={() => setIsSelectionMode(false)}
-                style={{
-                  border: 'none',
-                  background: 'rgba(0,0,0,0.05)',
-                  color: theme.colors.textSecondary,
-                  padding: '8px 16px',
-                  borderRadius: '12px',
-                  fontSize: '13px',
-                  fontWeight: '800',
-                  cursor: 'pointer'
-                }}
-              >
-                キャンセル
-              </button>
-            ) : (
+    <DetailPageLayout backgroundUrl={backgroundUrl} bottomPadding={120}>
+      <div style={{ opacity: isSelectionMode ? 0.3 : 1, transition: 'opacity 0.3s' }}>
+        <DetailHeader
+          title={artist.name}
+          posterUrl={artist.imageUrl || backgroundUrl}
+          posterAlt={artist.name}
+          posterFallback={<span style={{ fontSize: 46, opacity: 0.25 }}>🎤</span>}
+          onBack={onBack}
+          actions={
+            <>
               <div style={{ position: 'relative' }}>
-                <IconButton 
-                  icon={<Icons.Edit />} 
+                <IconButton
+                  icon={<Icons.Edit />}
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
-                  size={40}
-                  style={{ 
-                    borderRadius: '16px', 
-                    color: theme.colors.primary, 
-                    borderColor: isMenuOpen ? theme.colors.primary : '#F3F4F6' 
-                  }}
+                  style={{ background: 'rgba(255,255,255,0.82)', border: 'none', color: theme.colors.primary }}
                 />
-                
                 {isMenuOpen && (
-                  <div style={{ position: 'absolute', top: '48px', right: 0, zIndex: 1000, width: '220px' }}>
+                  <div style={{ position: 'absolute', top: 48, right: 0, zIndex: 1000, width: 220 }}>
                     <div style={{ position: 'fixed', inset: 0 }} onClick={() => setIsMenuOpen(false)} />
                     <GlassCard padding="8px" className="fade-in" style={{ boxShadow: theme.shadows.pop }}>
                       <MenuOption 
@@ -284,140 +274,135 @@ export const ArtistDetailPage: React.FC<Props> = ({
                   </div>
                 )}
               </div>
-            )}
-          </div>
+            </>
+          }
+          tags={
+            <>
+              <DetailChip label={`${status.main}${status.trackSuffix}`} bg={dotColor} textColor={dotColor === '#E2E8F0' ? theme.colors.text : '#fff'} />
+              <DetailChip label={`${concertCount || tourCount}公演`} subtle />
+            </>
+          }
+        />
+      </div>
+
+      {isSelectionMode && (
+        <GlassCard padding="16px" style={{ marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 900, color: theme.colors.primary, margin: 0 }}>
+            編集するツアーを選択してください
+          </h2>
+          <button
+            onClick={() => setIsSelectionMode(false)}
+            style={{
+              border: 'none',
+              background: 'rgba(0,0,0,0.05)',
+              color: theme.colors.textSecondary,
+              padding: '8px 16px',
+              borderRadius: 12,
+              fontSize: 13,
+              fontWeight: 800,
+              cursor: 'pointer'
+            }}
+          >
+            キャンセル
+          </button>
+        </GlassCard>
+      )}
+
+      {artist.links && artist.links.length > 0 && !isSelectionMode && (
+        <div style={{ 
+          display: 'flex', 
+          gap: 8, 
+          overflowX: 'auto', 
+          paddingBottom: 8, 
+          marginBottom: 14,
+          msOverflowStyle: 'none',
+          scrollbarWidth: 'none'
+        }} className="hide-scrollbar">
+          {artist.links.map((link, idx) => (
+            <button
+              key={idx}
+              onClick={() => window.open(link.url, '_blank', 'noopener,noreferrer')}
+              style={{
+                whiteSpace: 'nowrap',
+                padding: '8px 16px',
+                borderRadius: 999,
+                background: 'rgba(255,255,255,0.72)',
+                border: '1px solid rgba(255,255,255,0.48)',
+                fontSize: 13,
+                fontWeight: 800,
+                color: theme.colors.textSecondary,
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(15,23,42,0.06)',
+                transition: 'all 0.2s'
+              }}
+            >
+              {link.name || '外部リンク'}
+            </button>
+          ))}
         </div>
-      }
-    >
-      <div style={{ paddingBottom: '120px' }}>
-        {/* Profile Info */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px', marginBottom: '32px', opacity: isSelectionMode ? 0.3 : 1, transition: 'opacity 0.3s' }}>
-          <div style={{ 
-            width: '96px', height: '96px', borderRadius: '50%', background: '#F3F4F6', border: '3px solid white', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}>
-            <RemoteImage 
-              imageUrl={artist.imageUrl} 
-              imageId={(artist as any).imageId}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-              fallback={<span style={{ fontSize: '32px', opacity: 0.2 }}>👤</span>}
-            />
+      )}
+
+      <GlassCard padding="20px" style={{ marginBottom: 120 }}>
+        <div style={{ color: theme.colors.primary, fontSize: 13, fontWeight: 900, marginBottom: 14 }}>
+          公演スケジュール
+        </div>
+        {processedTours.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '44px 24px', color: theme.colors.textWeak }}>
+            <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.3 }}>🎪</div>
+            <div style={{ fontWeight: 600 }}>表示可能な公演がありません</div>
           </div>
-          <div style={{ minWidth: 0 }}>
-            <h1 style={{ fontSize: '32px', fontWeight: '900', margin: 0, letterSpacing: '-0.02em', lineHeight: '1.2' }}>{artist.name}</h1>
-            <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'white', padding: '6px 14px', borderRadius: '9999px', border: '1px solid #F1F5F9' }}>
+        ) : (
+          <div style={{ display: 'grid', gap: 12 }}>
+            {processedTours.map(tour => (
+              <div key={tour.id} style={{ transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)', transform: isSelectionMode ? 'scale(1.01)' : 'scale(1)' }}>
                 <div
-                  style={{
-                    width: '8px',
-                    height: '8px',
-                    borderRadius: '50%',
-                    background: dotColor,
-                    boxShadow: `0 0 12px ${dotColor}99`,
-                    filter: 'blur(1px)'
-                  }}
-                />
-                <span style={{ fontSize: '13px', fontWeight: '800', color: theme.colors.textMain }}>
-                  {/* 修改点：这里追加显示了 trackSuffix */}
-                  {status.main}{status.trackSuffix}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Artist Links Section */}
-        {artist.links && artist.links.length > 0 && !isSelectionMode && (
-          <div style={{ 
-            display: 'flex', 
-            gap: '8px', 
-            overflowX: 'auto', 
-            paddingBottom: '8px', 
-            marginBottom: '40px',
-            msOverflowStyle: 'none',
-            scrollbarWidth: 'none'
-          }} className="hide-scrollbar">
-            {artist.links.map((link, idx) => (
-              <button
-                key={idx}
-                onClick={() => window.open(link.url, '_blank', 'noopener,noreferrer')}
-                style={{
-                  whiteSpace: 'nowrap',
-                  padding: '8px 16px',
-                  borderRadius: '14px',
-                  background: 'rgba(255,255,255,0.8)',
-                  border: '1px solid rgba(0,0,0,0.04)',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  color: theme.colors.textSecondary,
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = theme.colors.primary}
-                onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(0,0,0,0.04)'}
-              >
-                {link.name || '外部リンク'}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Tours List */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {processedTours.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '60px 40px', color: theme.colors.textWeak }}>
-              <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.3 }}>🎪</div>
-              <div style={{ fontWeight: '600' }}>表示可能な公演がありません</div>
-            </div>
-          ) : (
-            processedTours.map(tour => (
-              <div key={tour.id} style={{ transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)', transform: isSelectionMode ? 'scale(1.02)' : 'scale(1)' }}>
-                <GlassCard 
-                  padding="0" 
                   onClick={isSelectionMode ? () => onOpenConcertEditor(artistId, tour.id) : undefined}
-                  style={{ 
+                  style={{
+                    width: '100%',
+                    border: isSelectionMode ? `2.5px solid ${theme.colors.primary}` : '1px solid rgba(15,23,42,0.06)',
+                    background: 'rgba(255,255,255,0.72)',
+                    borderRadius: 22,
                     overflow: 'hidden',
-                    border: isSelectionMode ? `2.5px solid ${theme.colors.primary}` : theme.glass.border,
-                    boxShadow: isSelectionMode ? theme.shadows.pop : theme.shadows.card,
-                    position: 'relative'
+                    cursor: isSelectionMode ? 'pointer' : 'default',
+                    boxShadow: '0 8px 24px rgba(15,23,42,0.04)',
                   }}
                 >
                   <div style={{ 
                     display: 'flex', 
-                    gap: '16px', 
-                    padding: '20px', 
-                    background: isSelectionMode ? 'rgba(83, 190, 232, 0.05)' : 'linear-gradient(to bottom right, rgba(255,255,255,0.8), rgba(255,255,255,0.4))', 
-                    borderBottom: '1px solid rgba(0,0,0,0.03)' 
+                    gap: 12, 
+                    padding: 12, 
+                    borderBottom: '1px solid rgba(15,23,42,0.05)',
+                    alignItems: 'center',
                   }}>
-                    <div style={{ width: '60px', height: '80px', borderRadius: '12px', background: '#F3F4F6', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: 58, height: 82, borderRadius: 16, background: '#F3F4F6', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <RemoteImage 
                         imageUrl={tour.imageUrl} 
                         imageId={(tour as any).imageId}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                        fallback={<span style={{ fontSize: '24px', opacity: 0.2 }}>🎸</span>}
+                        fallback={<span style={{ fontSize: 24, opacity: 0.2 }}>🎸</span>}
                       />
                     </div>
-                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h3 style={{ fontSize: '18px', fontWeight: '900', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tour.name}</h3>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                        <h3 style={{ fontSize: 16, fontWeight: 900, color: theme.colors.text, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tour.name}</h3>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
                           {tour.officialUrl && !isSelectionMode && (
                             <button 
                               onClick={(e) => { e.stopPropagation(); window.open(tour.officialUrl, '_blank', 'noopener,noreferrer'); }}
-                              style={{ border: 'none', background: 'none', cursor: 'pointer', color: theme.colors.textWeak, padding: '4px' }}
+                              style={{ border: 'none', background: 'none', cursor: 'pointer', color: theme.colors.textWeak, padding: 4 }}
                             >
                               <Icons.Globe style={{ width: 18, height: 18 }} />
                             </button>
                           )}
                           {isSelectionMode && (
-                            <div style={{ background: theme.colors.primary, color: 'white', padding: '4px', borderRadius: '50%', display: 'flex' }}>
+                            <div style={{ background: theme.colors.primary, color: 'white', padding: 4, borderRadius: '50%', display: 'flex' }}>
                               <Icons.Edit style={{ width: 14, height: 14 }} />
                             </div>
                           )}
                         </div>
                       </div>
-                      <div style={{ marginTop: '6px' }}>
-                        <span style={{ fontSize: '11px', fontWeight: '800', color: theme.colors.textWeak, background: '#F1F5F9', padding: '2px 8px', borderRadius: '6px' }}>
+                      <div style={{ marginTop: 8 }}>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: theme.colors.textWeak, background: '#F1F5F9', padding: '2px 8px', borderRadius: 6 }}>
                           {tour.concerts.length}公演
                         </span>
                       </div>
@@ -436,22 +421,22 @@ export const ArtistDetailPage: React.FC<Props> = ({
                       ))}
                     </div>
                   )}
-                </GlassCard>
+                </div>
               </div>
-            ))
-          )}
-        </div>
-      </div>
+            ))}
+          </div>
+        )}
+      </GlassCard>
 
       {!isSelectionMode && (
         <IconButton 
           icon={<Icons.Plus />} 
           primary size={64} 
           onClick={() => onOpenConcertEditor(artistId)} 
-          style={{ position: 'fixed', right: '16px', bottom: 'calc(16px + env(safe-area-inset-bottom))', zIndex: 110, boxShadow: theme.shadows.fab }} 
+          style={{ position: 'fixed', right: 16, bottom: 'calc(16px + env(safe-area-inset-bottom))', zIndex: 110, boxShadow: theme.shadows.fab }} 
         />
       )}
-    </PageShell>
+    </DetailPageLayout>
   );
 };
 
@@ -463,15 +448,15 @@ const MenuOption = ({ label, icon, onClick }: { label: string; icon: React.React
       padding: '12px 16px',
       display: 'flex',
       alignItems: 'center',
-      gap: '12px',
+      gap: 12,
       border: 'none',
       background: 'none',
       cursor: 'pointer',
       textAlign: 'left',
-      borderRadius: '12px',
+      borderRadius: 12,
       color: theme.colors.text,
-      fontSize: '14px',
-      fontWeight: '600',
+      fontSize: 14,
+      fontWeight: 600,
       transition: 'background 0.2s',
     }}
     onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.05)')}

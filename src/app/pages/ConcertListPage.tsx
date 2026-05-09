@@ -195,8 +195,8 @@ const TourGroupCard: React.FC<{
     >
       <div
         onClick={() => {
-          const firstParticipated = concerts.find((x) => x.status === '参戦済み') || concerts[0];
-          if (status === '参戦済み' && firstParticipated) onOpenConcert(firstParticipated.artistId, firstParticipated.tourId, firstParticipated.id);
+          const firstDetailTarget = concerts.find((x) => x.status === '参戦予定' || x.status === '参戦済み') || concerts[0];
+          if ((status === '参戦予定' || status === '参戦済み') && firstDetailTarget) onOpenConcert(firstDetailTarget.artistId, firstDetailTarget.tourId, firstDetailTarget.id);
           else onOpenArtist(artistId);
         }}
         style={{
@@ -290,12 +290,12 @@ const TourGroupCard: React.FC<{
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '-2px' }}>
             {visibleConcerts.map((c) => {
-              const isParticipated = c.status === '参戦済み';
+              const canOpenDetail = c.status === '参戦予定' || c.status === '参戦済み';
               return (
                 <div
                   key={c.id}
                   onClick={
-                    isParticipated
+                    canOpenDetail
                       ? (e) => {
                           e.stopPropagation();
                           onOpenConcert(c.artistId, c.tourId, c.id);
@@ -307,8 +307,8 @@ const TourGroupCard: React.FC<{
                     alignItems: 'baseline',
                     justifyContent: 'space-between',
                     padding: '2px 0',
-                    cursor: isParticipated ? 'pointer' : 'default',
-                    opacity: isParticipated ? 1 : 0.75,
+                    cursor: canOpenDetail ? 'pointer' : 'default',
+                    opacity: canOpenDetail ? 1 : 0.75,
                     transition: 'opacity 0.2s',
                     lineHeight: 1.2,
                   }}
@@ -331,7 +331,7 @@ const TourGroupCard: React.FC<{
                   >
                     {c.venue || '会場未定'}
                   </div>
-                  {isParticipated ? (
+                  {canOpenDetail ? (
                     <Icons.ChevronLeft
                       style={{
                         transform: 'rotate(180deg)',

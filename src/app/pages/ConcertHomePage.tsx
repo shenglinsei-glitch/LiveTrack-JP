@@ -23,6 +23,21 @@ interface Props {
 
 type AlbumItem = { id: string; url: string };
 
+
+const normalizeDateTimeText = (v?: string | null) => (v || '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+const formatConcertDateTime = (v?: string | null) => {
+  const text = normalizeDateTimeText(v);
+  if (!text || text === 'TBD') return null;
+  const m = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?/);
+  if (m) {
+    const [, y, mo, d, h, min] = m;
+    const date = `${y}/${String(Number(mo))}/${String(Number(d))}`;
+    return h && min ? `${date} ${String(Number(h)).padStart(2, '0')}:${min}` : date;
+  }
+  return text;
+};
+
 const LinkPill: React.FC<{ onClick: () => void; children: React.ReactNode }> = ({ onClick, children }) => (
   <button
     onClick={onClick}
@@ -207,7 +222,7 @@ export const ConcertHomePage: React.FC<Props> = ({
 
         <CollapsibleSection title="基本情報">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16, width: '100%' }}>
-            <div><Label>公演日</Label><Value>{concert.concertAt || concert.date}</Value></div>
+            <div><Label>開演日時</Label><Value>{formatConcertDateTime(concert.concertAt || concert.date)}</Value></div>
             <div><Label>会場</Label><Value>{concert.venue}</Value></div>
             <div><Label>チケットステータス</Label><Value>{concert.status || '未設定'}</Value></div>
             <div><Label>料金</Label><Value>{concert.price ? `${concert.price.toLocaleString()} 円` : null}</Value></div>
