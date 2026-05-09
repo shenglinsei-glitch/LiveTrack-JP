@@ -85,7 +85,7 @@ const InstanceRow: React.FC<{
           transition: 'background 0.2s',
         }}
       >
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: '1 1 0', minWidth: 0, maxWidth: '100%' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 900, fontSize: 15, color: theme.colors.text }}>{formatConcertDateTime(concert)}</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -342,7 +342,7 @@ export const ArtistDetailPage: React.FC<Props> = ({
         </div>
       )}
 
-      <GlassCard padding="20px" style={{ marginBottom: 120 }}>
+      <GlassCard padding="20px" style={{ marginBottom: 120, overflow: 'hidden' }}>
         <div style={{ color: theme.colors.primary, fontSize: 13, fontWeight: 900, marginBottom: 14 }}>
           公演スケジュール
         </div>
@@ -352,9 +352,9 @@ export const ArtistDetailPage: React.FC<Props> = ({
             <div style={{ fontWeight: 600 }}>表示可能な公演がありません</div>
           </div>
         ) : (
-          <div style={{ display: 'grid', gap: 12 }}>
+          <div style={{ display: 'grid', gap: 12, minWidth: 0 }}>
             {processedTours.map(tour => (
-              <div key={tour.id} style={{ transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)', transform: isSelectionMode ? 'scale(1.01)' : 'scale(1)' }}>
+              <div key={tour.id} style={{ minWidth: 0, transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)', transform: isSelectionMode ? 'scale(1.01)' : 'scale(1)' }}>
                 <div
                   onClick={isSelectionMode ? () => onOpenConcertEditor(artistId, tour.id) : undefined}
                   style={{
@@ -365,6 +365,8 @@ export const ArtistDetailPage: React.FC<Props> = ({
                     overflow: 'hidden',
                     cursor: isSelectionMode ? 'pointer' : 'default',
                     boxShadow: '0 8px 24px rgba(15,23,42,0.04)',
+                    minWidth: 0,
+                    maxWidth: '100%',
                   }}
                 >
                   <div style={{ 
@@ -382,9 +384,9 @@ export const ArtistDetailPage: React.FC<Props> = ({
                         fallback={<span style={{ fontSize: 24, opacity: 0.2 }}>🎸</span>}
                       />
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                        <h3 style={{ fontSize: 16, fontWeight: 900, color: theme.colors.text, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tour.name}</h3>
+                    <div style={{ flex: '1 1 0', minWidth: 0, maxWidth: '100%' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                        <h3 style={{ flex: '1 1 auto', minWidth: 0, maxWidth: '100%', fontSize: 16, fontWeight: 900, color: theme.colors.text, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tour.name}</h3>
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
                           {tour.officialUrl && !isSelectionMode && (
                             <button 
