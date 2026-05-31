@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
 import dayjs from 'dayjs';
 import { Anime, Season, Episode, OriginalType, OpeningSong, EndingSong, AnimeStatus, AnimeBroadcastWeekday } from '@/domain/types';
 import { theme } from '@/components/common/theme';
@@ -8,6 +7,7 @@ import { GlassCard } from '@/components/common/GlassCard';
 import { Label, Value, SectionTitle } from '@/components/detail/DetailText';
 import { DetailHeader, DetailChip, DetailLinkIconButton } from '@/components/detail/DetailHeader';
 import { DetailPageLayout } from '@/components/detail/DetailPageLayout';
+import { WheelDatePicker } from '@/components/common/WheelDateTimePicker';
 
 interface AnimeDetailPageProps {
   anime: Anime;
@@ -149,87 +149,17 @@ const TextArea: React.FC<{ value: string; onChange: (v: string) => void; placeho
 
 
 
-const DateField: React.FC<{ value?: string; onChange: (v: string) => void; placeholder?: string }> = ({ value, onChange, placeholder = '年/月/日' }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const parsed = value && dayjs(value).isValid() ? dayjs(value) : dayjs();
-  const [viewDate, setViewDate] = useState(parsed);
 
-  useEffect(() => {
-    if (isOpen) setViewDate(value && dayjs(value).isValid() ? dayjs(value) : dayjs());
-  }, [isOpen, value]);
-
-  useEffect(() => {
-    if (!isOpen || typeof document === 'undefined') return;
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = originalOverflow; };
-  }, [isOpen]);
-
-  const days = useMemo(() => {
-    const first = viewDate.startOf('month').day();
-    const count = viewDate.daysInMonth();
-    const result: Array<number | null> = [];
-    for (let i = 0; i < first; i++) result.push(null);
-    for (let i = 1; i <= count; i++) result.push(i);
-    return result;
-  }, [viewDate]);
-
-  const display = value && dayjs(value).isValid() ? dayjs(value).format('YYYY/MM/DD') : '';
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setIsOpen(true)}
-        style={{ ...inputStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between', textAlign: 'left', color: display ? theme.colors.text : theme.colors.textSecondary, cursor: 'pointer' }}
-      >
-        <span>{display || placeholder}</span>
-        <Icons.Calendar style={{ width: 18, height: 18, opacity: 0.7 }} />
-      </button>
-      {isOpen && typeof document !== 'undefined' && createPortal(
-        <div style={{ position: 'fixed', inset: 0, zIndex: 5000, background: 'rgba(15,23,42,0.34)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setIsOpen(false)}>
-          <div style={{ width: 'min(420px, calc(100vw - 32px))', maxWidth: 'calc(100vw - 32px)', borderRadius: 28, background: 'rgba(255,255,255,0.96)', boxShadow: '0 24px 80px rgba(15,23,42,0.22)', padding: 18 }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <button type="button" onClick={() => setViewDate((d) => d.subtract(1, 'month'))} style={{ width: 40, height: 40, borderRadius: 999, border: 'none', background: 'rgba(83,190,232,0.12)', color: theme.colors.primary, fontWeight: 900, cursor: 'pointer' }}>‹</button>
-              <div style={{ fontSize: 16, fontWeight: 900, color: theme.colors.text }}>{viewDate.format('YYYY年 M月')}</div>
-              <button type="button" onClick={() => setViewDate((d) => d.add(1, 'month'))} style={{ width: 40, height: 40, borderRadius: 999, border: 'none', background: 'rgba(83,190,232,0.12)', color: theme.colors.primary, fontWeight: 900, cursor: 'pointer' }}>›</button>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 8 }}>
-              {week.map((w) => <div key={w} style={{ textAlign: 'center', fontSize: 11, color: theme.colors.textWeak, fontWeight: 900 }}>{w}</div>)}
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 6 }}>
-              {days.map((day, idx) => {
-                const date = day ? viewDate.date(day) : null;
-                const active = !!date && value === date.format('YYYY-MM-DD');
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    disabled={!date}
-                    onClick={() => { if (date) { onChange(date.format('YYYY-MM-DD')); setIsOpen(false); } }}
-                    style={{
-                      aspectRatio: '1 / 1', borderRadius: 14, border: 'none', background: active ? theme.colors.primary : date ? 'rgba(15,23,42,0.04)' : 'transparent',
-                      color: active ? 'white' : theme.colors.text, fontSize: 13, fontWeight: 800, cursor: date ? 'pointer' : 'default'
-                    }}
-                  >
-                    {day || ''}
-                  </button>
-                );
-              })}
-            </div>
-            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-              <button type="button" onClick={() => { onChange(''); setIsOpen(false); }} style={{ flex: 1, minHeight: 44, borderRadius: 16, border: 'none', background: 'rgba(15,23,42,0.06)', color: theme.colors.textSecondary, fontWeight: 900, cursor: 'pointer' }}>クリア</button>
-              <button type="button" onClick={() => setIsOpen(false)} style={{ flex: 1, minHeight: 44, borderRadius: 16, border: 'none', background: theme.colors.primary, color: 'white', fontWeight: 900, cursor: 'pointer' }}>閉じる</button>
-            </div>
-          </div>
-        </div>, document.body
-      )}
-    </>
-  );
-};
+const DateField: React.FC<{ value?: string; onChange: (v: string) => void; placeholder?: string }> = ({ value, onChange, placeholder = '未設定' }) => (
+  <WheelDatePicker value={value || ''} onChange={onChange} placeholder={placeholder} />
+);
 
 const sectionCardStyle: React.CSSProperties = {
   marginBottom: 14,
+  minWidth: 0,
+  maxWidth: '100%',
+  boxSizing: 'border-box',
+  overflow: 'hidden',
 };
 
 
@@ -248,8 +178,10 @@ const collapseButtonStyle: React.CSSProperties = {
 
 const infoGridStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))',
   gap: 16,
+  minWidth: 0,
+  maxWidth: '100%',
 };
 
 const infoItemStyle: React.CSSProperties = {
@@ -331,7 +263,7 @@ const SongList: React.FC<{ songs?: Array<OpeningSong | EndingSong> }> = ({ songs
       {values.map((song, idx) => (
         <div key={`${song.songTitle}-${idx}`} style={{ display: 'flex', gap: 10, alignItems: 'center', background: 'rgba(255,255,255,0.62)', borderRadius: 16, padding: '10px 12px', border: '1px solid rgba(15,23,42,0.05)' }}>
           {song.coverUrl ? <img src={song.coverUrl} alt={song.songTitle} style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} /> : null}
-          <div style={{ minWidth: 0 }}>
+          <div style={{ flex: '1 1 0', minWidth: 0, maxWidth: '100%' }}>
             <Value placeholder="">{song.songTitle || null}</Value>
             <div style={{ fontSize: 13, color: theme.colors.textSecondary, marginTop: 2, fontWeight: 700 }}>{song.artistName || ''}</div>
             {song.musicUrl ? <a href={song.musicUrl.startsWith('http') ? song.musicUrl : `https://${song.musicUrl}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: theme.colors.primary, fontWeight: 800 }}>リンクを開く</a> : null}
@@ -373,6 +305,10 @@ const SeasonSummaryCard: React.FC<{
         cursor: 'pointer',
         textAlign: 'left',
         boxShadow: '0 10px 30px rgba(15,23,42,0.06)',
+        boxSizing: 'border-box',
+        minWidth: 0,
+        maxWidth: '100%',
+        overflow: 'hidden',
       }}
     >
       <div style={{ width: 76, height: 96, borderRadius: 18, overflow: 'hidden', flexShrink: 0, background: 'rgba(15,23,42,0.06)' }}>
@@ -694,7 +630,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
           }
         />
 
-        <div style={{ padding: '0 16px 140px' }}>
+        <div style={{ padding: '0 0 140px', minWidth: 0, maxWidth: '100%' }}>
           <ViewSection title="基本情報">
             <div style={infoGridStyle}>
               <InfoItem label="放送開始日">{formatDateWithWeek(anime.startDate) || null}</InfoItem>
@@ -765,7 +701,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
                     />
 
                     {season.collapsed === false && (
-                      <div style={{ marginTop: 18, display: 'grid', gap: 18, padding: '0 8px 8px' }}>
+                      <div style={{ marginTop: 18, display: 'grid', gap: 18, padding: '0 4px 8px', minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
                         <div style={infoGridStyle}>
                           <InfoItem label="放送開始日">{formatDateWithWeek(season.startDate) || null}</InfoItem>
                           <InfoItem label="放送終了日">{formatDateWithWeek(season.endDate) || null}</InfoItem>
@@ -864,7 +800,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
         tags={<DetailChip label={deriveAnimeStatus(draft)} bg={getAnimeStatusColor(deriveAnimeStatus(draft))} />}
       />
 
-      <div style={{ padding: '0 16px 140px' }}>
+      <div style={{ padding: '0 0 140px', minWidth: 0, maxWidth: '100%' }}>
         <GlassCard style={sectionCardStyle}>
           <SectionTitle title="基本情報" />
           <div style={{ marginBottom: 14 }}>
@@ -1023,7 +959,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
             <button onClick={addSeason} style={{ padding: '8px 16px', borderRadius: 12, border: 'none', background: theme.colors.primary, color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ シーズン追加</button>
           </div>
           {asArray(draft.seasons).map((season, seasonIdx) => (
-            <GlassCard key={season.id} style={{ marginBottom: 12 }}>
+            <GlassCard key={season.id} style={{ marginBottom: 12, minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 12 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'minmax(72px, 0.34fr) minmax(0, 1fr)', gap: 8 }}>
@@ -1173,7 +1109,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
                         </div>
                         <div style={{ marginBottom: 8 }}>
                           <Label>視聴日</Label>
-                          <Input type="date" value={ep.watchedDate || ''} onChange={(v) => updateEpisode(seasonIdx, epIdx, { watchedDate: v })} />
+                          <DateField value={ep.watchedDate || ''} onChange={(v) => updateEpisode(seasonIdx, epIdx, { watchedDate: v })} />
                         </div>
                         <div style={{ marginBottom: 8 }}>
                           <TextArea value={ep.summary || ''} onChange={(v) => updateEpisode(seasonIdx, epIdx, { summary: v })} placeholder="あらすじ" rows={2} />
