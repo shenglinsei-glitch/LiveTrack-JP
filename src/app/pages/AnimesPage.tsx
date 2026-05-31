@@ -76,10 +76,9 @@ const getNextDayWeekday = (date?: string) => {
 const getBroadcastText = (anime: Anime) => {
   const watching = getCurrentWatchingSeason(anime);
   const startDate = watching?.startDate || anime.startDate;
-  const time = watching?.broadcastTime || anime.broadcastTime;
   const weekday = getNextDayWeekday(startDate) || watching?.broadcastWeekday || anime.broadcastWeekday;
   if (!weekday) return '';
-  return `毎週${weekday}曜${time ? ` ${time}` : ''}更新`;
+  return `毎週${weekday}曜更新`;
 };
 
 

@@ -148,13 +148,13 @@ const normalizeSeason = (season: any, idx: number, anime?: any): Season => ({
   originalTitle: season?.originalTitle || (idx === 0 ? anime?.originalTitle || '' : ''),
   openingSongs: Array.isArray(season?.openingSongs) ? season.openingSongs.map(normalizeSong) : [],
   endingSongs: Array.isArray(season?.endingSongs) ? season.endingSongs.map(normalizeSong) : [],
-  genres: Array.isArray(season?.genres) ? season.genres : [],
+  genres: Array.from(new Set((Array.isArray(season?.genres) ? season.genres : []).map((g: any) => String(g || '').trim()).filter(Boolean))),
   summary: season?.summary || '',
   rating: typeof season?.rating === 'number' ? season.rating : (season?.rating ? Number(season.rating) : undefined),
   review: season?.review || '',
   totalEpisodes: typeof season?.totalEpisodes === 'number' ? season.totalEpisodes : (season?.totalEpisodes ? Number(season.totalEpisodes) : undefined),
   broadcastWeekday: season?.broadcastWeekday || '',
-  broadcastTime: season?.broadcastTime || '',
+  broadcastTime: '',
   episodes: Array.isArray(season?.episodes) ? season.episodes.map(normalizeEpisode) : [],
   status: normalizeAnimeStatus(season?.status, season?.watchDecision),
   watchDecision: season?.watchDecision,
@@ -166,12 +166,14 @@ export const normalizeAnimeData = (anime: any): Anime => {
   const baseSeasons = Array.isArray(anime?.seasons) && anime.seasons.length > 0
     ? anime.seasons
     : [{ seasonNumber: '第1期', seasonTitle: '' }];
+  const normalizedSeasons = baseSeasons.map((season: any, idx: number) => normalizeSeason(season, idx, anime));
+  const latestSeasonPosterUrl = [...normalizedSeasons].reverse().find((season) => season.posterUrl?.trim())?.posterUrl || anime?.posterUrl || '';
 
   return {
     ...anime,
     id: String(anime?.id || Math.random().toString(36).substr(2, 9)),
     title: String(anime?.title || '').trim() || 'タイトル未設定',
-    posterUrl: anime?.posterUrl || '',
+    posterUrl: latestSeasonPosterUrl,
     status: normalizeAnimeStatus(anime?.status, anime?.watchDecision),
     startDate: anime?.startDate || '',
     endDate: anime?.endDate || '',
@@ -181,14 +183,14 @@ export const normalizeAnimeData = (anime: any): Anime => {
     originalTitle: anime?.originalTitle || '',
     openingSongs: Array.isArray(anime?.openingSongs) ? anime.openingSongs.map(normalizeSong) : [],
     endingSongs: Array.isArray(anime?.endingSongs) ? anime.endingSongs.map(normalizeSong) : [],
-    genres: Array.isArray(anime?.genres) ? anime.genres : [],
+    genres: Array.from(new Set((Array.isArray(anime?.genres) ? anime.genres : []).map((g: any) => String(g || '').trim()).filter(Boolean))),
     summary: anime?.summary || '',
     rating: typeof anime?.rating === 'number' ? anime.rating : (anime?.rating ? Number(anime.rating) : undefined),
     review: anime?.review || '',
     totalEpisodes: typeof anime?.totalEpisodes === 'number' ? anime.totalEpisodes : (anime?.totalEpisodes ? Number(anime.totalEpisodes) : undefined),
     broadcastWeekday: anime?.broadcastWeekday || '',
-    broadcastTime: anime?.broadcastTime || '',
-    seasons: baseSeasons.map((season: any, idx: number) => normalizeSeason(season, idx, anime)),
+    broadcastTime: '',
+    seasons: normalizedSeasons,
     createdAt: anime?.createdAt || now,
     updatedAt: anime?.updatedAt || anime?.createdAt || now,
   };

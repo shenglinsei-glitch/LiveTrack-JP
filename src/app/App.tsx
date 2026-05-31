@@ -130,6 +130,15 @@ export default function App() {
   useEffect(() => { safeSave(STORAGE_KEYS.MOVIES, movies); }, [movies]);
   useEffect(() => { safeSave(STORAGE_KEYS.ACTORS, actors); }, [actors]);
   useEffect(() => { safeSave(STORAGE_KEYS.ANIMES, animes); }, [animes]);
+
+  const availableAnimeGenres = useMemo(() => {
+    const set = new Set<string>();
+    (animes || []).forEach((anime) => {
+      (anime.genres || []).forEach((genre) => { if (genre?.trim()) set.add(genre.trim()); });
+      (anime.seasons || []).forEach((season) => (season.genres || []).forEach((genre) => { if (genre?.trim()) set.add(genre.trim()); }));
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'ja'));
+  }, [animes]);
   useEffect(() => { safeSave(STORAGE_KEYS.GLOBAL_SETTINGS, globalSettings); }, [globalSettings]);
   useEffect(() => { safeSave(STORAGE_KEYS.DISPLAY_SETTINGS, displaySettings); }, [displaySettings]);
   useEffect(() => { safeSave(STORAGE_KEYS.ARTIST_SORT, artistSortMode); }, [artistSortMode]);
@@ -745,6 +754,7 @@ export default function App() {
         return (
           <AnimeDetailPage
             anime={anime}
+            availableGenres={availableAnimeGenres}
             onUpdateAnime={(updated) => {
               setAnimes(prev => prev.map(a => a.id === updated.id ? normalizeAnimeData(updated) : a));
             }}
