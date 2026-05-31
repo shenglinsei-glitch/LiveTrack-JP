@@ -46,7 +46,7 @@ const formatDateWithWeek = (date?: string) => {
 const ANIME_STATUS_PRIORITY: AnimeStatus[] = ['視聴中', '視聴予定', '放送前', '保留', '視聴済み', '視聴中止', '見送り'];
 
 const deriveAnimeStatus = (anime: Pick<Anime, 'status' | 'seasons'>): AnimeStatus => {
-  const statuses = (anime.seasons || []).map((s) => s.status).filter(Boolean) as AnimeStatus[];
+  const statuses = asArray(anime.seasons).map((s) => s.status).filter(Boolean) as AnimeStatus[];
   if (!statuses.length) return anime.status || '放送前';
   return ANIME_STATUS_PRIORITY.find((status) => statuses.includes(status)) || anime.status || '放送前';
 };
@@ -86,11 +86,11 @@ const getSeasonDisplayTitle = (animeTitle: string, season?: Season) => {
 };
 
 const getCurrentWatchingSeason = (anime: Anime) => {
-  return (anime.seasons || []).find((season) => season.status === '視聴中');
+  return asArray(anime.seasons).find((season) => season.status === '視聴中');
 };
 
 const getLatestSeasonPosterUrl = (anime: Pick<Anime, 'posterUrl' | 'seasons'>) => {
-  const seasons = [...(anime.seasons || [])];
+  const seasons = [...asArray(anime.seasons)];
   for (let i = seasons.length - 1; i >= 0; i--) {
     const url = seasons[i]?.posterUrl?.trim();
     if (url) return url;
@@ -504,7 +504,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
       <div style={{ padding: '0 16px 140px' }}>
 
         <GlassCard style={sectionCardStyle}>
-          <SectionTitle>基本情報</SectionTitle>
+          <SectionTitle title="基本情報" />
           {deriveAnimeStatus(anime) && (
             <div style={{ marginBottom: 14 }}>
               <Label>ステータス</Label>
@@ -524,9 +524,9 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
 
         {anime.genres && anime.genres.length > 0 && (
           <GlassCard style={sectionCardStyle}>
-            <SectionTitle>ジャンル</SectionTitle>
+            <SectionTitle title="ジャンル" />
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {anime.genres.map((genre, idx) => (
+              {asArray(anime.genres).map((genre, idx) => (
                 <span key={idx} style={{ background: 'rgba(83,190,232,0.15)', color: theme.colors.primary, padding: '6px 12px', borderRadius: 12, fontSize: 13, fontWeight: 700 }}>{genre}</span>
               ))}
             </div>
@@ -535,7 +535,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
 
         {anime.openingSongs && anime.openingSongs.length > 0 && (
           <GlassCard style={sectionCardStyle}>
-            <SectionTitle>オープニング曲</SectionTitle>
+            <SectionTitle title="オープニング曲" />
             {anime.openingSongs.map((song, idx) => (
               <div key={idx} style={{ marginBottom: 10 }}>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 6 }}>
@@ -553,7 +553,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
 
         {anime.endingSongs && anime.endingSongs.length > 0 && (
           <GlassCard style={sectionCardStyle}>
-            <SectionTitle>エンディング曲</SectionTitle>
+            <SectionTitle title="エンディング曲" />
             {anime.endingSongs.map((song, idx) => (
               <div key={idx} style={{ marginBottom: 10 }}>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 6 }}>
@@ -571,28 +571,28 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
 
         {anime.summary && (
           <GlassCard style={sectionCardStyle}>
-            <SectionTitle>あらすじ</SectionTitle>
+            <SectionTitle title="あらすじ" />
             <Value>{anime.summary}</Value>
           </GlassCard>
         )}
 
         {anime.review && (
           <GlassCard style={sectionCardStyle}>
-            <SectionTitle>感想</SectionTitle>
+            <SectionTitle title="感想" />
             <Value>{anime.review}</Value>
           </GlassCard>
         )}
 
-        {anime.seasons && anime.seasons.length > 0 && (
+        {asArray(anime.seasons).length > 0 && (
           <div style={{ marginTop: 20 }}>
-            <SectionTitle style={{ marginBottom: 12 }}>シーズン</SectionTitle>
-            {anime.seasons.map((season, seasonIdx) => (
+            <SectionTitle style={{ marginBottom: 12 }} title="シーズン" />
+            {asArray(anime.seasons).map((season, seasonIdx) => (
               <GlassCard key={season.id} style={{ marginBottom: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                   <div style={{ fontSize: 16, fontWeight: 900, color: theme.colors.text }}>{getSeasonDisplayTitle(anime.title, season)}</div>
                   <button
                     onClick={() => {
-                      const newSeasons = [...anime.seasons];
+                      const newSeasons = [...asArray(anime.seasons)];
                       newSeasons[seasonIdx] = { ...season, collapsed: !season.collapsed };
                       onUpdateAnime({ ...anime, seasons: newSeasons });
                     }}
@@ -717,7 +717,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
 
       <div style={{ padding: '0 16px 140px' }}>
         <GlassCard style={sectionCardStyle}>
-          <SectionTitle>基本情報</SectionTitle>
+          <SectionTitle title="基本情報" />
           <div style={{ marginBottom: 14 }}>
             <Label>タイトル</Label>
             <Input value={draft.title} onChange={(v) => updateDraft({ title: v })} placeholder="タイトルを入力" />
@@ -776,7 +776,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
         </GlassCard>
 
         <GlassCard style={sectionCardStyle}>
-          <SectionTitle>ジャンル</SectionTitle>
+          <SectionTitle title="ジャンル" />
           {availableGenres.length > 0 && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
               {availableGenres.filter((g) => !(draft.genres || []).includes(g)).slice(0, 12).map((genre) => (
@@ -790,11 +790,11 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
               <IconButton icon={<Icons.Trash />} onClick={() => removeGenre(idx)} />
             </div>
           ))}
-          <button onClick={() => addGenre()} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px dashed rgba(15,23,42,0.2)', background: 'transparent', color: theme.colors.primary, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>+ ジャンルを追加</button>
+          {/* Genre add button temporarily removed */}
         </GlassCard>
 
         <GlassCard style={sectionCardStyle}>
-          <SectionTitle>オープニング曲</SectionTitle>
+          <SectionTitle title="オープニング曲" />
           {(draft.openingSongs || []).map((song, idx) => (
             <div key={idx} style={{ marginBottom: 12, padding: 12, background: 'rgba(0,0,0,0.02)', borderRadius: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -813,7 +813,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
         </GlassCard>
 
         <GlassCard style={sectionCardStyle}>
-          <SectionTitle>エンディング曲</SectionTitle>
+          <SectionTitle title="エンディング曲" />
           {(draft.endingSongs || []).map((song, idx) => (
             <div key={idx} style={{ marginBottom: 12, padding: 12, background: 'rgba(0,0,0,0.02)', borderRadius: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -832,18 +832,18 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
         </GlassCard>
 
         <GlassCard style={sectionCardStyle}>
-          <SectionTitle>あらすじ</SectionTitle>
+          <SectionTitle title="あらすじ" />
           <TextArea value={draft.summary || ''} onChange={(v) => updateDraft({ summary: v })} placeholder="あらすじを入力" />
         </GlassCard>
 
         <GlassCard style={sectionCardStyle}>
-          <SectionTitle>感想</SectionTitle>
+          <SectionTitle title="感想" />
           <TextArea value={draft.review || ''} onChange={(v) => updateDraft({ review: v })} placeholder="感想を入力" rows={6} />
         </GlassCard>
 
         <div style={{ marginTop: 20 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <SectionTitle>シーズン</SectionTitle>
+            <SectionTitle title="シーズン" />
             <button onClick={addSeason} style={{ padding: '8px 16px', borderRadius: 12, border: 'none', background: theme.colors.primary, color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ シーズン追加</button>
           </div>
           {asArray(draft.seasons).map((season, seasonIdx) => (
