@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import dayjs from 'dayjs';
 import { Anime, Season, Episode, OriginalType, OpeningSong, EndingSong, AnimeStatus, AnimeBroadcastWeekday } from '@/domain/types';
 import { theme } from '@/components/common/theme';
@@ -141,6 +142,7 @@ const TextArea: React.FC<{ value: string; onChange: (v: string) => void; placeho
 );
 
 
+
 const DateField: React.FC<{ value?: string; onChange: (v: string) => void; placeholder?: string }> = ({ value, onChange, placeholder = '年/月/日' }) => {
   const [isOpen, setIsOpen] = useState(false);
   const parsed = value && dayjs(value).isValid() ? dayjs(value) : dayjs();
@@ -149,6 +151,13 @@ const DateField: React.FC<{ value?: string; onChange: (v: string) => void; place
   useEffect(() => {
     if (isOpen) setViewDate(value && dayjs(value).isValid() ? dayjs(value) : dayjs());
   }, [isOpen, value]);
+
+  useEffect(() => {
+    if (!isOpen || typeof document === 'undefined') return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = originalOverflow; };
+  }, [isOpen]);
 
   const days = useMemo(() => {
     const first = viewDate.startOf('month').day();
@@ -166,18 +175,18 @@ const DateField: React.FC<{ value?: string; onChange: (v: string) => void; place
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        style={{ ...inputStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between', textAlign: 'left', color: display ? theme.colors.text : theme.colors.textSecondary }}
+        style={{ ...inputStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between', textAlign: 'left', color: display ? theme.colors.text : theme.colors.textSecondary, cursor: 'pointer' }}
       >
         <span>{display || placeholder}</span>
-        <span style={{ fontSize: 16, opacity: 0.7 }}>▣</span>
+        <Icons.Calendar style={{ width: 18, height: 18, opacity: 0.7 }} />
       </button>
-      {isOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(15,23,42,0.34)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setIsOpen(false)}>
+      {isOpen && typeof document !== 'undefined' && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 5000, background: 'rgba(15,23,42,0.34)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setIsOpen(false)}>
           <div style={{ width: 'min(420px, calc(100vw - 32px))', maxWidth: 'calc(100vw - 32px)', borderRadius: 28, background: 'rgba(255,255,255,0.96)', boxShadow: '0 24px 80px rgba(15,23,42,0.22)', padding: 18 }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <button type="button" onClick={() => setViewDate((d) => d.subtract(1, 'month'))} style={{ width: 40, height: 40, borderRadius: 999, border: 'none', background: 'rgba(83,190,232,0.12)', color: theme.colors.primary, fontWeight: 900 }}>‹</button>
+              <button type="button" onClick={() => setViewDate((d) => d.subtract(1, 'month'))} style={{ width: 40, height: 40, borderRadius: 999, border: 'none', background: 'rgba(83,190,232,0.12)', color: theme.colors.primary, fontWeight: 900, cursor: 'pointer' }}>‹</button>
               <div style={{ fontSize: 16, fontWeight: 900, color: theme.colors.text }}>{viewDate.format('YYYY年 M月')}</div>
-              <button type="button" onClick={() => setViewDate((d) => d.add(1, 'month'))} style={{ width: 40, height: 40, borderRadius: 999, border: 'none', background: 'rgba(83,190,232,0.12)', color: theme.colors.primary, fontWeight: 900 }}>›</button>
+              <button type="button" onClick={() => setViewDate((d) => d.add(1, 'month'))} style={{ width: 40, height: 40, borderRadius: 999, border: 'none', background: 'rgba(83,190,232,0.12)', color: theme.colors.primary, fontWeight: 900, cursor: 'pointer' }}>›</button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 8 }}>
               {week.map((w) => <div key={w} style={{ textAlign: 'center', fontSize: 11, color: theme.colors.textWeak, fontWeight: 900 }}>{w}</div>)}
@@ -203,11 +212,11 @@ const DateField: React.FC<{ value?: string; onChange: (v: string) => void; place
               })}
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-              <button type="button" onClick={() => { onChange(''); setIsOpen(false); }} style={{ flex: 1, minHeight: 44, borderRadius: 16, border: 'none', background: 'rgba(15,23,42,0.06)', color: theme.colors.textSecondary, fontWeight: 900 }}>クリア</button>
-              <button type="button" onClick={() => setIsOpen(false)} style={{ flex: 1, minHeight: 44, borderRadius: 16, border: 'none', background: theme.colors.primary, color: 'white', fontWeight: 900 }}>閉じる</button>
+              <button type="button" onClick={() => { onChange(''); setIsOpen(false); }} style={{ flex: 1, minHeight: 44, borderRadius: 16, border: 'none', background: 'rgba(15,23,42,0.06)', color: theme.colors.textSecondary, fontWeight: 900, cursor: 'pointer' }}>クリア</button>
+              <button type="button" onClick={() => setIsOpen(false)} style={{ flex: 1, minHeight: 44, borderRadius: 16, border: 'none', background: theme.colors.primary, color: 'white', fontWeight: 900, cursor: 'pointer' }}>閉じる</button>
             </div>
           </div>
-        </div>
+        </div>, document.body
       )}
     </>
   );
@@ -224,14 +233,40 @@ const StaticField: React.FC<{ label: string; value?: string; placeholder?: strin
   </div>
 );
 
+
+const asArray = <T,>(value: T[] | undefined | null): T[] => Array.isArray(value) ? value : [];
+
+const normalizeAnimeDraft = (value: Anime): Anime => ({
+  ...value,
+  openingSongs: asArray(value.openingSongs),
+  endingSongs: asArray(value.endingSongs),
+  genres: asArray(value.genres),
+  seasons: asArray(value.seasons).map((season, idx) => ({
+    ...season,
+    id: String(season.id || `season-${idx}-${Date.now()}`),
+    seasonTitle: season.seasonTitle || '',
+    openingSongs: asArray(season.openingSongs),
+    endingSongs: asArray(season.endingSongs),
+    genres: asArray(season.genres),
+    episodes: asArray(season.episodes),
+  })),
+});
+
+const responsiveTwoColumnStyle: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+  gap: 10,
+  marginBottom: 14,
+};
+
 export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdateAnime, onDeleteAnime, onBack, initialEditMode = false, availableGenres = [] }) => {
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
-  const [draft, setDraft] = useState(anime);
+  const [draft, setDraft] = useState<Anime>(() => normalizeAnimeDraft(anime));
 
   const isDraftDirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(anime), [draft, anime]);
 
   useEffect(() => {
-    setDraft(anime);
+    setDraft(normalizeAnimeDraft(anime));
   }, [anime]);
 
   const handleSave = () => {
@@ -247,7 +282,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
   };
 
   const discardEdit = () => {
-    setDraft(anime);
+    setDraft(normalizeAnimeDraft(anime));
     setIsEditMode(false);
   };
 
@@ -273,7 +308,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
   };
 
   const updateSeason = (seasonIndex: number, updates: Partial<Season>) => {
-    const newSeasons = [...draft.seasons];
+    const newSeasons = [...asArray(draft.seasons)];
     newSeasons[seasonIndex] = { ...newSeasons[seasonIndex], ...updates };
     updateDraft({ seasons: newSeasons });
   };
@@ -281,7 +316,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
   const addSeason = () => {
     const newSeason: Season = {
       id: Math.random().toString(36).substr(2, 9),
-      seasonNumber: `第${draft.seasons.length + 1}シリーズ`,
+      seasonNumber: `第${asArray(draft.seasons).length + 1}シリーズ`,
       seasonTitle: '',
       posterUrl: '',
       startDate: '',
@@ -304,48 +339,53 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
       status: '放送前',
       useAnimeTitle: true,
     };
-    updateDraft({ seasons: [...draft.seasons, newSeason] });
+    updateDraft({ seasons: [...asArray(draft.seasons), newSeason] });
   };
 
   const removeSeason = (seasonIndex: number) => {
     if (window.confirm('このシーズンを削除しますか？')) {
-      updateDraft({ seasons: draft.seasons.filter((_, i) => i !== seasonIndex) });
+      updateDraft({ seasons: asArray(draft.seasons).filter((_, i) => i !== seasonIndex) });
     }
   };
 
   const toggleSeasonCollapse = (seasonIndex: number) => {
-    updateSeason(seasonIndex, { collapsed: !draft.seasons[seasonIndex].collapsed });
+    updateSeason(seasonIndex, { collapsed: !asArray(draft.seasons)[seasonIndex]?.collapsed });
   };
 
   const addEpisode = (seasonIndex: number) => {
-    const season = draft.seasons[seasonIndex];
+    const season = asArray(draft.seasons)[seasonIndex];
+    if (!season) return;
+    const episodes = asArray(season.episodes);
     const newEpisode: Episode = {
       id: Math.random().toString(36).substr(2, 9),
-      episodeNumber: season.episodes.length + 1,
+      episodeNumber: episodes.length + 1,
       title: '',
       summary: '',
       review: '',
       watchedDate: '',
     };
-    const newEpisodes = [...season.episodes, newEpisode];
+    const newEpisodes = [...episodes, newEpisode];
     updateSeason(seasonIndex, { episodes: newEpisodes });
   };
 
   const updateEpisode = (seasonIndex: number, episodeIndex: number, updates: Partial<Episode>) => {
-    const season = draft.seasons[seasonIndex];
-    const newEpisodes = [...season.episodes];
+    const season = asArray(draft.seasons)[seasonIndex];
+    if (!season) return;
+    const newEpisodes = [...asArray(season.episodes)];
     newEpisodes[episodeIndex] = { ...newEpisodes[episodeIndex], ...updates };
     updateSeason(seasonIndex, { episodes: newEpisodes });
   };
 
   const removeEpisode = (seasonIndex: number, episodeIndex: number) => {
-    const season = draft.seasons[seasonIndex];
-    updateSeason(seasonIndex, { episodes: season.episodes.filter((_, i) => i !== episodeIndex) });
+    const season = asArray(draft.seasons)[seasonIndex];
+    if (!season) return;
+    updateSeason(seasonIndex, { episodes: asArray(season.episodes).filter((_, i) => i !== episodeIndex) });
   };
 
   const addOpeningSong = (seasonIndex?: number) => {
     if (seasonIndex !== undefined) {
-      const season = draft.seasons[seasonIndex];
+      const season = asArray(draft.seasons)[seasonIndex];
+      if (!season) return;
       updateSeason(seasonIndex, { openingSongs: [...(season.openingSongs || []), { songTitle: '', artistName: '', coverUrl: '', musicUrl: '' }] });
     } else {
       updateDraft({ openingSongs: [...(draft.openingSongs || []), { songTitle: '', artistName: '', coverUrl: '', musicUrl: '' }] });
@@ -354,8 +394,9 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
 
   const updateOpeningSong = (songIndex: number, updates: Partial<OpeningSong>, seasonIndex?: number) => {
     if (seasonIndex !== undefined) {
-      const season = draft.seasons[seasonIndex];
-      const newSongs = [...(season.openingSongs || [])];
+      const season = asArray(draft.seasons)[seasonIndex];
+      if (!season) return;
+      const newSongs = [...asArray(season.openingSongs)];
       newSongs[songIndex] = { ...newSongs[songIndex], ...updates };
       updateSeason(seasonIndex, { openingSongs: newSongs });
     } else {
@@ -367,7 +408,8 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
 
   const removeOpeningSong = (songIndex: number, seasonIndex?: number) => {
     if (seasonIndex !== undefined) {
-      const season = draft.seasons[seasonIndex];
+      const season = asArray(draft.seasons)[seasonIndex];
+      if (!season) return;
       updateSeason(seasonIndex, { openingSongs: (season.openingSongs || []).filter((_, i) => i !== songIndex) });
     } else {
       updateDraft({ openingSongs: (draft.openingSongs || []).filter((_, i) => i !== songIndex) });
@@ -376,7 +418,8 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
 
   const addEndingSong = (seasonIndex?: number) => {
     if (seasonIndex !== undefined) {
-      const season = draft.seasons[seasonIndex];
+      const season = asArray(draft.seasons)[seasonIndex];
+      if (!season) return;
       updateSeason(seasonIndex, { endingSongs: [...(season.endingSongs || []), { songTitle: '', artistName: '', coverUrl: '', musicUrl: '' }] });
     } else {
       updateDraft({ endingSongs: [...(draft.endingSongs || []), { songTitle: '', artistName: '', coverUrl: '', musicUrl: '' }] });
@@ -385,8 +428,9 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
 
   const updateEndingSong = (songIndex: number, updates: Partial<EndingSong>, seasonIndex?: number) => {
     if (seasonIndex !== undefined) {
-      const season = draft.seasons[seasonIndex];
-      const newSongs = [...(season.endingSongs || [])];
+      const season = asArray(draft.seasons)[seasonIndex];
+      if (!season) return;
+      const newSongs = [...asArray(season.endingSongs)];
       newSongs[songIndex] = { ...newSongs[songIndex], ...updates };
       updateSeason(seasonIndex, { endingSongs: newSongs });
     } else {
@@ -398,7 +442,8 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
 
   const removeEndingSong = (songIndex: number, seasonIndex?: number) => {
     if (seasonIndex !== undefined) {
-      const season = draft.seasons[seasonIndex];
+      const season = asArray(draft.seasons)[seasonIndex];
+      if (!season) return;
       updateSeason(seasonIndex, { endingSongs: (season.endingSongs || []).filter((_, i) => i !== songIndex) });
     } else {
       updateDraft({ endingSongs: (draft.endingSongs || []).filter((_, i) => i !== songIndex) });
@@ -407,7 +452,8 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
 
   const addGenre = (seasonIndex?: number) => {
     if (seasonIndex !== undefined) {
-      const season = draft.seasons[seasonIndex];
+      const season = asArray(draft.seasons)[seasonIndex];
+      if (!season) return;
       updateSeason(seasonIndex, { genres: [...(season.genres || []), ''] });
     } else {
       updateDraft({ genres: [...(draft.genres || []), ''] });
@@ -416,8 +462,9 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
 
   const updateGenre = (genreIndex: number, value: string, seasonIndex?: number) => {
     if (seasonIndex !== undefined) {
-      const season = draft.seasons[seasonIndex];
-      const newGenres = [...(season.genres || [])];
+      const season = asArray(draft.seasons)[seasonIndex];
+      if (!season) return;
+      const newGenres = [...asArray(season.genres)];
       newGenres[genreIndex] = value;
       updateSeason(seasonIndex, { genres: newGenres });
     } else {
@@ -429,7 +476,8 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
 
   const removeGenre = (genreIndex: number, seasonIndex?: number) => {
     if (seasonIndex !== undefined) {
-      const season = draft.seasons[seasonIndex];
+      const season = asArray(draft.seasons)[seasonIndex];
+      if (!season) return;
       updateSeason(seasonIndex, { genres: (season.genres || []).filter((_, i) => i !== genreIndex) });
     } else {
       updateDraft({ genres: (draft.genres || []).filter((_, i) => i !== genreIndex) });
@@ -468,7 +516,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
           {anime.studio && <StaticField label="制作会社" value={anime.studio} />}
           {anime.director && <StaticField label="監督" value={anime.director} />}
           {anime.originalType && <StaticField label="原作種別" value={anime.originalType} />}
-          {anime.originalTitle && <StaticField label="原作タイトル" value={anime.originalTitle} />}
+          {anime.originalTitle && <StaticField label="原作作者" value={anime.originalTitle} />}
           {anime.rating !== undefined && <StaticField label="評価" value={`★ ${anime.rating.toFixed(1)} / 5`} />}
           {anime.totalEpisodes !== undefined && anime.totalEpisodes > 0 && <StaticField label="集数" value={`全${anime.totalEpisodes}話`} />}
           {getBroadcastText(anime.startDate, anime.broadcastWeekday) && <StaticField label="毎週更新" value={getBroadcastText(anime.startDate, anime.broadcastWeekday)} />}
@@ -568,20 +616,20 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
                     {season.rating !== undefined && <StaticField label="評価" value={`★ ${season.rating.toFixed(1)} / 5`} />}
                     {season.totalEpisodes !== undefined && season.totalEpisodes > 0 && <StaticField label="集数" value={`全${season.totalEpisodes}話`} />}
                     {getBroadcastText(season.startDate, season.broadcastWeekday) && <StaticField label="毎週更新" value={getBroadcastText(season.startDate, season.broadcastWeekday)} />}
-                    {season.genres && season.genres.length > 0 && (
+                    {asArray(season.genres).length > 0 && (
                       <div style={{ marginBottom: 14 }}>
                         <Label>ジャンル</Label>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-                          {season.genres.map((genre, idx) => (
+                          {asArray(season.genres).map((genre, idx) => (
                             <span key={idx} style={{ background: 'rgba(83,190,232,0.15)', color: theme.colors.primary, padding: '4px 10px', borderRadius: 10, fontSize: 12, fontWeight: 700 }}>{genre}</span>
                           ))}
                         </div>
                       </div>
                     )}
-                    {season.openingSongs && season.openingSongs.length > 0 && (
+                    {asArray(season.openingSongs).length > 0 && (
                       <div style={{ marginBottom: 14 }}>
                         <Label>オープニング曲</Label>
-                        {season.openingSongs.map((song, idx) => (
+                        {asArray(season.openingSongs).map((song, idx) => (
                           <div key={idx} style={{ marginTop: 6 }}>
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
                               {song.coverUrl && <img src={song.coverUrl} alt={song.songTitle} style={{ width: 38, height: 38, borderRadius: 9, objectFit: 'cover' }} />}
@@ -595,10 +643,10 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
                         ))}
                       </div>
                     )}
-                    {season.endingSongs && season.endingSongs.length > 0 && (
+                    {asArray(season.endingSongs).length > 0 && (
                       <div style={{ marginBottom: 14 }}>
                         <Label>エンディング曲</Label>
-                        {season.endingSongs.map((song, idx) => (
+                        {asArray(season.endingSongs).map((song, idx) => (
                           <div key={idx} style={{ marginTop: 6 }}>
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
                               {song.coverUrl && <img src={song.coverUrl} alt={song.songTitle} style={{ width: 38, height: 38, borderRadius: 9, objectFit: 'cover' }} />}
@@ -624,10 +672,10 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
                         <Value>{season.review}</Value>
                       </div>
                     )}
-                    {season.episodes && season.episodes.length > 0 && (
+                    {asArray(season.episodes).length > 0 && (
                       <div>
                         <Label>エピソード</Label>
-                        {season.episodes.map((ep) => (
+                        {asArray(season.episodes).map((ep) => (
                           <div key={ep.id} style={{ marginTop: 8, padding: 10, background: 'rgba(0,0,0,0.03)', borderRadius: 12 }}>
                             <div style={{ fontSize: 13, fontWeight: 800, color: theme.colors.text }}>第{ep.episodeNumber}話{ep.title ? ` ${ep.title}` : ''}</div>
                             {ep.summary && <div style={{ fontSize: 12, color: theme.colors.textSecondary, marginTop: 4 }}>{ep.summary}</div>}
@@ -682,7 +730,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
             <Label>ポスター画像URL</Label>
             <Input value={getLatestSeasonPosterUrl(draft)} onChange={() => {}} placeholder="最新シーズンのポスター画像URLを自動反映" readOnly />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginBottom: 14 }}>
+          <div style={responsiveTwoColumnStyle}>
             <div>
               <Label>放送開始日</Label>
               <DateField value={draft.startDate || ''} onChange={(v) => updateDraft({ startDate: v, broadcastWeekday: getNextDayWeekday(v) })} />
@@ -708,8 +756,8 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
             </select>
           </div>
           <div style={{ marginBottom: 14 }}>
-            <Label>原作タイトル</Label>
-            <Input value={draft.originalTitle || ''} onChange={(v) => updateDraft({ originalTitle: v })} placeholder="原作タイトルを入力" />
+            <Label>原作作者</Label>
+            <Input value={draft.originalTitle || ''} onChange={(v) => updateDraft({ originalTitle: v })} placeholder="原作作者を入力" />
           </div>
           <div style={{ marginBottom: 14 }}>
             <Label>評価（0.0〜5.0）</Label>
@@ -798,7 +846,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
             <SectionTitle>シーズン</SectionTitle>
             <button onClick={addSeason} style={{ padding: '8px 16px', borderRadius: 12, border: 'none', background: theme.colors.primary, color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ シーズン追加</button>
           </div>
-          {draft.seasons.map((season, seasonIdx) => (
+          {asArray(draft.seasons).map((season, seasonIdx) => (
             <GlassCard key={season.id} style={{ marginBottom: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 12 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -830,7 +878,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
                     <Label>ポスター画像URL</Label>
                     <Input value={season.posterUrl || ''} onChange={(v) => updateSeason(seasonIdx, { posterUrl: v })} placeholder="https://..." />
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginBottom: 14 }}>
+                  <div style={responsiveTwoColumnStyle}>
                     <div>
                       <Label>放送開始日</Label>
                       <DateField value={season.startDate || ''} onChange={(v) => updateSeason(seasonIdx, { startDate: v, broadcastWeekday: getNextDayWeekday(v) })} />
@@ -934,7 +982,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
                       <Label>エピソード</Label>
                       <button onClick={() => addEpisode(seasonIdx)} style={{ padding: '6px 12px', borderRadius: 10, border: 'none', background: theme.colors.primary, color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ 話数追加</button>
                     </div>
-                    {season.episodes.map((ep, epIdx) => (
+                    {asArray(season.episodes).map((ep, epIdx) => (
                       <div key={ep.id} style={{ marginBottom: 10, padding: 12, background: 'rgba(0,0,0,0.03)', borderRadius: 12 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: 1 }}>
