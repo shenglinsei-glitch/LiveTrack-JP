@@ -6,7 +6,7 @@ import { theme } from '@/components/common/theme';
 import { Icons, IconButton } from '@/components/common/IconButton';
 import { GlassCard } from '@/components/common/GlassCard';
 import { Label, Value, SectionTitle } from '@/components/detail/DetailText';
-import { DetailHeader, DetailChip } from '@/components/detail/DetailHeader';
+import { DetailHeader, DetailChip, DetailLinkIconButton } from '@/components/detail/DetailHeader';
 import { DetailPageLayout } from '@/components/detail/DetailPageLayout';
 
 interface AnimeDetailPageProps {
@@ -40,6 +40,12 @@ const formatDateWithWeek = (date?: string) => {
   const d = dayjs(date);
   if (!d.isValid()) return '';
   return `${d.format('YYYY/MM/DD')}（${week[d.day()]}）`;
+};
+
+const openExternalUrl = (url?: string) => {
+  const value = url?.trim();
+  if (!value) return;
+  window.open(value.startsWith('http') ? value : `https://${value}`, '_blank', 'noopener,noreferrer');
 };
 
 
@@ -226,6 +232,179 @@ const sectionCardStyle: React.CSSProperties = {
   marginBottom: 14,
 };
 
+
+const collapseButtonStyle: React.CSSProperties = {
+  width: '100%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 12,
+  background: 'transparent',
+  border: 'none',
+  padding: 0,
+  cursor: 'pointer',
+  textAlign: 'left',
+};
+
+const infoGridStyle: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+  gap: 16,
+};
+
+const infoItemStyle: React.CSSProperties = {
+  minWidth: 0,
+  wordBreak: 'break-word',
+};
+
+const chipWrapStyle: React.CSSProperties = {
+  display: 'flex',
+  gap: 8,
+  flexWrap: 'wrap',
+};
+
+const ViewSection: React.FC<{
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+  countLabel?: string;
+}> = ({ title, defaultOpen = false, children, countLabel }) => {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <GlassCard padding="20px" style={sectionCardStyle}>
+      <button type="button" onClick={() => setOpen((v) => !v)} style={collapseButtonStyle}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <SectionTitle title={title} style={{ marginTop: 0, marginBottom: open ? 12 : 0 }} dividerStyle={{ opacity: open ? 1 : 0 }} />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 2 }}>
+          {countLabel ? (
+            <span style={{ fontSize: 11, fontWeight: 800, color: theme.colors.textWeak, whiteSpace: 'nowrap' }}>{countLabel}</span>
+          ) : null}
+          <Icons.ChevronLeft style={{ width: 18, height: 18, color: theme.colors.textWeak, transform: open ? 'rotate(-90deg)' : 'rotate(180deg)', transition: 'transform 0.2s ease' }} />
+        </div>
+      </button>
+      {open ? children : null}
+    </GlassCard>
+  );
+};
+
+const InfoItem: React.FC<{ label: string; children?: React.ReactNode }> = ({ label, children }) => {
+  if (children === null || children === undefined || children === '') return null;
+  return (
+    <div style={infoItemStyle}>
+      <Label>{label}</Label>
+      <Value placeholder="">{children}</Value>
+    </div>
+  );
+};
+
+const StatusPill: React.FC<{ status?: string }> = ({ status }) => {
+  if (!status) return null;
+  const color = getAnimeStatusColor(status);
+  return (
+    <span style={{ display: 'inline-flex', marginTop: 6, background: `${color}22`, color, padding: '5px 10px', borderRadius: 999, fontSize: 12, fontWeight: 900 }}>
+      {status}
+    </span>
+  );
+};
+
+const GenreChips: React.FC<{ genres?: string[] }> = ({ genres }) => {
+  const values = asArray(genres).filter(Boolean);
+  if (!values.length) return null;
+  return (
+    <div style={chipWrapStyle}>
+      {values.map((genre, idx) => (
+        <span key={`${genre}-${idx}`} style={{ background: 'rgba(83,190,232,0.15)', color: theme.colors.primary, padding: '6px 12px', borderRadius: 12, fontSize: 13, fontWeight: 800 }}>
+          {genre}
+        </span>
+      ))}
+    </div>
+  );
+};
+
+const SongList: React.FC<{ songs?: Array<OpeningSong | EndingSong> }> = ({ songs }) => {
+  const values = asArray(songs);
+  if (!values.length) return null;
+  return (
+    <div style={{ display: 'grid', gap: 10 }}>
+      {values.map((song, idx) => (
+        <div key={`${song.songTitle}-${idx}`} style={{ display: 'flex', gap: 10, alignItems: 'center', background: 'rgba(255,255,255,0.62)', borderRadius: 16, padding: '10px 12px', border: '1px solid rgba(15,23,42,0.05)' }}>
+          {song.coverUrl ? <img src={song.coverUrl} alt={song.songTitle} style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} /> : null}
+          <div style={{ minWidth: 0 }}>
+            <Value placeholder="">{song.songTitle || null}</Value>
+            <div style={{ fontSize: 13, color: theme.colors.textSecondary, marginTop: 2, fontWeight: 700 }}>{song.artistName || ''}</div>
+            {song.musicUrl ? <a href={song.musicUrl.startsWith('http') ? song.musicUrl : `https://${song.musicUrl}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: theme.colors.primary, fontWeight: 800 }}>リンクを開く</a> : null}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const SeasonSummaryCard: React.FC<{
+  animeTitle: string;
+  season: Season;
+  open: boolean;
+  onToggle: () => void;
+  onOpenWebsite?: () => void;
+}> = ({ animeTitle, season, open, onToggle, onOpenWebsite }) => {
+  const seasonTitle = getSeasonDisplayTitle(animeTitle, season);
+  const dateParts = [formatDateWithWeek(season.startDate), formatDateWithWeek(season.endDate)].filter(Boolean);
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onToggle}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') onToggle();
+      }}
+      style={{
+        width: '100%',
+        display: 'flex',
+        alignItems: 'stretch',
+        justifyContent: 'space-between',
+        gap: 14,
+        background: 'rgba(255,255,255,0.58)',
+        border: '1px solid rgba(255,255,255,0.62)',
+        borderRadius: 24,
+        padding: 14,
+        cursor: 'pointer',
+        textAlign: 'left',
+        boxShadow: '0 10px 30px rgba(15,23,42,0.06)',
+      }}
+    >
+      <div style={{ width: 76, height: 96, borderRadius: 18, overflow: 'hidden', flexShrink: 0, background: 'rgba(15,23,42,0.06)' }}>
+        {season.posterUrl ? (
+          <img src={season.posterUrl} alt={seasonTitle} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        ) : (
+          <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', fontSize: 28, opacity: 0.22 }}>📺</div>
+        )}
+      </div>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 8 }}>
+        <div style={{ fontSize: 17, fontWeight: 950, color: theme.colors.textMain, lineHeight: 1.25, wordBreak: 'break-word' }}>{seasonTitle}</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+          <StatusPill status={season.status} />
+          {season.websiteUrl?.trim() && onOpenWebsite ? (
+            <span onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', marginTop: 6 }}>
+              <DetailLinkIconButton onClick={onOpenWebsite} title="公式サイトを開く" />
+            </span>
+          ) : null}
+          {dateParts.length > 0 ? (
+            <span style={{ fontSize: 12, fontWeight: 850, color: theme.colors.textSecondary, lineHeight: 1.4 }}>
+              {dateParts.join(' 〜 ')}
+            </span>
+          ) : null}
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, paddingLeft: 4 }}>
+        <CollapseChevron open={open} />
+      </div>
+    </div>
+  );
+};
+
 const StaticField: React.FC<{ label: string; value?: string; placeholder?: string }> = ({ label, value, placeholder = '未設定' }) => (
   <div style={{ marginBottom: 14 }}>
     <Label>{label}</Label>
@@ -272,7 +451,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
   const handleSave = () => {
     const updated: Anime = {
       ...draft,
-      posterUrl: getLatestSeasonPosterUrl(draft),
+      posterUrl: draft.posterUrl?.trim() || '',
       genres: Array.from(new Set((draft.genres || []).map((g) => g.trim()).filter(Boolean))),
       status: deriveAnimeStatus(draft),
       updatedAt: new Date().toISOString(),
@@ -484,216 +663,186 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
     }
   };
 
-  const renderReadMode = () => (
-    <>
-      <DetailHeader
-        title={anime.title}
-        posterUrl={anime.posterUrl}
-        posterAlt={anime.title}
-        posterFallback={<div style={{ fontSize: 48, opacity: 0.2 }}>📺</div>}
-        onBack={onBack}
-        actions={
-          <>
-            <IconButton icon={<Icons.Edit />} onClick={() => setIsEditMode(true)} style={{ background: 'rgba(255,255,255,0.82)', border: 'none', color: theme.colors.primary }} />
-            <IconButton icon={<Icons.Trash />} onClick={handleDelete} style={{ background: 'rgba(255,255,255,0.82)', border: 'none', color: theme.colors.error }} />
-          </>
-        }
-        tags={<DetailChip label={deriveAnimeStatus(anime)} bg={getAnimeStatusColor(deriveAnimeStatus(anime))} />}
-      />
+  const renderReadMode = () => {
+    const animeStatus = deriveAnimeStatus(anime);
+    const animeGenres = asArray(anime.genres);
+    const animeOpeningSongs = asArray(anime.openingSongs);
+    const animeEndingSongs = asArray(anime.endingSongs);
+    const seasons = asArray(anime.seasons);
 
-      <div style={{ padding: '0 16px 140px' }}>
+    return (
+      <>
+        <DetailHeader
+          title={anime.title}
+          posterUrl={anime.posterUrl}
+          posterAlt={anime.title}
+          posterFallback={<div style={{ fontSize: 48, opacity: 0.2 }}>📺</div>}
+          onBack={onBack}
+          actions={
+            <>
+              <IconButton icon={<Icons.Edit />} onClick={() => setIsEditMode(true)} style={{ background: 'rgba(255,255,255,0.82)', border: 'none', color: theme.colors.primary }} />
+              <IconButton icon={<Icons.Trash />} onClick={handleDelete} style={{ background: 'rgba(255,255,255,0.82)', border: 'none', color: theme.colors.error }} />
+            </>
+          }
+          tags={
+            <>
+              <DetailChip label={animeStatus} bg={getAnimeStatusColor(animeStatus)} />
+              {anime.websiteUrl?.trim() ? (
+                <DetailLinkIconButton onClick={() => openExternalUrl(anime.websiteUrl)} title="公式サイトを開く" />
+              ) : null}
+            </>
+          }
+        />
 
-        <GlassCard style={sectionCardStyle}>
-          <SectionTitle title="基本情報" />
-          {deriveAnimeStatus(anime) && (
-            <div style={{ marginBottom: 14 }}>
-              <Label>ステータス</Label>
-              <span style={{ display: 'inline-flex', marginTop: 6, background: `${getAnimeStatusColor(deriveAnimeStatus(anime))}22`, color: getAnimeStatusColor(deriveAnimeStatus(anime)), padding: '5px 10px', borderRadius: 999, fontSize: 12, fontWeight: 900 }}>{deriveAnimeStatus(anime)}</span>
+        <div style={{ padding: '0 16px 140px' }}>
+          <ViewSection title="基本情報">
+            <div style={infoGridStyle}>
+              <InfoItem label="放送開始日">{formatDateWithWeek(anime.startDate) || null}</InfoItem>
+              <InfoItem label="放送終了日">{formatDateWithWeek(anime.endDate) || null}</InfoItem>
+              <InfoItem label="制作会社">{anime.studio || null}</InfoItem>
+              <InfoItem label="監督">{anime.director || null}</InfoItem>
+              <InfoItem label="原作種別">{anime.originalType || null}</InfoItem>
+              <InfoItem label="原作作者">{anime.originalTitle || null}</InfoItem>
+              <InfoItem label="評価">{anime.rating !== undefined ? `★ ${anime.rating.toFixed(1)} / 5` : null}</InfoItem>
+              <InfoItem label="集数">{anime.totalEpisodes !== undefined && anime.totalEpisodes > 0 ? `全${anime.totalEpisodes}話` : null}</InfoItem>
+              <InfoItem label="毎週更新">{getBroadcastText(anime.startDate, anime.broadcastWeekday) || null}</InfoItem>
+            </div>
+          </ViewSection>
+
+          {animeGenres.length > 0 && (
+            <ViewSection title="ジャンル" countLabel={`${animeGenres.length}件`}>
+              <GenreChips genres={animeGenres} />
+            </ViewSection>
+          )}
+
+          {animeOpeningSongs.length > 0 && (
+            <ViewSection title="オープニング曲" countLabel={`${animeOpeningSongs.length}曲`}>
+              <SongList songs={animeOpeningSongs} />
+            </ViewSection>
+          )}
+
+          {animeEndingSongs.length > 0 && (
+            <ViewSection title="エンディング曲" countLabel={`${animeEndingSongs.length}曲`}>
+              <SongList songs={animeEndingSongs} />
+            </ViewSection>
+          )}
+
+          {anime.summary && (
+            <ViewSection title="あらすじ">
+              <Value placeholder="" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.65, fontWeight: 600 }}>{anime.summary}</Value>
+            </ViewSection>
+          )}
+
+          {anime.review && (
+            <ViewSection title="感想">
+              <Value placeholder="" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.65, fontWeight: 600 }}>{anime.review}</Value>
+            </ViewSection>
+          )}
+
+          {seasons.length > 0 && (
+            <div style={{ marginTop: 20 }}>
+              <SectionTitle title="シーズン" style={{ marginBottom: 12 }} />
+              {seasons.map((season, seasonIdx) => {
+                const seasonGenres = asArray(season.genres);
+                const seasonOpeningSongs = asArray(season.openingSongs);
+                const seasonEndingSongs = asArray(season.endingSongs);
+                const seasonEpisodes = asArray(season.episodes);
+                const seasonTitle = getSeasonDisplayTitle(anime.title, season);
+
+                return (
+                  <GlassCard key={season.id} padding="12px" style={sectionCardStyle}>
+                    <SeasonSummaryCard
+                      animeTitle={anime.title}
+                      season={season}
+                      open={season.collapsed === false}
+                      onToggle={() => {
+                        const newSeasons = [...seasons];
+                        const isOpen = season.collapsed === false;
+                        newSeasons[seasonIdx] = { ...season, collapsed: isOpen ? true : false };
+                        onUpdateAnime({ ...anime, seasons: newSeasons });
+                      }}
+                      onOpenWebsite={season.websiteUrl?.trim() ? () => openExternalUrl(season.websiteUrl) : undefined}
+                    />
+
+                    {season.collapsed === false && (
+                      <div style={{ marginTop: 18, display: 'grid', gap: 18, padding: '0 8px 8px' }}>
+                        <div style={infoGridStyle}>
+                          <InfoItem label="放送開始日">{formatDateWithWeek(season.startDate) || null}</InfoItem>
+                          <InfoItem label="放送終了日">{formatDateWithWeek(season.endDate) || null}</InfoItem>
+                          <InfoItem label="制作会社">{season.studio || null}</InfoItem>
+                          <InfoItem label="監督">{season.director || null}</InfoItem>
+                          <InfoItem label="評価">{season.rating !== undefined ? `★ ${season.rating.toFixed(1)} / 5` : null}</InfoItem>
+                          <InfoItem label="集数">{season.totalEpisodes !== undefined && season.totalEpisodes > 0 ? `全${season.totalEpisodes}話` : null}</InfoItem>
+                          <InfoItem label="毎週更新">{getBroadcastText(season.startDate, season.broadcastWeekday) || null}</InfoItem>
+                        </div>
+
+                        {seasonGenres.length > 0 && (
+                          <div>
+                            <Label>ジャンル</Label>
+                            <div style={{ marginTop: 8 }}>
+                              <GenreChips genres={seasonGenres} />
+                            </div>
+                          </div>
+                        )}
+
+                        {seasonOpeningSongs.length > 0 && (
+                          <div>
+                            <Label>オープニング曲</Label>
+                            <div style={{ marginTop: 8 }}>
+                              <SongList songs={seasonOpeningSongs} />
+                            </div>
+                          </div>
+                        )}
+
+                        {seasonEndingSongs.length > 0 && (
+                          <div>
+                            <Label>エンディング曲</Label>
+                            <div style={{ marginTop: 8 }}>
+                              <SongList songs={seasonEndingSongs} />
+                            </div>
+                          </div>
+                        )}
+
+                        {season.summary && (
+                          <div>
+                            <Label>あらすじ</Label>
+                            <Value placeholder="" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.65, fontWeight: 600 }}>{season.summary}</Value>
+                          </div>
+                        )}
+
+                        {season.review && (
+                          <div>
+                            <Label>感想</Label>
+                            <Value placeholder="" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.65, fontWeight: 600 }}>{season.review}</Value>
+                          </div>
+                        )}
+
+                        {seasonEpisodes.length > 0 && (
+                          <div>
+                            <Label>エピソード</Label>
+                            <div style={{ display: 'grid', gap: 10, marginTop: 8 }}>
+                              {seasonEpisodes.map((ep) => (
+                                <div key={ep.id} style={{ borderRadius: 18, border: '1px solid rgba(0,0,0,0.06)', background: 'rgba(255,255,255,0.62)', padding: '12px 14px' }}>
+                                  <div style={{ fontSize: 14, fontWeight: 900, color: theme.colors.textMain }}>第{ep.episodeNumber}話{ep.title ? ` ${ep.title}` : ''}</div>
+                                  {ep.summary && <div style={{ fontSize: 12, color: theme.colors.textSecondary, marginTop: 4, fontWeight: 700 }}>{ep.summary}</div>}
+                                  {ep.watchedDate && <div style={{ fontSize: 11, color: theme.colors.primary, marginTop: 4, fontWeight: 800 }}>視聴日: {formatDateWithWeek(ep.watchedDate)}</div>}
+                                  {ep.review && <div style={{ fontSize: 12, color: theme.colors.text, marginTop: 6, fontWeight: 600, lineHeight: 1.55 }}>{ep.review}</div>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </GlassCard>
+                );
+              })}
             </div>
           )}
-          {anime.startDate && <StaticField label="放送開始日" value={formatDateWithWeek(anime.startDate)} />}
-          {anime.endDate && <StaticField label="放送終了日" value={formatDateWithWeek(anime.endDate)} />}
-          {anime.studio && <StaticField label="制作会社" value={anime.studio} />}
-          {anime.director && <StaticField label="監督" value={anime.director} />}
-          {anime.originalType && <StaticField label="原作種別" value={anime.originalType} />}
-          {anime.originalTitle && <StaticField label="原作作者" value={anime.originalTitle} />}
-          {anime.rating !== undefined && <StaticField label="評価" value={`★ ${anime.rating.toFixed(1)} / 5`} />}
-          {anime.totalEpisodes !== undefined && anime.totalEpisodes > 0 && <StaticField label="集数" value={`全${anime.totalEpisodes}話`} />}
-          {getBroadcastText(anime.startDate, anime.broadcastWeekday) && <StaticField label="毎週更新" value={getBroadcastText(anime.startDate, anime.broadcastWeekday)} />}
-        </GlassCard>
-
-        {anime.genres && anime.genres.length > 0 && (
-          <GlassCard style={sectionCardStyle}>
-            <SectionTitle title="ジャンル" />
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {asArray(anime.genres).map((genre, idx) => (
-                <span key={idx} style={{ background: 'rgba(83,190,232,0.15)', color: theme.colors.primary, padding: '6px 12px', borderRadius: 12, fontSize: 13, fontWeight: 700 }}>{genre}</span>
-              ))}
-            </div>
-          </GlassCard>
-        )}
-
-        {anime.openingSongs && anime.openingSongs.length > 0 && (
-          <GlassCard style={sectionCardStyle}>
-            <SectionTitle title="オープニング曲" />
-            {anime.openingSongs.map((song, idx) => (
-              <div key={idx} style={{ marginBottom: 10 }}>
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 6 }}>
-                  {song.coverUrl && <img src={song.coverUrl} alt={song.songTitle} style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover' }} />}
-                  <div style={{ minWidth: 0 }}>
-                    <Value>{song.songTitle || '曲名未設定'}</Value>
-                    <div style={{ fontSize: 13, color: theme.colors.textSecondary, marginTop: 2 }}>{song.artistName || 'アーティスト未設定'}</div>
-                    {song.musicUrl && <a href={song.musicUrl.startsWith('http') ? song.musicUrl : `https://${song.musicUrl}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: theme.colors.primary, fontWeight: 800 }}>リンクを開く</a>}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </GlassCard>
-        )}
-
-        {anime.endingSongs && anime.endingSongs.length > 0 && (
-          <GlassCard style={sectionCardStyle}>
-            <SectionTitle title="エンディング曲" />
-            {anime.endingSongs.map((song, idx) => (
-              <div key={idx} style={{ marginBottom: 10 }}>
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 6 }}>
-                  {song.coverUrl && <img src={song.coverUrl} alt={song.songTitle} style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover' }} />}
-                  <div style={{ minWidth: 0 }}>
-                    <Value>{song.songTitle || '曲名未設定'}</Value>
-                    <div style={{ fontSize: 13, color: theme.colors.textSecondary, marginTop: 2 }}>{song.artistName || 'アーティスト未設定'}</div>
-                    {song.musicUrl && <a href={song.musicUrl.startsWith('http') ? song.musicUrl : `https://${song.musicUrl}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: theme.colors.primary, fontWeight: 800 }}>リンクを開く</a>}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </GlassCard>
-        )}
-
-        {anime.summary && (
-          <GlassCard style={sectionCardStyle}>
-            <SectionTitle title="あらすじ" />
-            <Value>{anime.summary}</Value>
-          </GlassCard>
-        )}
-
-        {anime.review && (
-          <GlassCard style={sectionCardStyle}>
-            <SectionTitle title="感想" />
-            <Value>{anime.review}</Value>
-          </GlassCard>
-        )}
-
-        {asArray(anime.seasons).length > 0 && (
-          <div style={{ marginTop: 20 }}>
-            <SectionTitle style={{ marginBottom: 12 }} title="シーズン" />
-            {asArray(anime.seasons).map((season, seasonIdx) => (
-              <GlassCard key={season.id} style={{ marginBottom: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <div style={{ fontSize: 16, fontWeight: 900, color: theme.colors.text }}>{getSeasonDisplayTitle(anime.title, season)}</div>
-                  <button
-                    onClick={() => {
-                      const newSeasons = [...asArray(anime.seasons)];
-                      newSeasons[seasonIdx] = { ...season, collapsed: !season.collapsed };
-                      onUpdateAnime({ ...anime, seasons: newSeasons });
-                    }}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
-                  >
-                    <CollapseChevron open={!season.collapsed} />
-                  </button>
-                </div>
-                {!season.collapsed && (
-                  <>
-                    {season.status && (
-                      <div style={{ marginBottom: 14 }}>
-                        <Label>ステータス</Label>
-                        <span style={{ display: 'inline-flex', marginTop: 6, background: `${getAnimeStatusColor(season.status)}22`, color: getAnimeStatusColor(season.status), padding: '5px 10px', borderRadius: 999, fontSize: 12, fontWeight: 900 }}>{season.status}</span>
-                      </div>
-                    )}
-                    {season.startDate && <StaticField label="放送開始日" value={formatDateWithWeek(season.startDate)} />}
-                    {season.endDate && <StaticField label="放送終了日" value={formatDateWithWeek(season.endDate)} />}
-                    {season.studio && <StaticField label="制作会社" value={season.studio} />}
-                    {season.director && <StaticField label="監督" value={season.director} />}
-                    {season.rating !== undefined && <StaticField label="評価" value={`★ ${season.rating.toFixed(1)} / 5`} />}
-                    {season.totalEpisodes !== undefined && season.totalEpisodes > 0 && <StaticField label="集数" value={`全${season.totalEpisodes}話`} />}
-                    {getBroadcastText(season.startDate, season.broadcastWeekday) && <StaticField label="毎週更新" value={getBroadcastText(season.startDate, season.broadcastWeekday)} />}
-                    {asArray(season.genres).length > 0 && (
-                      <div style={{ marginBottom: 14 }}>
-                        <Label>ジャンル</Label>
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-                          {asArray(season.genres).map((genre, idx) => (
-                            <span key={idx} style={{ background: 'rgba(83,190,232,0.15)', color: theme.colors.primary, padding: '4px 10px', borderRadius: 10, fontSize: 12, fontWeight: 700 }}>{genre}</span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {asArray(season.openingSongs).length > 0 && (
-                      <div style={{ marginBottom: 14 }}>
-                        <Label>オープニング曲</Label>
-                        {asArray(season.openingSongs).map((song, idx) => (
-                          <div key={idx} style={{ marginTop: 6 }}>
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
-                              {song.coverUrl && <img src={song.coverUrl} alt={song.songTitle} style={{ width: 38, height: 38, borderRadius: 9, objectFit: 'cover' }} />}
-                              <div>
-                                <Value>{song.songTitle || '曲名未設定'}</Value>
-                                <div style={{ fontSize: 12, color: theme.colors.textSecondary }}>{song.artistName || 'アーティスト未設定'}</div>
-                                {song.musicUrl && <a href={song.musicUrl.startsWith('http') ? song.musicUrl : `https://${song.musicUrl}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: theme.colors.primary, fontWeight: 800 }}>リンクを開く</a>}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {asArray(season.endingSongs).length > 0 && (
-                      <div style={{ marginBottom: 14 }}>
-                        <Label>エンディング曲</Label>
-                        {asArray(season.endingSongs).map((song, idx) => (
-                          <div key={idx} style={{ marginTop: 6 }}>
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
-                              {song.coverUrl && <img src={song.coverUrl} alt={song.songTitle} style={{ width: 38, height: 38, borderRadius: 9, objectFit: 'cover' }} />}
-                              <div>
-                                <Value>{song.songTitle || '曲名未設定'}</Value>
-                                <div style={{ fontSize: 12, color: theme.colors.textSecondary }}>{song.artistName || 'アーティスト未設定'}</div>
-                                {song.musicUrl && <a href={song.musicUrl.startsWith('http') ? song.musicUrl : `https://${song.musicUrl}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: theme.colors.primary, fontWeight: 800 }}>リンクを開く</a>}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {season.summary && (
-                      <div style={{ marginBottom: 14 }}>
-                        <Label>あらすじ</Label>
-                        <Value>{season.summary}</Value>
-                      </div>
-                    )}
-                    {season.review && (
-                      <div style={{ marginBottom: 14 }}>
-                        <Label>感想</Label>
-                        <Value>{season.review}</Value>
-                      </div>
-                    )}
-                    {asArray(season.episodes).length > 0 && (
-                      <div>
-                        <Label>エピソード</Label>
-                        {asArray(season.episodes).map((ep) => (
-                          <div key={ep.id} style={{ marginTop: 8, padding: 10, background: 'rgba(0,0,0,0.03)', borderRadius: 12 }}>
-                            <div style={{ fontSize: 13, fontWeight: 800, color: theme.colors.text }}>第{ep.episodeNumber}話{ep.title ? ` ${ep.title}` : ''}</div>
-                            {ep.summary && <div style={{ fontSize: 12, color: theme.colors.textSecondary, marginTop: 4 }}>{ep.summary}</div>}
-                            {ep.watchedDate && <div style={{ fontSize: 11, color: theme.colors.primary, marginTop: 4, fontWeight: 800 }}>視聴日: {formatDateWithWeek(ep.watchedDate)}</div>}
-                            {ep.review && <div style={{ fontSize: 12, color: theme.colors.text, marginTop: 6, fontStyle: 'italic' }}>{ep.review}</div>}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
-              </GlassCard>
-            ))}
-          </div>
-        )}
-      </div>
-    </>
-  );
+        </div>
+      </>
+    );
+  };
 
   const renderEditMode = () => (
     <>
@@ -702,7 +851,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
         onTitleChange={(value) => updateDraft({ title: value })}
         titlePlaceholder="アニメタイトル"
         isEditMode={isEditMode}
-        posterUrl={getLatestSeasonPosterUrl(draft)}
+        posterUrl={draft.posterUrl}
         posterAlt={draft.title}
         posterFallback={<div style={{ fontSize: 48, opacity: 0.2 }}>📺</div>}
         onBack={handleEditBack}
@@ -727,9 +876,36 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
             <span style={{ display: 'inline-flex', marginTop: 6, background: `${getAnimeStatusColor(deriveAnimeStatus(draft))}22`, color: getAnimeStatusColor(deriveAnimeStatus(draft)), padding: '5px 10px', borderRadius: 999, fontSize: 12, fontWeight: 900 }}>{deriveAnimeStatus(draft)}</span>
           </div>
           <div style={{ marginBottom: 14 }}>
-            <Label>ポスター画像URL</Label>
-            <Input value={getLatestSeasonPosterUrl(draft)} onChange={() => {}} placeholder="最新シーズンのポスター画像URLを自動反映" readOnly />
+            <Label>総ポスター画像URL</Label>
+            <Input value={draft.posterUrl || ''} onChange={(v) => updateDraft({ posterUrl: v })} placeholder="https://..." />
           </div>
+          <div style={{ marginBottom: 14 }}>
+            <Label>公式サイトURL</Label>
+            <Input value={draft.websiteUrl || ''} onChange={(v) => updateDraft({ websiteUrl: v })} placeholder="https://..." />
+          </div>
+          {asArray(draft.seasons).some((season) => season.posterUrl?.trim()) && (
+            <div style={{ marginBottom: 14 }}>
+              <Label>シーズン海報から選択</Label>
+              <select
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) updateDraft({ posterUrl: e.target.value });
+                }}
+                style={selectStyle}
+              >
+                <option value="">選択してください</option>
+                {asArray(draft.seasons).map((season, idx) => {
+                  const url = season.posterUrl?.trim();
+                  if (!url) return null;
+                  return (
+                    <option key={season.id || idx} value={url}>
+                      {getSeasonDisplayTitle(draft.title || 'アニメ', season)}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          )}
           <div style={responsiveTwoColumnStyle}>
             <div>
               <Label>放送開始日</Label>
@@ -866,7 +1042,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
                   <IconButton icon={<Icons.Trash />} onClick={() => removeSeason(seasonIdx)} />
                 </div>
               </div>
-              {!season.collapsed && (
+              {season.collapsed === false && (
                 <>
                   <div style={{ marginBottom: 14 }}>
                     <Label>ステータス</Label>
@@ -877,6 +1053,10 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
                   <div style={{ marginBottom: 14 }}>
                     <Label>ポスター画像URL</Label>
                     <Input value={season.posterUrl || ''} onChange={(v) => updateSeason(seasonIdx, { posterUrl: v })} placeholder="https://..." />
+                  </div>
+                  <div style={{ marginBottom: 14 }}>
+                    <Label>公式サイトURL</Label>
+                    <Input value={season.websiteUrl || ''} onChange={(v) => updateSeason(seasonIdx, { websiteUrl: v })} placeholder="https://..." />
                   </div>
                   <div style={responsiveTwoColumnStyle}>
                     <div>
@@ -1012,7 +1192,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
   );
 
   return (
-    <DetailPageLayout backgroundUrl={(isEditMode ? getLatestSeasonPosterUrl(draft) : getLatestSeasonPosterUrl(anime)) || undefined}>
+    <DetailPageLayout backgroundUrl={(isEditMode ? draft.posterUrl : anime.posterUrl) || undefined}>
       {isEditMode ? renderEditMode() : renderReadMode()}
     </DetailPageLayout>
   );

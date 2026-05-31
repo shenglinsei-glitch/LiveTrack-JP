@@ -1,23 +1,22 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useMemo, useState } from 'react';
 import { theme } from '@/components/common/theme';
 import { GlassCard } from '@/components/common/GlassCard';
 import { Label, Value, SubValue, SectionTitle } from '@/components/detail/DetailText';
 import { Exhibition, ExhibitionStatus, ExhibitionTicketSalesStatus } from '@/domain/types';
 import { Icons } from '@/components/common/IconButton';
+import { WheelDateTimePicker, WheelTimePicker } from '@/components/common/WheelDateTimePicker';
 import {
   Select,
   Input,
   Checkbox,
-  DatePicker,
   Button,
   InputNumber,
   Tag
 } from 'antd';
 import dayjs from 'dayjs';
 
-// --- Fixed Modal Style Date Picker for Exhibition Detail Page ---
+// Unified wheel style date/time pickers shared with movie, concert and anime pages.
 const CustomExhibitionDatePicker = ({
   value,
   onChange,
@@ -28,253 +27,14 @@ const CustomExhibitionDatePicker = ({
   onChange: (val: string) => void;
   showTime?: boolean;
   placeholder?: string;
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const valStr = value || '';
-  const initialDateStr = valStr === 'TBD' || !valStr ? '' : valStr.split(' ')[0];
-  const initialTimeStr = showTime && valStr && valStr.includes(' ') ? (valStr.split(' ')[1] || '12:00').slice(0,5) : '12:00';
-
-  const [viewDate, setViewDate] = useState(initialDateStr ? dayjs(initialDateStr) : dayjs());
-  const [selectedTime, setSelectedTime] = useState(initialTimeStr);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = originalOverflow;
-    };
-  }, [isOpen]);
-
-  const calendarDays = useMemo(() => {
-    const first = viewDate.startOf('month').day();
-    const count = viewDate.daysInMonth();
-    const days: Array<number | null> = [];
-    for (let i = 0; i < first; i++) days.push(null);
-    for (let i = 1; i <= count; i++) days.push(i);
-    return days;
-  }, [viewDate]);
-
-  const handleSelectDay = (day: number) => {
-    const datePart = viewDate.date(day).format('YYYY-MM-DD');
-    if (showTime) {
-      onChange(`${datePart} ${selectedTime}`);
-    } else {
-      onChange(datePart);
-      setIsOpen(false);
-    }
-  };
-
-  const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
-  const minuteOptions = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
-
-  return (
-    <div style={{ position: 'relative' }}>
-      <div
-        onClick={() => setIsOpen(true)}
-        style={{
-          width: '100%',
-          padding: '10px 12px',
-          boxSizing: 'border-box',
-          borderRadius: '10px',
-          border: '1px solid rgba(0,0,0,0.08)',
-          background: 'white',
-          fontSize: '14px',
-          outline: 'none',
-          cursor: 'pointer',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          minHeight: '40px'
-        }}
-      >
-        <span style={{ color: !valStr ? theme.colors.textWeak : 'inherit' }}>
-          {valStr ? valStr.replace(/-/g, '/') : placeholder}
-        </span>
-        {showTime ? <Icons.Clock style={{ width: 16 }} /> : <Icons.Calendar style={{ width: 16 }} />}
-      </div>
-
-      {isOpen &&
-        typeof document !== 'undefined' &&
-        createPortal(
-          <div
-            style={{
-              position: 'fixed',
-              inset: 0,
-              zIndex: 5000,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '16px'
-            }}
-          >
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                background: 'rgba(15, 23, 42, 0.45)',
-                backdropFilter: 'blur(4px)',
-                WebkitBackdropFilter: 'blur(4px)'
-              }}
-              onClick={() => setIsOpen(false)}
-            />
-
-            <GlassCard
-              padding="20px"
-              style={{
-                position: 'relative',
-                width: '100%',
-                maxWidth: '340px',
-                zIndex: 5001,
-                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                borderRadius: '24px'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <button type="button" onClick={() => setViewDate(viewDate.subtract(1, 'month'))} style={navBtnStyle}>
-                  ◀
-                </button>
-                <div style={{ fontWeight: '900', fontSize: '15px' }}>{viewDate.format('YYYY年 M月')}</div>
-                <button type="button" onClick={() => setViewDate(viewDate.add(1, 'month'))} style={navBtnStyle}>
-                  ▶
-                </button>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', textAlign: 'center' }}>
-                {['日', '月', '火', '水', '木', '金', '土'].map((d) => (
-                  <div
-                    key={d}
-                    style={{ fontSize: '11px', fontWeight: '800', color: theme.colors.textWeak, paddingBottom: '8px' }}
-                  >
-                    {d}
-                  </div>
-                ))}
-                {calendarDays.map((day, i) => {
-                  const isSelected = day && initialDateStr === viewDate.date(day).format('YYYY-MM-DD');
-                  return (
-                    <div
-                      key={i}
-                      onClick={() => day && handleSelectDay(day)}
-                      style={{
-                        padding: '10px 0',
-                        fontSize: '14px',
-                        borderRadius: '10px',
-                        cursor: day ? 'pointer' : 'default',
-                        background: isSelected ? theme.colors.primary : 'transparent',
-                        color: isSelected ? 'white' : theme.colors.textMain,
-                        opacity: day ? 1 : 0,
-                        fontWeight: isSelected ? '900' : '600'
-                      }}
-                    >
-                      {day}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {showTime && (
-                <div style={{ borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '16px', marginTop: '16px' }}>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <select
-                      value={selectedTime.split(':')[0]}
-                      onChange={(e) => {
-                        const nextTime = `${e.target.value}:${selectedTime.split(':')[1]}`;
-                        setSelectedTime(nextTime);
-                        if (initialDateStr) onChange(`${initialDateStr} ${nextTime}`);
-                      }}
-                      style={selectTimeStyle}
-                    >
-                      {hours.map((h) => (
-                        <option key={h} value={h}>
-                          {h}時
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      value={selectedTime.split(':')[1]}
-                      onChange={(e) => {
-                        const nextTime = `${selectedTime.split(':')[0]}:${e.target.value}`;
-                        setSelectedTime(nextTime);
-                        if (initialDateStr) onChange(`${initialDateStr} ${nextTime}`);
-                      }}
-                      style={selectTimeStyle}
-                    >
-                      {minuteOptions.map((m) => (
-                        <option key={m} value={m}>
-                          {m}分
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onChange('');
-                    setIsOpen(false);
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    background: 'rgba(0,0,0,0.05)',
-                    borderRadius: '12px',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    fontSize: '13px',
-                    color: theme.colors.textSecondary
-                  }}
-                >
-                  クリア
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsOpen(false)}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    background: theme.colors.primary,
-                    color: 'white',
-                    borderRadius: '12px',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    fontSize: '13px'
-                  }}
-                >
-                  確定
-                </button>
-              </div>
-            </GlassCard>
-          </div>,
-          document.body
-        )}
-    </div>
-  );
-};
-
-const navBtnStyle: React.CSSProperties = {
-  border: 'none',
-  background: 'none',
-  padding: '8px',
-  cursor: 'pointer',
-  fontSize: '14px',
-  color: theme.colors.primary
-};
-
-const selectTimeStyle: React.CSSProperties = {
-  flex: 1,
-  padding: '8px',
-  borderRadius: '10px',
-  border: '1px solid rgba(0,0,0,0.1)',
-  background: 'white',
-  fontSize: '14px',
-  outline: 'none',
-  fontWeight: '600'
-};
+}) => (
+  <WheelDateTimePicker
+    value={value || ''}
+    onChange={onChange}
+    mode={showTime ? 'datetime' : 'date'}
+    placeholder={placeholder || '未設定'}
+  />
+);
 
 const CustomExhibitionTimePicker = ({
   value,
@@ -284,137 +44,9 @@ const CustomExhibitionTimePicker = ({
   value?: string;
   onChange: (val: string) => void;
   placeholder?: string;
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const safeValue = value && /^\d{2}:\d{2}$/.test(value) ? value : '10:00';
-  const [selectedTime, setSelectedTime] = useState(safeValue);
-  const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
-  const minuteOptions = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
-
-  useEffect(() => {
-    if (isOpen) setSelectedTime(value && /^\d{2}:\d{2}$/.test(value) ? value : '10:00');
-  }, [isOpen, value]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = originalOverflow;
-    };
-  }, [isOpen]);
-
-  return (
-    <div style={{ position: 'relative' }}>
-      <div
-        onClick={() => setIsOpen(true)}
-        style={{
-          width: '100%',
-          padding: '10px 12px',
-          boxSizing: 'border-box',
-          borderRadius: '10px',
-          border: '1px solid rgba(0,0,0,0.08)',
-          background: 'white',
-          fontSize: '14px',
-          outline: 'none',
-          cursor: 'pointer',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          minHeight: '40px'
-        }}
-      >
-        <span style={{ color: !value ? theme.colors.textWeak : 'inherit' }}>
-          {value || placeholder}
-        </span>
-        <Icons.Clock style={{ width: 16 }} />
-      </div>
-
-      {isOpen &&
-        typeof document !== 'undefined' &&
-        createPortal(
-          <div
-            style={{
-              position: 'fixed',
-              inset: 0,
-              zIndex: 5000,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '16px'
-            }}
-          >
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                background: 'rgba(15, 23, 42, 0.45)',
-                backdropFilter: 'blur(4px)',
-                WebkitBackdropFilter: 'blur(4px)'
-              }}
-              onClick={() => setIsOpen(false)}
-            />
-            <GlassCard
-              padding="20px"
-              style={{
-                position: 'relative',
-                width: '100%',
-                maxWidth: '300px',
-                zIndex: 5001,
-                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                borderRadius: '24px'
-              }}
-            >
-              <div style={{ fontWeight: 900, fontSize: 15, textAlign: 'center', marginBottom: 16 }}>時間を選択</div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <select
-                  value={selectedTime.split(':')[0]}
-                  onChange={(e) => setSelectedTime(`${e.target.value}:${selectedTime.split(':')[1]}`)}
-                  style={selectTimeStyle}
-                >
-                  {hours.map((h) => (
-                    <option key={h} value={h}>{h}時</option>
-                  ))}
-                </select>
-                <select
-                  value={selectedTime.split(':')[1]}
-                  onChange={(e) => setSelectedTime(`${selectedTime.split(':')[0]}:${e.target.value}`)}
-                  style={selectTimeStyle}
-                >
-                  {minuteOptions.map((m) => (
-                    <option key={m} value={m}>{m}分</option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onChange('');
-                    setIsOpen(false);
-                  }}
-                  style={{ flex: 1, padding: '12px', background: 'rgba(0,0,0,0.05)', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', color: theme.colors.textSecondary }}
-                >
-                  クリア
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onChange(selectedTime);
-                    setIsOpen(false);
-                  }}
-                  style={{ flex: 1, padding: '12px', background: theme.colors.primary, color: 'white', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
-                >
-                  確定
-                </button>
-              </div>
-            </GlassCard>
-          </div>,
-          document.body
-        )}
-    </div>
-  );
-};
+}) => (
+  <WheelTimePicker value={value || ''} onChange={onChange} placeholder={placeholder} />
+);
 
 interface Props {
   exhibition: Exhibition;

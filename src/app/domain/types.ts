@@ -266,6 +266,7 @@ export interface Season {
   seasonNumber?: string;
   seasonTitle: string;
   posterUrl?: string;
+  websiteUrl?: string;
   startDate?: string;
   endDate?: string;
   studio?: string;
@@ -292,6 +293,7 @@ export interface Anime {
   id: string;
   title: string;
   posterUrl?: string;
+  websiteUrl?: string;
   status: AnimeStatus;
   startDate?: string;
   endDate?: string;

@@ -1,6 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useState, useEffect, useRef } from 'react';
 import { theme } from '@/components/common/theme';
 import { GlassCard } from '@/components/common/GlassCard';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -8,6 +7,7 @@ import { Artist, Tour, Concert, Status } from '@/domain/types';
 import { Icons, IconButton } from '@/components/common/IconButton';
 import { sortPerformancesForDisplay, checkGlobalDateConflicts } from '@/domain/logic';
 import { PageShell } from '@/components/common/PageShell';
+import { WheelDateTimePicker } from '@/components/common/WheelDateTimePicker';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -79,114 +79,15 @@ const StatusPicker = ({ value, onChange }: { value: Status; onChange: (s: Status
 };
 
 
-const CustomDatePicker = ({ value, onChange, showTime = false, placeholder }: { value: string | null | undefined; onChange: (val: string) => void; showTime?: boolean; placeholder?: string }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const valStr = value || '';
-  const initialDateStr = valStr === 'TBD' || !valStr ? '' : valStr.split(' ')[0];
-  const initialTimeStr = (showTime && valStr && valStr.includes(' ')) ? (valStr.split(' ')[1] || '12:00').slice(0, 5) : '12:00';
-  const [viewDate, setViewDate] = useState(initialDateStr ? new Date(initialDateStr.replace(/-/g, '/')) : new Date());
-  const [selectedTime, setSelectedTime] = useState(initialTimeStr);
+const CustomDatePicker = ({ value, onChange, showTime = false, placeholder }: { value: string | null | undefined; onChange: (val: string) => void; showTime?: boolean; placeholder?: string }) => (
+  <WheelDateTimePicker
+    value={value || ''}
+    onChange={onChange}
+    mode={showTime ? 'datetime' : 'date'}
+    placeholder={placeholder || '未設定'}
+  />
+);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = originalOverflow;
-    };
-  }, [isOpen]);
-
-  const daysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
-  const firstDay = (y: number, m: number) => new Date(y, m, 1).getDay();
-
-  const calendarDays = useMemo(() => {
-    const y = viewDate.getFullYear();
-    const m = viewDate.getMonth();
-    const days: Array<number | null> = [];
-    const first = firstDay(y, m);
-    for (let i = 0; i < first; i++) days.push(null);
-    for (let i = 1; i <= daysInMonth(y, m); i++) days.push(i);
-    return days;
-  }, [viewDate]);
-
-  const handleSelectDay = (day: number) => {
-    const y = viewDate.getFullYear();
-    const m = String(viewDate.getMonth() + 1).padStart(2, '0');
-    const d = String(day).padStart(2, '0');
-    const datePart = `${y}-${m}-${d}`;
-    if (showTime) onChange(`${datePart} ${selectedTime}`);
-    else {
-      onChange(datePart);
-      setIsOpen(false);
-    }
-  };
-
-  const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
-  const minuteOptions = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
-
-  return (
-    <div style={{ position: 'relative', width: '100%', minWidth: 0 }}>
-      <div onClick={() => setIsOpen(true)} style={{ ...inputStyle, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: '14px', color: !valStr ? theme.colors.textWeak : 'inherit' }}>{valStr || placeholder || '未設定'}</span>
-        {showTime ? <Icons.Clock /> : <Icons.Calendar />}
-      </div>
-      {isOpen && typeof document !== 'undefined' && createPortal(
-        <div style={{ position: 'fixed', inset: 0, zIndex: 5000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(15,23,42,0.42)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }} onClick={() => setIsOpen(false)} />
-          <GlassCard padding="16px" style={{ position: 'relative', zIndex: 5001, width: 'min(340px, calc(100vw - 32px))', maxWidth: 'calc(100vw - 32px)', borderRadius: '24px', boxSizing: 'border-box' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <button type="button" onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))} style={navBtnStyle}>◀</button>
-              <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{viewDate.getFullYear()}年 {viewDate.getMonth() + 1}月</div>
-              <button type="button" onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))} style={navBtnStyle}>▶</button>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: '4px', textAlign: 'center', marginBottom: showTime ? '16px' : '0' }}>
-              {['日','月','火','水','木','金','土'].map(d => <div key={d} style={{ fontSize: '10px', color: theme.colors.textWeak }}>{d}</div>)}
-              {calendarDays.map((day, i) => {
-                const dateKey = day ? `${viewDate.getFullYear()}-${String(viewDate.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}` : '';
-                const isSelected = !!day && initialDateStr === dateKey;
-                return (
-                  <div key={i} onClick={() => day && handleSelectDay(day)} style={{ padding: '8px 0', fontSize: '13px', borderRadius: '8px', cursor: day ? 'pointer' : 'default', background: isSelected ? theme.colors.primary : 'transparent', color: isSelected ? 'white' : theme.colors.textMain, opacity: day ? 1 : 0 }}>
-                    {day}
-                  </div>
-                );
-              })}
-            </div>
-            {showTime && (
-              <div style={{ borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '16px' }}>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <select value={selectedTime.split(':')[0]} onChange={e => {
-                    const [,m] = selectedTime.split(':');
-                    const next = `${e.target.value}:${m}`;
-                    setSelectedTime(next);
-                    if (initialDateStr) onChange(`${initialDateStr} ${next}`);
-                  }} style={selectTimeStyle}>
-                    {hours.map(h => <option key={h} value={h}>{h}時</option>)}
-                  </select>
-                  <select value={selectedTime.split(':')[1]} onChange={e => {
-                    const [h] = selectedTime.split(':');
-                    const next = `${h}:${e.target.value}`;
-                    setSelectedTime(next);
-                    if (initialDateStr) onChange(`${initialDateStr} ${next}`);
-                  }} style={selectTimeStyle}>
-                    {minuteOptions.map(m => <option key={m} value={m}>{m}分</option>)}
-                  </select>
-                </div>
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-              <button type="button" onClick={() => { onChange(''); setIsOpen(false); }} style={{ flex: 1, padding: '10px', background: 'rgba(0,0,0,0.05)', borderRadius: '10px', border: 'none', cursor: 'pointer' }}>クリア</button>
-              <button type="button" onClick={() => setIsOpen(false)} style={{ flex: 1, padding: '10px', background: theme.colors.primary, color: 'white', borderRadius: '10px', border: 'none', cursor: 'pointer' }}>確定</button>
-            </div>
-          </GlassCard>
-        </div>,
-        document.body
-      )}
-    </div>
-  );
-};
-
-const navBtnStyle = { border: 'none', background: 'none', padding: '4px 8px', cursor: 'pointer' };
-const selectTimeStyle = { flex: 1, minWidth: 0, width: '100%', maxWidth: '100%', boxSizing: 'border-box', padding: '8px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: 'white' };
 
 export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, allArtists, onSave, onCancel, onDeleteTour }) => {
   const getInitialData = (): Tour => {

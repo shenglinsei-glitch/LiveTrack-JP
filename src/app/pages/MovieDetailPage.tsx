@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
 import dayjs from 'dayjs';
 import { Actor, Movie, MovieStatus, MovieTicketType } from '@/domain/types';
 import { theme } from '@/components/common/theme';
@@ -7,6 +6,7 @@ import { Icons, IconButton } from '@/components/common/IconButton';
 import { GlassCard } from '@/components/common/GlassCard';
 import { Label, Value, SubValue, SectionTitle } from '@/components/detail/DetailText';
 import { DetailHeader, DetailChip, DetailLinkIconButton } from '@/components/detail/DetailHeader';
+import { WheelDatePicker, WheelDateTimePicker, WheelTimePicker } from '@/components/common/WheelDateTimePicker';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { DetailPageLayout } from '@/components/detail/DetailPageLayout';
 
@@ -213,110 +213,17 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, actors 
   );
 
   
-  const ModalDatePicker: React.FC<{ value?: string; onChange: (v: string) => void; showTime?: boolean; timeOnly?: boolean; placeholder?: string }> = ({ value, onChange, showTime = false, timeOnly = false, placeholder }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const valStr = value || '';
-    const initialDateStr = valStr && !timeOnly ? valStr.split(' ')[0] : dayjs().format('YYYY-MM-DD');
-    const initialTimeStr = timeOnly ? (valStr || '12:00').slice(0,5) : (showTime && valStr.includes(' ') ? (valStr.split(' ')[1] || '12:00').slice(0,5) : '12:00');
-    const [viewDate, setViewDate] = useState(initialDateStr ? dayjs(initialDateStr) : dayjs());
-    const [selectedTime, setSelectedTime] = useState(initialTimeStr);
-
-    useEffect(() => {
-      if (!isOpen) return;
-      const originalOverflow = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      return () => { document.body.style.overflow = originalOverflow; };
-    }, [isOpen]);
-
-    const calendarDays = useMemo(() => {
-      const first = viewDate.startOf('month').day();
-      const count = viewDate.daysInMonth();
-      const days: Array<number | null> = [];
-      for (let i = 0; i < first; i++) days.push(null);
-      for (let i = 1; i <= count; i++) days.push(i);
-      return days;
-    }, [viewDate]);
-
-    const confirm = () => {
-      if (timeOnly) {
-        onChange(selectedTime);
-        setIsOpen(false);
-        return;
-      }
-      const datePart = initialDateStr || viewDate.format('YYYY-MM-DD');
-      onChange(showTime ? `${datePart} ${selectedTime}` : datePart);
-      setIsOpen(false);
-    };
-
-    const handleSelectDay = (day: number) => {
-      const datePart = viewDate.date(day).format('YYYY-MM-DD');
-      if (showTime) onChange(`${datePart} ${selectedTime}`);
-      else { onChange(datePart); setIsOpen(false); }
-    };
-
-    const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
-    const minuteOptions = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
-
-    return (
-      <div style={{ position: 'relative', width: '100%', minWidth: 0 }}>
-        <div onClick={() => setIsOpen(true)} style={{ ...inputStyle, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '14px', color: !valStr ? theme.colors.textWeak : 'inherit' }}>{valStr ? valStr.replace(/-/g, '/') : (placeholder || '')}</span>
-          {timeOnly || showTime ? <Icons.Clock /> : <Icons.Calendar />}
-        </div>
-        {isOpen && typeof document !== 'undefined' && createPortal(
-          <div style={{ position: 'fixed', inset: 0, zIndex: 5000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-            <div style={{ position: 'absolute', inset: 0, background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }} onClick={() => setIsOpen(false)} />
-            <GlassCard padding="20px" style={{ position: 'relative', width: '100%', maxWidth: timeOnly ? '280px' : '340px', zIndex: 5001, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', borderRadius: '24px' }}>
-              {!timeOnly && (
-                <>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                    <button type="button" onClick={() => setViewDate(viewDate.subtract(1, 'month'))} style={navBtnStyle}>◀</button>
-                    <div style={{ fontWeight: '900', fontSize: '15px' }}>{viewDate.format('YYYY年 M月')}</div>
-                    <button type="button" onClick={() => setViewDate(viewDate.add(1, 'month'))} style={navBtnStyle}>▶</button>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', textAlign: 'center' }}>
-                    {['日','月','火','水','木','金','土'].map((d) => <div key={d} style={{ fontSize: '11px', fontWeight: '800', color: theme.colors.textWeak, paddingBottom: '8px' }}>{d}</div>)}
-                    {calendarDays.map((day, i) => {
-                      const isSelected = !!day && value && !timeOnly && value.split(' ')[0] === viewDate.date(day).format('YYYY-MM-DD');
-                      return <div key={i} onClick={() => day && handleSelectDay(day)} style={{ padding: '10px 0', fontSize: '14px', borderRadius: '10px', cursor: day ? 'pointer' : 'default', background: isSelected ? theme.colors.primary : 'transparent', color: isSelected ? 'white' : theme.colors.textMain, opacity: day ? 1 : 0, fontWeight: isSelected ? '900' : '600' }}>{day}</div>;
-                    })}
-                  </div>
-                </>
-              )}
-              {(showTime || timeOnly) && (
-                <div style={{ borderTop: !timeOnly ? '1px solid rgba(0,0,0,0.05)' : 'none', paddingTop: !timeOnly ? '16px' : '0', marginTop: !timeOnly ? '16px' : '0' }}>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <select value={selectedTime.split(':')[0]} onChange={e => setSelectedTime(`${e.target.value}:${selectedTime.split(':')[1]}`)} style={selectTimeStyle}>{hours.map(h => <option key={h} value={h}>{h}時</option>)}</select>
-                    <select value={selectedTime.split(':')[1]} onChange={e => setSelectedTime(`${selectedTime.split(':')[0]}:${e.target.value}`)} style={selectTimeStyle}>{minuteOptions.map(m => <option key={m} value={m}>{m}分</option>)}</select>
-                  </div>
-                </div>
-              )}
-              <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-                <button type="button" onClick={() => { onChange(''); setIsOpen(false); }} style={{ flex: 1, padding: '10px', background: 'rgba(0,0,0,0.05)', borderRadius: '10px', border: 'none', cursor: 'pointer' }}>クリア</button>
-                <button type="button" onClick={confirm} style={{ flex: 1, padding: '10px', background: theme.colors.primary, color: 'white', borderRadius: '10px', border: 'none', cursor: 'pointer' }}>確定</button>
-              </div>
-            </GlassCard>
-          </div>, document.body)}
-      </div>
-    );
-  };
-
   const CustomDatePicker: React.FC<{ value?: string; onChange: (v: string) => void }> = ({ value, onChange }) => (
-    <ModalDatePicker value={value} onChange={onChange} placeholder="未設定" />
+    <WheelDatePicker value={value} onChange={onChange} placeholder="未設定" />
   );
 
   const CustomDateTimePicker: React.FC<{ value?: string; onChange: (v: string) => void }> = ({ value, onChange }) => (
-    <ModalDatePicker value={value} onChange={onChange} showTime placeholder="未設定" />
+    <WheelDateTimePicker value={value} onChange={onChange} mode="datetime" placeholder="未設定" />
   );
 
   const TimePicker: React.FC<{ value?: string; onChange: (v: string) => void; readOnly?: boolean }> = ({ value, onChange, readOnly }) => (
-    <ModalDatePicker value={value} onChange={onChange} timeOnly placeholder="未設定" />
+    <WheelTimePicker value={value} onChange={onChange} placeholder="未設定" readOnly={readOnly} />
   );
-
-
-
-  const navBtnStyle = { border: 'none', background: 'none', padding: '4px 8px', cursor: 'pointer' } as React.CSSProperties;
-  const selectTimeStyle = { flex: 1, minWidth: 0, width: '100%', maxWidth: '100%', boxSizing: 'border-box' as const, padding: '8px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: 'white' };
 
   const AddButton: React.FC<{ onClick: () => void; children: React.ReactNode }> = ({ onClick, children }) => (
     <button type="button" onClick={onClick} style={{ padding: '12px', borderRadius: '14px', border: '1px dashed rgba(0,0,0,0.2)', background: 'transparent', color: theme.colors.textSecondary, fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>
