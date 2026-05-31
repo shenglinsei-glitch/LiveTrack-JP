@@ -1,5 +1,5 @@
 
-import { Artist, Concert, Status, TICKET_TRACK_STATUSES, TOUR_ACTIVE_STATUSES, GlobalSettings, DueAction, CalendarEvent, CalendarEventType, Exhibition, LotteryHistoryItem, Movie } from '@/domain/types';
+import { Artist, Concert, Status, TICKET_TRACK_STATUSES, TOUR_ACTIVE_STATUSES, GlobalSettings, DueAction, CalendarEvent, CalendarEventType, Exhibition, LotteryHistoryItem, Movie, Anime, AnimeStatus } from '@/domain/types';
 import { TEXT } from '@/components/common/constants';
 import { bulkPutImageUrls, bulkGetImageUrls, putImageUrl } from '@/domain/imageStore';
 
@@ -90,6 +90,7 @@ export const EVENT_PRIORITY: Record<CalendarEventType, number> = {
   // Fix: Added missing '展覧' property to Record
   ['展覧']: 5,
   ['映画']: 6,
+  ['アニメ']: 7,
 };
 
 const normalizeCalendarDateKey = (raw: string | null | undefined): string | null => {
@@ -108,7 +109,89 @@ const extractDateAndTime = (str: string | null | undefined): { date: string; tim
   return { date, time: timeMatch ? timeMatch[1] : undefined };
 };
 
-export const buildCalendarEvents = (artists: Artist[], settings: { showAttended: boolean; showSkipped: boolean }, movies: Movie[] = []): CalendarEvent[] => {
+
+const ANIME_STATUS_PRIORITY: Record<AnimeStatus, number> = {
+  '視聴中': 1,
+  '視聴予定': 2,
+  '放送前': 3,
+  '保留': 4,
+  '視聴済み': 5,
+  '視聴中止': 6,
+  '見送り': 7,
+};
+
+const weekdayToNumber: Record<string, number> = { '日': 0, '月': 1, '火': 2, '水': 3, '木': 4, '金': 5, '土': 6 };
+
+const deriveAnimeStatus = (anime: Anime): AnimeStatus => {
+  const statuses = (anime.seasons || []).map((season: any) => season.status).filter(Boolean) as AnimeStatus[];
+  if (!statuses.length) return anime.status || '放送前';
+  const order: AnimeStatus[] = ['視聴中', '視聴予定', '放送前', '保留', '視聴済み', '視聴中止', '見送り'];
+  return order.find((status) => statuses.includes(status)) || anime.status || '放送前';
+};
+
+const looksLikeSeasonNumber = (value?: string) => /^第.+[期季]$|^Season\s*\d+$/i.test(String(value || '').trim());
+
+const getSeasonDisplayTitle = (anime: Anime, season: any): string => {
+  if (!season) return anime.title;
+  const number = String(season.seasonNumber || (looksLikeSeasonNumber(season.seasonTitle) ? season.seasonTitle : '') || '').trim();
+  const title = (season.useAnimeTitle || !String(season.seasonTitle || '').trim() || looksLikeSeasonNumber(season.seasonTitle)) ? anime.title : String(season.seasonTitle || '').trim();
+  return number ? `${number} ${title}` : title;
+};
+
+const getBroadcastWeekdayFromStart = (startDate?: string): string => {
+  const dateKey = normalizeCalendarDateKey(startDate);
+  if (!dateKey) return '';
+  const d = parseConcertDate(dateKey, 'NORMAL');
+  if (!d) return '';
+  d.setDate(d.getDate() + 1);
+  const labels = ['日', '月', '火', '水', '木', '金', '土'];
+  return labels[d.getDay()] || '';
+};
+
+export const getAnimeDotColor = (status: string): string => {
+  switch (status) {
+    case '放送前': return '#2AC69E';
+    case '視聴予定': return '#53BEE8';
+    case '視聴中': return '#53BEE8';
+    case '視聴済み': return '#A6DFF7';
+    case '保留': return '#F59E0B';
+    case '視聴中止': return '#9CA3AF';
+    case '見送り': return '#9CA3AF';
+    default: return '#9CA3AF';
+  }
+};
+
+export const getAnimeNextBroadcastDate = (anime: Anime, now: Date = new Date()): string => {
+  const seasons = anime.seasons || [];
+  const activeSeason = seasons.find((season: any) => season.status === '視聴中') || seasons.find((season) => season.broadcastWeekday || season.startDate || season.endDate) || seasons[0];
+  const weekday = getBroadcastWeekdayFromStart(activeSeason?.startDate || anime.startDate) || activeSeason?.broadcastWeekday || anime.broadcastWeekday || '';
+  const time = activeSeason?.broadcastTime || anime.broadcastTime || '';
+  const startDate = activeSeason?.startDate || anime.startDate || '';
+  const endDate = activeSeason?.endDate || anime.endDate || '';
+
+  if (weekday && weekdayToNumber[weekday] !== undefined) {
+    const target = weekdayToNumber[weekday];
+    const base = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diff = (target - base.getDay() + 7) % 7;
+    const next = new Date(base);
+    next.setDate(base.getDate() + diff);
+    if (endDate) {
+      const end = parseConcertDate(endDate, 'NORMAL');
+      if (end && next > end) return endDate;
+    }
+    const y = next.getFullYear();
+    const m = String(next.getMonth() + 1).padStart(2, '0');
+    const d = String(next.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}${time ? ` ${time}` : ''}`;
+  }
+
+  const status = activeSeason?.status || deriveAnimeStatus(anime);
+  if (status === '視聴済み' || status === '視聴中止') return endDate || anime.updatedAt || anime.createdAt || '';
+  if (status === '視聴中' || status === '視聴予定') return startDate || endDate || anime.updatedAt || '';
+  return startDate || anime.createdAt || '';
+};
+
+export const buildCalendarEvents = (artists: Artist[], settings: { showAttended: boolean; showSkipped: boolean }, movies: Movie[] = [], animes: Anime[] = []): CalendarEvent[] => {
   const events: CalendarEvent[] = [];
 
   artists.forEach(artist => {
@@ -228,6 +311,62 @@ export const buildCalendarEvents = (artists: Artist[], settings: { showAttended:
       movieId: resolvedStatus.id,
       title: resolvedStatus.title,
       status: resolvedStatus.status,
+    });
+  });
+
+  (animes || []).forEach(anime => {
+    const seasons = anime.seasons && anime.seasons.length > 0 ? anime.seasons : [{ id: 'default', seasonNumber: '', seasonTitle: '', startDate: anime.startDate, endDate: anime.endDate, broadcastWeekday: anime.broadcastWeekday, broadcastTime: anime.broadcastTime, status: anime.status, useAnimeTitle: true } as any];
+
+    seasons.forEach((season) => {
+      const start = normalizeCalendarDateKey(season.startDate || anime.startDate);
+      const end = normalizeCalendarDateKey(season.endDate || anime.endDate);
+      const weekday = getBroadcastWeekdayFromStart(season.startDate || anime.startDate) || season.broadcastWeekday || anime.broadcastWeekday || '';
+      const time = season.broadcastTime || anime.broadcastTime || '';
+      const status = season.status || deriveAnimeStatus(anime);
+      const baseTitle = getSeasonDisplayTitle(anime, season);
+
+      const pushAnimeEvent = (dateKey: string, titleSuffix: string, timeLabel?: string) => {
+        if (!dateKey) return;
+        events.push({
+          dateKey,
+          timeLabel: timeLabel || undefined,
+          type: 'アニメ',
+          artistId: '',
+          tourId: '',
+          concertId: '',
+          animeId: anime.id,
+          seasonId: season.id,
+          title: titleSuffix ? `${baseTitle} ${titleSuffix}` : baseTitle,
+          status,
+        });
+      };
+
+      // アニメは日历上也和其他类目一样用圆点表示。
+      // 显示对象：放送開始日、放送終了日、每周更新日。
+      pushAnimeEvent(start, '（放送開始）');
+      if (end && end !== start) pushAnimeEvent(end, '（放送終了）');
+
+      if (weekday && weekdayToNumber[weekday] !== undefined && start) {
+        const startDay = parseConcertDate(start, 'NORMAL');
+        const endDay = parseConcertDate(end || start, 'NORMAL') || startDay;
+        if (!startDay || !endDay) return;
+        const cursor = new Date(startDay.getFullYear(), startDay.getMonth(), startDay.getDate());
+        const target = weekdayToNumber[weekday];
+        while (cursor.getDay() !== target) cursor.setDate(cursor.getDate() + 1);
+        let count = 0;
+        while (cursor <= endDay && count < 80) {
+          const y = cursor.getFullYear();
+          const m = String(cursor.getMonth() + 1).padStart(2, '0');
+          const d = String(cursor.getDate()).padStart(2, '0');
+          const dateKey = `${y}-${m}-${d}`;
+          // 开始日/完结日已经单独显示，重复日期时不再追加第二个动画更新点。
+          if (dateKey !== start && dateKey !== end) {
+            pushAnimeEvent(dateKey, '（更新）', time);
+          }
+          cursor.setDate(cursor.getDate() + 7);
+          count++;
+        }
+      }
     });
   });
 

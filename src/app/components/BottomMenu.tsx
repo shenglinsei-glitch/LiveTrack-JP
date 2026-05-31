@@ -192,14 +192,14 @@ export const BottomMenu: React.FC<BottomMenuProps> = ({
   );
 };
 
-const sectionTitleStyle: React.CSSProperties = {
+export const sectionTitleStyle: React.CSSProperties = {
   fontSize: '12px',
   color: theme.colors.textSecondary,
   marginBottom: theme.spacing.sm,
   fontWeight: 'bold',
 };
 
-const MenuButton = ({ label, active, primary, icon, onClick }: any) => (
+export const MenuButton = ({ label, active, primary, icon, onClick }: any) => (
   <button
     onClick={onClick}
     style={{
@@ -226,7 +226,7 @@ const MenuButton = ({ label, active, primary, icon, onClick }: any) => (
   </button>
 );
 
-const SmallChip: React.FC<{ label: string; active: boolean; onClick: () => void }> = ({ label, active, onClick }) => (
+export const SmallChip: React.FC<{ label: string; active: boolean; onClick: () => void }> = ({ label, active, onClick }) => (
   <button
     onClick={onClick}
     style={{

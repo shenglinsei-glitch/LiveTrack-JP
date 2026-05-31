@@ -165,7 +165,7 @@ export const MoviesPage: React.FC<MoviesPageProps> = ({ movies, onOpenDetail, on
                   >
                     <div style={{ position: 'relative', paddingTop: '140%', background: '#F3F4F6' }}>
                       {movie.posterUrl ? (
-                        <img src={movie.posterUrl} alt={movie.title} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img src={movie.posterUrl} alt={movie.title} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.18)', transformOrigin: 'center center', willChange: 'transform' }} />
                       ) : (
                         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}><span style={{ fontSize: 48 }}>🎬</span></div>
                       )}
@@ -184,7 +184,6 @@ export const MoviesPage: React.FC<MoviesPageProps> = ({ movies, onOpenDetail, on
                         }}
                       >
                         <div style={{ fontSize: 16, fontWeight: 900, lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{movie.title}</div>
-                        <div style={{ marginTop: 4, fontSize: 12, fontWeight: 700, opacity: 0.88, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{movie.theaterName || '劇場未設定'}</div>
                         <div style={{ marginTop: 4, fontSize: 11, fontWeight: 700, opacity: 0.82 }}>{movie.status === '抽選中' ? `結果日：${fmtDate(movie.lotteryResultAt)}` : movie.status === '発売前' ? `発売日：${fmtDate(movie.saleAt)}` : movie.watchDate ? `鑑賞日：${fmtDate(movie.watchDate)}` : `公開日：${fmtDate(movie.releaseDate)}`}</div>
                       </div>
                     </div>

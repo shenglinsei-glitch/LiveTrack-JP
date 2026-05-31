@@ -202,8 +202,7 @@ const TourGroupCard: React.FC<{
         style={{
           position: 'relative',
           width: '100%',
-          display: 'flex',
-          flexDirection: 'column',
+          paddingTop: '140%',
           backgroundColor: '#F3F4F6',
           cursor: 'pointer',
           backgroundImage: resolvedUrl ? `url(${resolvedUrl})` : undefined,
@@ -212,7 +211,7 @@ const TourGroupCard: React.FC<{
           backgroundRepeat: 'no-repeat',
         }}
       >
-        <div style={{ minHeight: 180, position: 'relative' }}>
+        <div style={{ position: 'absolute', inset: 0 }}>
           {!resolvedUrl && (
             <div
               style={{
@@ -249,7 +248,10 @@ const TourGroupCard: React.FC<{
 
         <div
           style={{
-            position: 'relative',
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
             zIndex: 5,
             padding: '56px 16px 12px',
             background:
@@ -273,7 +275,7 @@ const TourGroupCard: React.FC<{
             </div>
             <div
               style={{
-                fontSize: 20,
+                fontSize: 16,
                 fontWeight: 900,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -571,7 +573,7 @@ export const ConcertListPage: React.FC<Props> = ({
         )
       }
     >
-      <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ padding: '16px' }}>
         {!hasAny ? (
           <div
             style={{
@@ -617,43 +619,47 @@ export const ConcertListPage: React.FC<Props> = ({
                 </div>
               </div>
 
-              {group.items.map((tg) => {
-                const main = tg.concerts[0];
-                return (
-                  <TourGroupCard
-                    key={`tg-${group.status}-${tg.tourId}`}
-                    artistId={main.artistId}
-                    tourName={main.tourName}
-                    artistName={main.artistName}
-                    imageUrl={main.tourImageUrl || main.artistImageUrl}
-                    imageId={main.tourImageId || main.artistImageId}
-                    status={group.status}
-                    concerts={tg.concerts}
-                    onOpenArtist={onOpenArtist}
-                    onOpenConcert={onOpenConcert}
-                  />
-                );
-              })}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+                {group.items.map((tg) => {
+                  const main = tg.concerts[0];
+                  return (
+                    <TourGroupCard
+                      key={`tg-${group.status}-${tg.tourId}`}
+                      artistId={main.artistId}
+                      tourName={main.tourName}
+                      artistName={main.artistName}
+                      imageUrl={main.tourImageUrl || main.artistImageUrl}
+                      imageId={main.tourImageId || main.artistImageId}
+                      status={group.status}
+                      concerts={tg.concerts}
+                      onOpenArtist={onOpenArtist}
+                      onOpenConcert={onOpenConcert}
+                    />
+                  );
+                })}
+              </div>
             </div>
           ))
         ) : (
-          tourGrouped?.map((tg) => {
-            const main = tg.concerts[0];
-            return (
-              <TourGroupCard
-                key={`tg-${tg.tourId}`}
-                artistId={main.artistId}
-                tourName={main.tourName}
-                artistName={main.artistName}
-                imageUrl={main.tourImageUrl || main.artistImageUrl}
-                imageId={main.tourImageId || main.artistImageId}
-                status={tg.status}
-                concerts={tg.concerts}
-                onOpenArtist={onOpenArtist}
-                onOpenConcert={onOpenConcert}
-              />
-            );
-          })
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+            {tourGrouped?.map((tg) => {
+              const main = tg.concerts[0];
+              return (
+                <TourGroupCard
+                  key={`tg-${tg.tourId}`}
+                  artistId={main.artistId}
+                  tourName={main.tourName}
+                  artistName={main.artistName}
+                  imageUrl={main.tourImageUrl || main.artistImageUrl}
+                  imageId={main.tourImageId || main.artistImageId}
+                  status={tg.status}
+                  concerts={tg.concerts}
+                  onOpenArtist={onOpenArtist}
+                  onOpenConcert={onOpenConcert}
+                />
+              );
+            })}
+          </div>
         )}
       </div>
 

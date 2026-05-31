@@ -11,6 +11,7 @@ import dayjs from 'dayjs';
 
 import { RemoteImage } from '@/components/RemoteImage';
 import { getEffectiveExhibitionStatus } from '@/domain/logic';
+import { ExhibitionCard } from '@/components/ExhibitionCard';
 
 interface ExhibitionsPageProps {
   exhibitions: Exhibition[];
@@ -155,99 +156,9 @@ export const ExhibitionsPage: React.FC<ExhibitionsPageProps> = ({
             <div style={{ fontWeight: '600' }}>展覧情報がありません。</div>
           </div>
         ) : (
-          displayExhibitions.map((ex) => {
-            return (
-              <div key={ex.id} onClick={() => onOpenDetail(ex.id)} style={{ position: 'relative' }}>
-                <GlassCard
-                  padding="0"
-                  style={{
-                    overflow: 'hidden',
-                    height: '100%',
-                    borderRadius: '24px',
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.06)'
-                  }}
-                >
-                  <div style={{ position: 'relative', paddingTop: '140%', background: '#F3F4F6' }}>
-                    <RemoteImage 
-                      imageUrl={ex.imageUrl} 
-                      imageId={ex.imageId}
-                      alt={ex.title}
-                      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-                      fallback={(
-                        <div
-                          style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            opacity: 0.2
-                          }}
-                        >
-                          <Icons.Exhibitions style={{ width: 48, height: 48 }} />
-                        </div>
-                      )}
-                    />
-
-                    <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', gap: '4px' }}>
-                      <StatusBadge domain="exhibition" status={getEffectiveExhibitionStatus(ex)} />
-                    </div>
-
-                    <div
-                      style={{
-                        position: 'absolute',
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        padding: '24px 12px 12px',
-                        background:
-                          'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)',
-                        color: 'white'
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontSize: '16px',
-                          fontWeight: '900',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          marginBottom: '2px'
-                        }}
-                      >
-                        {ex.title}
-                      </div>
-                      <div style={{ fontSize: '11px', opacity: 0.8, fontWeight: '600' }}>
-                        {ex.startDate?.replace(/-/g, '.')} - {ex.endDate?.replace(/-/g, '.')}
-                      </div>
-                    </div>
-                  </div>
-                </GlassCard>
-
-                {(ex.advanceTicketPurchased || ex.ticketSalesStatus === 'purchased') && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: '10px',
-                      right: '10px',
-                      background: '#10B981',
-                      color: 'white',
-                      padding: '4px 12px',
-                      borderRadius: '8px',
-                      fontSize: '11px',
-                      fontWeight: 900,
-                      boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
-                    }}
-                  >
-                    購入済
-                  </div>
-                )}
-              </div>
-            );
-          })
+          displayExhibitions.map((ex) => (
+            <ExhibitionCard key={ex.id} exhibition={ex} onClick={() => onOpenDetail(ex.id)} />
+          ))
         )}
       </div>
 

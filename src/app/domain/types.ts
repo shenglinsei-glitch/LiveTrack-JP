@@ -34,7 +34,8 @@ export type CalendarEventType =
   | '発売開始' 
   | '申込締切'
   | '展覧'
-  | '映画';
+  | '映画'
+  | 'アニメ';
 
 export interface CalendarEvent {
   dateKey: string;        // YYYY-MM-DD
@@ -46,6 +47,8 @@ export interface CalendarEvent {
   title: string;          // Artist Name + Tour Name
   status: string;
   movieId?: string;
+  animeId?: string;
+  seasonId?: string;
 }
 
 export interface SiteLink {
@@ -229,6 +232,88 @@ export interface Actor {
   updatedAt: string;
 }
 
+// --- Anime Types ---
+export type OriginalType = '漫画' | '小説' | 'オリジナル' | 'その他';
+
+export type AnimeStatus = '放送前' | '視聴予定' | '視聴中' | '保留' | '視聴済み' | '視聴中止' | '見送り';
+export type AnimeBroadcastWeekday = '' | '日' | '月' | '火' | '水' | '木' | '金' | '土';
+
+export interface OpeningSong {
+  songTitle: string;
+  artistName: string;
+  coverUrl?: string;
+  musicUrl?: string;
+}
+
+export interface EndingSong {
+  songTitle: string;
+  artistName: string;
+  coverUrl?: string;
+  musicUrl?: string;
+}
+
+export interface Episode {
+  id: string;
+  episodeNumber: number;
+  title?: string;
+  summary?: string;
+  review?: string;
+  watchedDate?: string;
+}
+
+export interface Season {
+  id: string;
+  seasonNumber?: string;
+  seasonTitle: string;
+  posterUrl?: string;
+  startDate?: string;
+  endDate?: string;
+  studio?: string;
+  director?: string;
+  originalType?: OriginalType;
+  originalTitle?: string;
+  openingSongs?: OpeningSong[];
+  endingSongs?: EndingSong[];
+  genres?: string[];
+  summary?: string;
+  rating?: number;
+  review?: string;
+  totalEpisodes?: number;
+  broadcastWeekday?: AnimeBroadcastWeekday;
+  broadcastTime?: string;
+  episodes?: Episode[];
+  collapsed?: boolean;
+  status?: AnimeStatus;
+  watchDecision?: 'SKIPPED' | 'WILL_WATCH';
+  useAnimeTitle?: boolean;
+}
+
+export interface Anime {
+  id: string;
+  title: string;
+  posterUrl?: string;
+  status: AnimeStatus;
+  startDate?: string;
+  endDate?: string;
+  studio?: string;
+  director?: string;
+  originalType?: OriginalType;
+  originalTitle?: string;
+  openingSongs?: OpeningSong[];
+  endingSongs?: EndingSong[];
+  genres?: string[];
+  summary?: string;
+  rating?: number;
+  review?: string;
+  totalEpisodes?: number;
+  broadcastWeekday?: AnimeBroadcastWeekday;
+  broadcastTime?: string;
+  watchDecision?: 'SKIPPED' | 'WILL_WATCH';
+  seasons?: Season[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface GlobalSettings {
   autoTrackIntervalDays: 3 | 7 | 14 | 21 | 30;
 }
@@ -249,28 +334,31 @@ export interface ConcertListFilters {
 
 export type StatusItem = {
   id: string;
-  type: 'concert' | 'exhibition' | 'movie';
+  type: 'concert' | 'exhibition' | 'movie' | 'anime';
   parentId: string;
   title: string;
   date: string;
   status: string;
-  actionType: 'lottery' | 'result' | 'ticket' | 'exhibition_start' | 'exhibition_end' | 'movie';
+  actionType: 'lottery' | 'result' | 'ticket' | 'exhibition_start' | 'exhibition_end' | 'movie' | 'anime_update';
   displayStatus: string;
   raw: any;
 };
 
-export type PageId = 
+export type PageId =
+  | 'HOME'
   | 'CONTENT'
   | 'STATUS'
-  | 'EXHIBITIONS'  
+  | 'EXHIBITIONS'
   | 'EXHIBITION_DETAIL'
-  | 'MUSIC'        
-  | 'ARTIST_LIST'  
-  | 'CONCERT_LIST' 
-  | 'CALENDAR' 
-  | 'ARTIST_DETAIL' 
-  | 'CONCERT_HOME' 
-  | 'ARTIST_EDITOR' 
+  | 'MUSIC'
+  | 'ARTIST_LIST'
+  | 'CONCERT_LIST'
+  | 'CALENDAR'
+  | 'ARTIST_DETAIL'
+  | 'CONCERT_HOME'
+  | 'ARTIST_EDITOR'
   | 'CONCERT_EDITOR'
   | 'MOVIE_DETAIL'
-  | 'ACTOR_DETAIL';
+  | 'ACTOR_DETAIL'
+  | 'ANIME_DETAIL'
+  | 'ANIME_EDITOR';

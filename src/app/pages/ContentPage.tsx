@@ -4,7 +4,8 @@ import { ConcertListPage } from '@/pages/ConcertListPage';
 import { ExhibitionsPage } from '@/pages/ExhibitionsPage';
 import { MoviesPage } from '@/pages/MoviesPage';
 import { ActorListPage } from '@/pages/ActorListPage';
-import { Artist, GlobalSettings, Concert, Exhibition, Movie, Actor } from '@/domain/types';
+import { AnimesPage } from '@/pages/AnimesPage';
+import { Artist, GlobalSettings, Concert, Exhibition, Movie, Actor, Anime } from '@/domain/types';
 import { TopCapsuleNav } from '@/components/TopCapsuleNav';
 import { theme } from '@/components/common/theme';
 
@@ -49,16 +50,21 @@ interface ContentPageProps {
   onAddNewMovie: () => void;
   onUpdateMovies: (movies: Movie[]) => void;
 
+  animes: Anime[];
+  onOpenAnimeDetail: (animeId: string) => void;
+  onAddNewAnime: () => void;
+
   onExport: () => void;
   onImport: (data: any) => void;
 }
 
-type LeafTab = 'artists' | 'concerts' | 'exhibitions' | 'movies' | 'actors';
-type TopTab = 'music' | 'exhibitions' | 'movies';
+type LeafTab = 'artists' | 'concerts' | 'exhibitions' | 'movies' | 'actors' | 'animes';
+type TopTab = 'music' | 'exhibitions' | 'movies' | 'animes';
 
 const getTopTab = (leaf: string): TopTab => {
   if (leaf === 'exhibitions') return 'exhibitions';
   if (leaf === 'movies' || leaf === 'actors') return 'movies';
+  if (leaf === 'animes') return 'animes';
   return 'music';
 };
 
@@ -114,13 +120,14 @@ export const ContentPage: React.FC<ContentPageProps> = (props) => {
   const [isConcertToolsOpen, setIsConcertToolsOpen] = useState(false);
   const [isExhibitionToolsOpen, setIsExhibitionToolsOpen] = useState(false);
   const [isMovieToolsOpen, setIsMovieToolsOpen] = useState(false);
+  const [isAnimeToolsOpen, setIsAnimeToolsOpen] = useState(false);
 
   const isCompact = typeof window !== 'undefined' && window.innerWidth <= 480;
   const topNavHeight = isCompact ? 40 : 44;
   const secondaryGap = isCompact ? 16 : 9;
   const contentReservedHeight = topNavHeight + secondaryGap + 26;
 
-  const leafTab = (['artists', 'concerts', 'exhibitions', 'movies', 'actors'].includes(props.activeTab) ? props.activeTab : 'artists') as LeafTab;
+  const leafTab = (['artists', 'concerts', 'exhibitions', 'movies', 'actors', 'animes'].includes(props.activeTab) ? props.activeTab : 'artists') as LeafTab;
   const topTab = getTopTab(leafTab);
 
   const closeAllMenus = () => {
@@ -128,6 +135,7 @@ export const ContentPage: React.FC<ContentPageProps> = (props) => {
     setIsConcertToolsOpen(false);
     setIsExhibitionToolsOpen(false);
     setIsMovieToolsOpen(false);
+    setIsAnimeToolsOpen(false);
   };
 
   const openCurrentMenu = () => {
@@ -136,21 +144,31 @@ export const ContentPage: React.FC<ContentPageProps> = (props) => {
       setIsConcertToolsOpen(false);
       setIsExhibitionToolsOpen(false);
       setIsMovieToolsOpen(false);
+      setIsAnimeToolsOpen(false);
     } else if (leafTab === 'concerts') {
       setIsConcertToolsOpen(v => !v);
       setIsArtistToolsOpen(false);
       setIsExhibitionToolsOpen(false);
       setIsMovieToolsOpen(false);
+      setIsAnimeToolsOpen(false);
     } else if (leafTab === 'exhibitions') {
       setIsExhibitionToolsOpen(v => !v);
       setIsArtistToolsOpen(false);
       setIsConcertToolsOpen(false);
       setIsMovieToolsOpen(false);
+      setIsAnimeToolsOpen(false);
     } else if (leafTab === 'movies' || leafTab === 'actors') {
       setIsMovieToolsOpen(v => !v);
       setIsArtistToolsOpen(false);
       setIsConcertToolsOpen(false);
       setIsExhibitionToolsOpen(false);
+      setIsAnimeToolsOpen(false);
+    } else if (leafTab === 'animes') {
+      setIsAnimeToolsOpen(v => !v);
+      setIsArtistToolsOpen(false);
+      setIsConcertToolsOpen(false);
+      setIsExhibitionToolsOpen(false);
+      setIsMovieToolsOpen(false);
     }
   };
 
@@ -192,12 +210,14 @@ export const ContentPage: React.FC<ContentPageProps> = (props) => {
     { key: 'music', label: '音楽' },
     { key: 'exhibitions', label: '展覧' },
     { key: 'movies', label: '映画' },
+    { key: 'animes', label: 'アニメ' },
   ];
 
   const setTopTab = (tab: string) => {
     closeAllMenus();
     if (tab === 'music') props.onTabChange('artists');
     else if (tab === 'movies') props.onTabChange('movies');
+    else if (tab === 'animes') props.onTabChange('animes');
     else props.onTabChange('exhibitions');
   };
 
@@ -331,6 +351,17 @@ export const ContentPage: React.FC<ContentPageProps> = (props) => {
               onOpenActor={props.onOpenActorDetail}
             />
           </>
+        )}
+        {leafTab === 'animes' && (
+          <AnimesPage
+            animes={props.animes}
+            onOpenDetail={props.onOpenAnimeDetail}
+            onExport={props.onExport}
+            onImport={props.onImportData}
+            isMenuOpenExternally={isAnimeToolsOpen}
+            onMenuClose={() => setIsAnimeToolsOpen(false)}
+            hideHeader={true}
+          />
         )}
       </div>
     </div>

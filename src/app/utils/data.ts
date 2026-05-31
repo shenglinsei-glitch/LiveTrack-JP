@@ -1,4 +1,4 @@
-import { Artist, Exhibition, SiteLink, Tour, Concert, Movie, Actor } from '@/domain/types';
+import { Artist, Exhibition, SiteLink, Tour, Concert, Movie, Actor, Anime, Season, Episode, OpeningSong, EndingSong, AnimeStatus } from '@/domain/types';
 
 export const normalizeArtistData = (artist: any): Artist => {
   return {
@@ -94,5 +94,102 @@ export const normalizeActorData = (actor: any): Actor => {
     isFollowed: actor?.isFollowed !== false,
     createdAt: actor?.createdAt || now,
     updatedAt: actor?.updatedAt || actor?.createdAt || now,
+  };
+};
+
+
+const normalizeAnimeStatus = (status?: string, watchDecision?: string): AnimeStatus => {
+  const raw = String(status || '').trim();
+  if (raw === '放送前') return '放送前';
+  if (raw === '視聴予定') return '視聴予定';
+  if (raw === '視聴中') return '視聴中';
+  if (raw === '保留') return '保留';
+  if (raw === '視聴済み') return '視聴済み';
+  if (raw === '視聴中止') return '視聴中止';
+  if (raw === '見送り' || raw === '未視聴') return '見送り';
+
+  const decision = String(watchDecision || '').trim();
+  if (decision === 'watch' || decision === '視聴' || decision === '見る') return '視聴予定';
+  if (decision === 'skip' || decision === '見送り' || decision === '見ない') return '見送り';
+
+  return '放送前';
+};
+
+const normalizeSong = (song: any): OpeningSong | EndingSong => ({
+  songTitle: song?.songTitle || '',
+  artistName: song?.artistName || '',
+  coverUrl: song?.coverUrl || '',
+  musicUrl: song?.musicUrl || '',
+});
+
+const normalizeEpisode = (episode: any, idx: number): Episode => ({
+  ...episode,
+  id: String(episode?.id || Math.random().toString(36).substr(2, 9)),
+  episodeNumber: typeof episode?.episodeNumber === 'number' ? episode.episodeNumber : idx + 1,
+  title: episode?.title || '',
+  summary: episode?.summary || '',
+  review: episode?.review || '',
+  watchedDate: episode?.watchedDate || '',
+});
+
+const looksLikeSeasonNumber = (value?: string) => /^第.+[期季]$|^Season\s*\d+$/i.test(String(value || '').trim());
+
+const normalizeSeason = (season: any, idx: number, anime?: any): Season => ({
+  ...season,
+  id: String(season?.id || Math.random().toString(36).substr(2, 9)),
+  seasonNumber: season?.seasonNumber || (looksLikeSeasonNumber(season?.seasonTitle) ? season.seasonTitle : `第${idx + 1}期`),
+  seasonTitle: looksLikeSeasonNumber(season?.seasonTitle) ? '' : (season?.seasonTitle || ''),
+  posterUrl: season?.posterUrl || '',
+  startDate: season?.startDate || (idx === 0 ? anime?.startDate || '' : ''),
+  endDate: season?.endDate || (idx === 0 ? anime?.endDate || '' : ''),
+  studio: season?.studio || (idx === 0 ? anime?.studio || '' : ''),
+  director: season?.director || (idx === 0 ? anime?.director || '' : ''),
+  originalType: season?.originalType || (idx === 0 ? anime?.originalType : undefined),
+  originalTitle: season?.originalTitle || (idx === 0 ? anime?.originalTitle || '' : ''),
+  openingSongs: Array.isArray(season?.openingSongs) ? season.openingSongs.map(normalizeSong) : [],
+  endingSongs: Array.isArray(season?.endingSongs) ? season.endingSongs.map(normalizeSong) : [],
+  genres: Array.isArray(season?.genres) ? season.genres : [],
+  summary: season?.summary || '',
+  rating: typeof season?.rating === 'number' ? season.rating : (season?.rating ? Number(season.rating) : undefined),
+  review: season?.review || '',
+  totalEpisodes: typeof season?.totalEpisodes === 'number' ? season.totalEpisodes : (season?.totalEpisodes ? Number(season.totalEpisodes) : undefined),
+  broadcastWeekday: season?.broadcastWeekday || '',
+  broadcastTime: season?.broadcastTime || '',
+  episodes: Array.isArray(season?.episodes) ? season.episodes.map(normalizeEpisode) : [],
+  status: normalizeAnimeStatus(season?.status, season?.watchDecision),
+  watchDecision: season?.watchDecision,
+  collapsed: idx === 0 ? season?.collapsed === true : season?.collapsed !== false,
+});
+
+export const normalizeAnimeData = (anime: any): Anime => {
+  const now = new Date().toISOString();
+  const baseSeasons = Array.isArray(anime?.seasons) && anime.seasons.length > 0
+    ? anime.seasons
+    : [{ seasonNumber: '第1期', seasonTitle: '' }];
+
+  return {
+    ...anime,
+    id: String(anime?.id || Math.random().toString(36).substr(2, 9)),
+    title: String(anime?.title || '').trim() || 'タイトル未設定',
+    posterUrl: anime?.posterUrl || '',
+    status: normalizeAnimeStatus(anime?.status, anime?.watchDecision),
+    startDate: anime?.startDate || '',
+    endDate: anime?.endDate || '',
+    studio: anime?.studio || '',
+    director: anime?.director || '',
+    originalType: anime?.originalType || undefined,
+    originalTitle: anime?.originalTitle || '',
+    openingSongs: Array.isArray(anime?.openingSongs) ? anime.openingSongs.map(normalizeSong) : [],
+    endingSongs: Array.isArray(anime?.endingSongs) ? anime.endingSongs.map(normalizeSong) : [],
+    genres: Array.isArray(anime?.genres) ? anime.genres : [],
+    summary: anime?.summary || '',
+    rating: typeof anime?.rating === 'number' ? anime.rating : (anime?.rating ? Number(anime.rating) : undefined),
+    review: anime?.review || '',
+    totalEpisodes: typeof anime?.totalEpisodes === 'number' ? anime.totalEpisodes : (anime?.totalEpisodes ? Number(anime.totalEpisodes) : undefined),
+    broadcastWeekday: anime?.broadcastWeekday || '',
+    broadcastTime: anime?.broadcastTime || '',
+    seasons: baseSeasons.map((season: any, idx: number) => normalizeSeason(season, idx, anime)),
+    createdAt: anime?.createdAt || now,
+    updatedAt: anime?.updatedAt || anime?.createdAt || now,
   };
 };

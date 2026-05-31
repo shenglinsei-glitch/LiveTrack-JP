@@ -4,7 +4,7 @@ import { EVENT_PRIORITY, getEffectiveExhibitionStatus } from '@/domain/logic';
 import { TEXT } from '@/components/common/constants';
 import { theme } from '@/components/common/theme';
 
-export type CalendarMode = 'concert' | 'exhibition' | 'movie';
+export type CalendarMode = 'concert' | 'exhibition' | 'movie' | 'anime';
 
 export const exhibitionPriorityMap: Record<ExhibitionStatus, number> = {
   PLANNED: 1,
@@ -22,6 +22,7 @@ export const typeColorMap: Record<CalendarEventType, string> = {
   [TEXT.CALENDAR.EVENT_SALE]: theme.colors.status['発売前'],
   展覧: theme.colors.primary,
   映画: '#8B5CF6',
+  アニメ: theme.colors.primary,
 };
 
 const CONCERT_DOT_COLOR_UNDECIDED = '#377D99';
@@ -34,6 +35,19 @@ export const getConcertDotColor = (status: string): string => {
   if (status === '抽選中' || status === '発売前' || status === '検討中') return CONCERT_DOT_COLOR_UNDECIDED;
   if (status === '見送' || status === '見送り') return CONCERT_DOT_COLOR_SKIPPED;
   return CONCERT_DOT_COLOR_UNDECIDED;
+};
+
+export const getAnimeDotColor = (status: string): string => {
+  switch (status) {
+    case '放送前': return theme.colors.status['発売前'];
+    case '視聴予定': return theme.colors.status['参戦予定'];
+    case '視聴中': return theme.colors.primary;
+    case '視聴済み': return theme.colors.status['参戦済み'];
+    case '保留': return theme.colors.status['検討中'];
+    case '視聴中止': return theme.colors.textWeak;
+    case '見送り': return theme.colors.status['見送'];
+    default: return theme.colors.textWeak;
+  }
 };
 
 export const getMovieDotColor = (status: string): string => {
@@ -108,7 +122,7 @@ export const getSelectedDayEvents = (
   exhibitions: Exhibition[]
 ) => {
   if (!selectedDateKey) return [] as Array<CalendarEvent | Exhibition>;
-  if (mode === 'concert' || mode === 'movie') {
+  if (mode === 'concert' || mode === 'movie' || mode === 'anime') {
     const list = musicEventMap.get(selectedDateKey) || [];
     return [...list].sort((a, b) => {
       if (a.timeLabel && !b.timeLabel) return -1;

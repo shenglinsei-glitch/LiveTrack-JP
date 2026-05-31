@@ -1,10 +1,10 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { theme } from '@/components/common/theme';
 import { GlassCard } from '@/components/common/GlassCard';
-import { Artist, Concert, Exhibition, StatusItem, Movie } from '@/domain/types';
+import { Artist, Concert, Exhibition, StatusItem, Movie, Anime, AnimeStatus, Season } from '@/domain/types';
 import { generateStatusItems } from '@/utils/statusGenerator';
 import { TopCapsuleNav } from '@/components/TopCapsuleNav';
-import { applyMovieLotteryDecision, getDueAction, parseConcertDate } from '@/domain/logic';
+import { applyMovieLotteryDecision, getDueAction, getAnimeDotColor, parseConcertDate } from '@/domain/logic';
 import { ConcertStatusCard } from '@/components/ConcertStatusCard';
 import { ExhibitionStatusCard } from '@/components/ExhibitionStatusCard';
 import { MovieStatusCard, MovieLotteryActionState } from '@/components/MovieStatusCard';
@@ -14,6 +14,7 @@ interface Props {
   artists: Artist[];
   exhibitions: Exhibition[];
   movies: Movie[];
+  animes: Anime[];
   onOpenConcert: (aid: string, tid: string, cid: string) => void;
   onOpenArtist: (artistId: string) => void;
   onOpenConcertEditor: (aid: string, tid: string) => void;
@@ -22,12 +23,14 @@ interface Props {
   onUpdateExhibitionStatus: (id: string, updates: Partial<Exhibition>) => void;
   onOpenMovieDetail: (id: string) => void;
   onUpdateMovieStatus: (id: string, updates: Partial<Movie>) => void;
+  onOpenAnimeDetail: (id: string) => void;
+  onUpdateAnimeStatus: (id: string, updates: Partial<Anime>) => void;
   onExport: () => void;
   onImport: (data: any) => void;
 }
 
-type StatusTab = 'ALL' | 'CONCERT' | 'EXHIBITION' | 'MOVIE';
-type SectionKey = 'all' | 'pending' | 'decided' | 'history';
+type StatusTab = 'ALL' | 'CONCERT' | 'EXHIBITION' | 'MOVIE' | 'ANIME';
+type SectionKey = 'all' | 'pending' | 'decided' | 'upcoming' | 'history';
 type SortKey = 'date_asc' | 'date_desc' | 'type' | 'status';
 
 type ExhibitionActionMode = 'reserve' | 'visit';
@@ -40,6 +43,8 @@ const getSectionLabel = (key: SectionKey) => {
       return '未処理';
     case 'decided':
       return '決定済';
+    case 'upcoming':
+      return '未上映';
     case 'history':
       return '履歴';
     default:
@@ -53,6 +58,7 @@ export const StatusPage: React.FC<Props> = ({
   artists,
   exhibitions,
   movies,
+  animes,
   onOpenConcert,
   onOpenArtist,
   onOpenConcertEditor,
@@ -61,6 +67,8 @@ export const StatusPage: React.FC<Props> = ({
   onUpdateExhibitionStatus,
   onOpenMovieDetail,
   onUpdateMovieStatus,
+  onOpenAnimeDetail,
+  onUpdateAnimeStatus,
   onExport,
   onImport,
 }) => {
@@ -73,18 +81,20 @@ export const StatusPage: React.FC<Props> = ({
   const [movieWatchedAction, setMovieWatchedAction] = useState<MovieWatchedAction | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
 
-  const allItems = useMemo(() => generateStatusItems(artists, exhibitions, movies) || [], [artists, exhibitions, movies]);
+  const allItems = useMemo(() => generateStatusItems(artists, exhibitions, movies, animes) || [], [artists, exhibitions, movies, animes]);
 
   const filteredItems = useMemo(() => {
     if (activeTab === 'ALL') return allItems;
     if (activeTab === 'CONCERT') return allItems.filter((item) => item.type === 'concert');
     if (activeTab === 'EXHIBITION') return allItems.filter((item) => item.type === 'exhibition');
-    return allItems.filter((item) => item.type === 'movie');
+    if (activeTab === 'MOVIE') return allItems.filter((item) => item.type === 'movie');
+    return allItems.filter((item) => item.type === 'anime');
   }, [allItems, activeTab]);
 
   const sections = useMemo(() => {
     const pending: StatusItem[] = [];
     const decided: StatusItem[] = [];
+    const upcoming: StatusItem[] = [];
     const history: StatusItem[] = [];
     const now = new Date();
 
@@ -96,17 +106,28 @@ export const StatusPage: React.FC<Props> = ({
         return;
       }
 
+      if (item.type === 'anime') {
+        if (item.raw?.statusSection === 'upcoming') upcoming.push(item);
+        else if (item.raw?.statusSection === 'history' || item.status === '視聴済み' || item.status === '視聴中止' || item.status === '見送り') history.push(item);
+        else if (item.raw?.statusSection === 'pending') pending.push(item);
+        else decided.push(item);
+        return;
+      }
+
       if (item.type === 'movie') {
         const saleStart = parseMovieFlexibleDate(getMovieSaleStart(item.raw));
         const resultAt = parseMovieFlexibleDate(getMovieLotteryResultAt(item.raw));
         const hasMovieAction =
           (item.status === '発売前' && !!saleStart && now >= saleStart) ||
-          (item.status === '抽選中' && !!resultAt && now >= resultAt);
+          (item.status === '抽選中' && !!resultAt && now >= resultAt) ||
+          item.status === '上映中';
         if (item.status === '鑑賞済み' || item.status === '見送り' || item.status === '上映終了') {
           history.push(item);
         } else if (item.status === '鑑賞予定') {
           decided.push(item);
-        } else if (hasMovieAction || item.status === '未上映' || item.status === '発売前' || item.status === '上映中' || item.status === '抽選中') {
+        } else if (item.status === '未上映') {
+          upcoming.push(item);
+        } else if (hasMovieAction || item.status === '発売前' || item.status === '抽選中') {
           pending.push(item);
         } else {
           decided.push(item);
@@ -118,31 +139,35 @@ export const StatusPage: React.FC<Props> = ({
       const isPassed = concertDate && now >= concertDate;
       const due = getDueAction(item.raw, now);
 
-      if (
-  item.status === '参戦済み' ||
-  item.status === '落選' ||
-  item.status === '見送'
-) {
-  history.push(item);
-}
-      else if (due || ['発売前', '検討中', '抽選中'].includes(item.status)) {
-  pending.push(item);
-}
-      else {
-  decided.push(item);
-}
+      if (item.status === '参戦済み' || item.status === '落選' || item.status === '見送') {
+        history.push(item);
+      } else if (due || ['発売前', '検討中', '抽選中'].includes(item.status)) {
+        pending.push(item);
+      } else {
+        decided.push(item);
+      }
     });
 
-    return { pending, decided, history };
+    return { pending, decided, upcoming, history };
   }, [filteredItems]);
 
-  const sortItems = (items: StatusItem[]) => {
+  const getPendingRank = (item: StatusItem) => {
+    const statusRank: Record<string, number> = { '抽選中': 0, '発売前': 1, '上映中': 2 };
+    return statusRank[item.status] ?? 50;
+  };
+
+  const sortItems = (items: StatusItem[], section?: SectionKey) => {
     const list = [...(items || [])];
     return list.sort((a, b) => {
       const da = parseConcertDate(a.date, a.type === 'concert' ? 'CONCERT' : 'EXHIBITION');
       const db = parseConcertDate(b.date, b.type === 'concert' ? 'CONCERT' : 'EXHIBITION');
       const ta = da ? da.getTime() : Number.MAX_SAFE_INTEGER;
       const tb = db ? db.getTime() : Number.MAX_SAFE_INTEGER;
+      if (section === 'pending' && sortKey === 'date_asc') {
+        const ra = getPendingRank(a);
+        const rb = getPendingRank(b);
+        if (ra !== rb) return ra - rb;
+      }
       if (sortKey === 'date_desc') return tb - ta;
       if (sortKey === 'type') {
         if (a.type !== b.type) return a.type === 'concert' ? -1 : 1;
@@ -158,9 +183,10 @@ export const StatusPage: React.FC<Props> = ({
   };
 
   const visibleSections = {
-    pending: sectionFilter === 'all' || sectionFilter === 'pending' ? sortItems(sections.pending) : [],
-    decided: sectionFilter === 'all' || sectionFilter === 'decided' ? sortItems(sections.decided) : [],
-    history: sectionFilter === 'all' || sectionFilter === 'history' ? sortItems(sections.history) : [],
+    pending: sectionFilter === 'all' || sectionFilter === 'pending' ? sortItems(sections.pending, 'pending') : [],
+    decided: sectionFilter === 'all' || sectionFilter === 'decided' ? sortItems(sections.decided, 'decided') : [],
+    upcoming: sectionFilter === 'all' || sectionFilter === 'upcoming' ? sortItems(sections.upcoming, 'upcoming') : [],
+    history: sectionFilter === 'all' || sectionFilter === 'history' ? sortItems(sections.history, 'history') : [],
   };
 
   const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -259,6 +285,87 @@ export const StatusPage: React.FC<Props> = ({
     setMovieWatchedAction(null);
   };
 
+  const deriveOverallAnimeStatus = (seasons: Season[] = [], fallback: AnimeStatus = '放送前'): AnimeStatus => {
+    const order: AnimeStatus[] = ['視聴中', '視聴予定', '放送前', '保留', '視聴済み', '視聴中止', '見送り'];
+    const statuses = seasons.map((season) => season.status).filter(Boolean) as AnimeStatus[];
+    if (!statuses.length) return fallback;
+    return order.find((status) => statuses.includes(status)) || fallback;
+  };
+
+  const updateAnimeSeason = (raw: Anime & { seasonId?: string; seasonIndex?: number; season?: Season }, seasonPatch: Partial<Season>) => {
+    const nowIso = new Date().toISOString();
+    const seasons = raw.seasons && raw.seasons.length > 0 ? [...raw.seasons] : raw.season ? [raw.season] : [];
+    if (!seasons.length) {
+      const nextStatus = (seasonPatch.status as AnimeStatus) || raw.status || '放送前';
+      onUpdateAnimeStatus(raw.id, { status: nextStatus, updatedAt: nowIso, watchDecision: (seasonPatch as any).watchDecision });
+      return;
+    }
+    const targetIndex = seasons.findIndex((season, index) => (raw.seasonId && season.id === raw.seasonId) || index === raw.seasonIndex);
+    const index = targetIndex >= 0 ? targetIndex : 0;
+    const nextSeasons = seasons.map((season, idx) => idx === index ? { ...season, ...seasonPatch } : season);
+    const nextStatus = deriveOverallAnimeStatus(nextSeasons, (seasonPatch.status as AnimeStatus) || raw.status || '放送前');
+    onUpdateAnimeStatus(raw.id, { seasons: nextSeasons, status: nextStatus, updatedAt: nowIso });
+  };
+
+  const markAnimeEpisodeWatched = (raw: Anime & { seasonId?: string; seasonIndex?: number; season?: Season }) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const season = raw.season || (raw.seasons || [])[raw.seasonIndex || 0];
+    const episodes = [...(season?.episodes || [])];
+    const targetIndex = episodes.findIndex((episode) => !episode.watchedDate);
+    if (targetIndex >= 0) {
+      episodes[targetIndex] = { ...episodes[targetIndex], watchedDate: today };
+      updateAnimeSeason(raw, { status: '視聴中', episodes });
+    } else {
+      updateAnimeSeason(raw, { status: '視聴中' });
+    }
+  };
+
+  const renderAnimeActions = (raw: Anime & { seasonStatus?: AnimeStatus; seasonId?: string; seasonIndex?: number; season?: Season; statusSection?: string }) => {
+    const seasonStatus = raw.seasonStatus || raw.season?.status || raw.status || '放送前';
+    const button = (label: string, onClick: () => void, primary = false) => (
+      <button
+        style={primary ? actionPrimaryBtn : actionGhostBtn}
+        onClick={(event) => {
+          event.stopPropagation();
+          onClick();
+        }}
+      >
+        {label}
+      </button>
+    );
+
+    if (seasonStatus === '放送前' && raw.statusSection === 'pending') {
+      return <>
+        {button('視聴', () => updateAnimeSeason(raw, { status: '視聴予定', watchDecision: 'WILL_WATCH' } as any), true)}
+        {button('見送り', () => updateAnimeSeason(raw, { status: '見送り', watchDecision: 'SKIPPED' } as any))}
+      </>;
+    }
+
+    if (seasonStatus === '視聴予定') {
+      return <>
+        {button('視聴開始', () => updateAnimeSeason(raw, { status: '視聴中', watchDecision: 'WILL_WATCH' } as any), true)}
+        {button('保留', () => updateAnimeSeason(raw, { status: '保留', watchDecision: 'WILL_WATCH' } as any))}
+      </>;
+    }
+
+    if (seasonStatus === '保留') {
+      return <>
+        {button('再開', () => updateAnimeSeason(raw, { status: '視聴中', watchDecision: 'WILL_WATCH' } as any), true)}
+        {button('中止', () => updateAnimeSeason(raw, { status: '視聴中止', watchDecision: 'SKIPPED' } as any))}
+      </>;
+    }
+
+    if (seasonStatus === '視聴中') {
+      return <>
+        {button('視聴済', () => markAnimeEpisodeWatched(raw), true)}
+        {button('中止', () => updateAnimeSeason(raw, { status: '視聴中止', watchDecision: 'SKIPPED' } as any))}
+        {button('完結', () => updateAnimeSeason(raw, { status: '視聴済み', watchDecision: 'WILL_WATCH' } as any))}
+      </>;
+    }
+
+    return null;
+  };
+
 
   const renderItem = (item: StatusItem) => {
     if (item.type === 'concert') {
@@ -289,6 +396,38 @@ export const StatusPage: React.FC<Props> = ({
         />
       );
     }
+    if (item.type === 'anime') {
+      const raw = item.raw as Anime & { nextBroadcastAt?: string; totalEpisodes?: number; watchedEpisodes?: number; seasonStatus?: AnimeStatus; seasonId?: string; seasonIndex?: number; season?: Season; statusSection?: string };
+      const color = getAnimeDotColor(raw.seasonStatus || item.status);
+      const total = raw.totalEpisodes || 0;
+      const watched = raw.watchedEpisodes || 0;
+      const actions = renderAnimeActions(raw);
+      return (
+        <div key={item.id}>
+          <GlassCard style={{ marginBottom: actions ? 4 : 12, cursor: 'pointer' }} onClick={() => onOpenAnimeDetail(item.parentId)}>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <div style={{ width: 58, height: 76, borderRadius: 14, overflow: 'hidden', background: 'rgba(0,0,0,0.04)', flexShrink: 0 }}>
+                {raw.season?.posterUrl || raw.posterUrl ? <img src={raw.season?.posterUrl || raw.posterUrl} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.35 }}>📺</div>}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 900, color: theme.colors.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</div>
+                <div style={{ marginTop: 5, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  <span style={{ background: `${color}22`, color, borderRadius: 999, padding: '3px 8px', fontSize: 11, fontWeight: 900 }}>{item.displayStatus}</span>
+                  {raw.nextBroadcastAt && <span style={{ color: theme.colors.textSecondary, fontSize: 11, fontWeight: 800 }}>次回: {raw.nextBroadcastAt.replace(/-/g, '/')}</span>}
+                  {total > 0 && <span style={{ color: theme.colors.textWeak, fontSize: 11, fontWeight: 800 }}>{watched}/{total}話</span>}
+                </div>
+              </div>
+            </div>
+          </GlassCard>
+          {actions && (
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16, padding: '0 4px' }}>
+              {actions}
+            </div>
+          )}
+        </div>
+      );
+    }
+
     return (
       <ExhibitionStatusCard
         key={item.id}
@@ -317,6 +456,7 @@ export const StatusPage: React.FC<Props> = ({
     { key: 'CONCERT', label: '公演' },
     { key: 'EXHIBITION', label: '展覧' },
     { key: 'MOVIE', label: '映画' },
+    { key: 'ANIME', label: 'アニメ' },
   ];
 
   const leftControl = (
@@ -361,7 +501,7 @@ export const StatusPage: React.FC<Props> = ({
               <section style={{ borderTop: '0.5px solid rgba(0,0,0,0.1)', paddingTop: 16 }}>
                 <div style={sectionTitle}>セクション絞り込み</div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {(['all', 'pending', 'decided', 'history'] as SectionKey[]).map((key) => (
+                  {(['all', 'pending', 'decided', 'upcoming', 'history'] as SectionKey[]).map((key) => (
                     <SmallChip key={key} label={getSectionLabel(key)} active={sectionFilter === key} onClick={() => setSectionFilter(key)} />
                   ))}
                 </div>
@@ -474,6 +614,7 @@ export const StatusPage: React.FC<Props> = ({
       <div style={{ padding: '0 16px 140px' }}>
         {renderSection(getSectionLabel('pending'), visibleSections.pending)}
         {renderSection(getSectionLabel('decided'), visibleSections.decided)}
+        {renderSection(getSectionLabel('upcoming'), visibleSections.upcoming)}
         {renderSection(getSectionLabel('history'), visibleSections.history)}
       </div>
     </div>
@@ -543,3 +684,4 @@ const actionGhostBtn: React.CSSProperties = {
   background: 'rgba(0,0,0,0.06)',
   color: theme.colors.text,
 };
+

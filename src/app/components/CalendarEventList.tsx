@@ -4,13 +4,14 @@ import { CalendarEvent, Exhibition } from '@/domain/types';
 import { Icons } from '@/components/common/IconButton';
 import { theme } from '@/components/common/theme';
 import { TEXT } from '@/components/common/constants';
-import { CalendarMode, getMovieDotColor, isConcertType, typeColorMap } from '@/domain/calendarHelpers';
+import { CalendarMode, getAnimeDotColor, getMovieDotColor, isConcertType, typeColorMap } from '@/domain/calendarHelpers';
 
 interface Props {
   selectedDateKey: string | null;
   mode: CalendarMode;
   selectedDayEvents: Array<CalendarEvent | Exhibition>;
   onOpenMovie: (movieId: string) => void;
+  onOpenAnime?: (animeId: string) => void;
   onOpenExhibition: (exhibitionId: string) => void;
   onOpenArtistEvent: (ev: CalendarEvent) => void;
 }
@@ -20,6 +21,7 @@ export const CalendarEventList: React.FC<Props> = ({
   mode,
   selectedDayEvents,
   onOpenMovie,
+  onOpenAnime,
   onOpenExhibition,
   onOpenArtistEvent,
 }) => {
@@ -37,15 +39,15 @@ export const CalendarEventList: React.FC<Props> = ({
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {selectedDayEvents.length === 0 ? (
           <div style={{ color: theme.colors.textWeak, fontWeight: 700, padding: '12px 0' }}>予定はありません</div>
-        ) : mode === 'concert' || mode === 'movie' ? (
+        ) : mode === 'concert' || mode === 'movie' || mode === 'anime' ? (
           (selectedDayEvents as CalendarEvent[])
-            .filter((ev) => (mode === 'movie' ? ev.type === '映画' : ev.type !== '映画'))
+            .filter((ev) => mode === 'movie' ? ev.type === '映画' : mode === 'anime' ? ev.type === 'アニメ' : ev.type !== '映画' && ev.type !== 'アニメ')
             .map((ev, idx) => (
-              <div key={`${ev.movieId || ev.concertId}-${ev.type}-${idx}`} onClick={() => (ev.type === '映画' ? onOpenMovie(ev.movieId || '') : onOpenArtistEvent(ev))} style={eventCardStyle}>
+              <div key={`${ev.movieId || ev.concertId}-${ev.type}-${idx}`} onClick={() => (ev.type === '映画' ? onOpenMovie(ev.movieId || '') : ev.type === 'アニメ' ? onOpenAnime?.(ev.animeId || '') : onOpenArtistEvent(ev))} style={eventCardStyle}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
                   <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <div style={{ fontSize: '10px', fontWeight: '800', color: ev.type === '映画' ? getMovieDotColor(ev.status) : typeColorMap[ev.type] }}>
-                      {ev.type === '映画' ? 'MOV' : isConcertType(ev.type) ? 'LIVE' : String(ev.type).substring(0, 2)}
+                    <div style={{ fontSize: '10px', fontWeight: '800', color: ev.type === '映画' ? getMovieDotColor(ev.status) : ev.type === 'アニメ' ? getAnimeDotColor(ev.status) : typeColorMap[ev.type] }}>
+                      {ev.type === '映画' ? 'MOV' : ev.type === 'アニメ' ? 'ANI' : isConcertType(ev.type) ? 'LIVE' : String(ev.type).substring(0, 2)}
                     </div>
                     {ev.timeLabel && <div style={{ fontSize: '10px', fontWeight: '600', color: theme.colors.textSecondary }}>{ev.timeLabel}</div>}
                   </div>
@@ -53,7 +55,7 @@ export const CalendarEventList: React.FC<Props> = ({
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontSize: '15px', fontWeight: '800', color: theme.colors.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ev.title}</div>
                     <div style={{ fontSize: '12px', color: theme.colors.textSecondary, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: ev.type === '映画' ? getMovieDotColor(ev.status) : typeColorMap[ev.type] }} />
+                      <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: ev.type === '映画' ? getMovieDotColor(ev.status) : ev.type === 'アニメ' ? getAnimeDotColor(ev.status) : typeColorMap[ev.type] }} />
                       {ev.type}
                     </div>
                   </div>
@@ -61,7 +63,7 @@ export const CalendarEventList: React.FC<Props> = ({
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <div style={{ fontSize: '11px', fontWeight: '800', color: theme.colors.textWeak, padding: '4px 8px', borderRadius: '8px', background: '#F8FAFC' }}>
-                    {ev.type === '映画' ? ev.status : TEXT.STATUS[ev.status as keyof typeof TEXT.STATUS] || ev.status}
+                    {ev.type === '映画' || ev.type === 'アニメ' ? ev.status : TEXT.STATUS[ev.status as keyof typeof TEXT.STATUS] || ev.status}
                   </div>
                   <Icons.ChevronLeft style={{ transform: 'rotate(180deg)', width: '16px', height: '16px', color: '#CBD5E1' }} />
                 </div>

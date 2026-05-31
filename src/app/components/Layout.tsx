@@ -33,12 +33,12 @@ const NavIcons = {
 
 export const Layout: React.FC<LayoutProps> = ({ children, currentPath, onNavigate, onPlusClick, hasConcertAlert }) => {
   const tabs: { id: PageId; label: string; icon: React.ReactNode; alert?: boolean }[] = [
-    { id: 'CONTENT', label: '内容', icon: <NavIcons.Content /> },
+    { id: 'HOME', label: '内容', icon: <NavIcons.Content /> },
     { id: 'STATUS', label: '状态', icon: <NavIcons.Status />, alert: hasConcertAlert },
     { id: 'CALENDAR', label: '日历', icon: <NavIcons.Calendar /> },
   ];
 
-  const isMainTab = tabs.some(tab => tab.id === currentPath);
+  const isMainTab = tabs.some(tab => tab.id === currentPath) || currentPath === 'CONTENT';
   const hasFab = Boolean(onPlusClick);
 
   return (

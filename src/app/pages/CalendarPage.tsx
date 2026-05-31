@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { PageShell } from '@/components/common/PageShell';
 import { theme } from '@/components/common/theme';
 import { TEXT } from '@/components/common/constants';
-import { Artist, CalendarEvent, Exhibition, Movie } from '@/domain/types';
+import { Artist, CalendarEvent, Exhibition, Movie, Anime } from '@/domain/types';
 import { buildCalendarEvents } from '@/domain/logic';
 import { CalendarGrid } from '@/components/CalendarGrid';
 import { CalendarEventList } from '@/components/CalendarEventList';
@@ -19,10 +19,12 @@ interface Props {
   artists: Artist[];
   exhibitions: Exhibition[];
   movies: Movie[];
+  animes: Anime[];
   onOpenArtist: (artistId: string) => void;
   onOpenConcert: (artistId: string, tourId: string, concertId: string) => void;
   onOpenExhibition: (exhibitionId: string) => void;
   onOpenMovie: (movieId: string) => void;
+  onOpenAnime: (animeId: string) => void;
   onRefreshAll: () => void;
   isMenuOpenExternally?: boolean;
   onMenuClose?: () => void;
@@ -295,10 +297,12 @@ export const CalendarPage: React.FC<Props> = ({
   artists,
   exhibitions,
   movies,
+  animes,
   onOpenArtist,
   onOpenConcert,
   onOpenExhibition,
   onOpenMovie,
+  onOpenAnime,
   onRefreshAll,
   isMenuOpenExternally,
   onMenuClose,
@@ -325,7 +329,7 @@ export const CalendarPage: React.FC<Props> = ({
     setSelectedDateKey(null);
   }, [currentDate.getFullYear(), currentDate.getMonth(), mode]);
 
-  const allEvents = useMemo(() => buildCalendarEvents(artists, { showAttended, showSkipped }, movies), [artists, showAttended, showSkipped, movies]);
+  const allEvents = useMemo(() => buildCalendarEvents(artists, { showAttended, showSkipped }, movies, animes), [artists, showAttended, showSkipped, movies, animes]);
 
   const musicEventMap = useMemo(() => buildMusicEventMap(allEvents), [allEvents]);
 
@@ -399,7 +403,7 @@ export const CalendarPage: React.FC<Props> = ({
                 gap: 8,
               }}
             >
-              <span>{mode === 'concert' ? '公演' : mode === 'exhibition' ? '展覧' : '映画'}</span>
+              <span>{mode === 'concert' ? '公演' : mode === 'exhibition' ? '展覧' : mode === 'movie' ? '映画' : 'アニメ'}</span>
               <span style={{ fontSize: 10, opacity: 0.45 }}>▼</span>
             </button>
             {isModeMenuOpen && (
@@ -410,6 +414,7 @@ export const CalendarPage: React.FC<Props> = ({
                     { key: 'concert', label: '公演' },
                     { key: 'exhibition', label: '展覧' },
                     { key: 'movie', label: '映画' },
+                    { key: 'anime', label: 'アニメ' },
                   ].map((item) => (
                     <button key={item.key} onClick={() => { setMode(item.key as CalendarMode); setIsModeMenuOpen(false); }} style={{ width: '100%', border: 'none', background: mode === item.key ? 'rgba(83,190,232,0.12)' : 'transparent', color: mode === item.key ? theme.colors.primary : theme.colors.text, borderRadius: 14, padding: '10px 12px', textAlign: 'left', fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>{item.label}</button>
                   ))}
@@ -499,6 +504,7 @@ export const CalendarPage: React.FC<Props> = ({
           mode={mode}
           selectedDayEvents={selectedDayEvents}
           onOpenMovie={onOpenMovie}
+          onOpenAnime={onOpenAnime}
           onOpenExhibition={onOpenExhibition}
           onOpenArtistEvent={handleEventClick}
         />

@@ -6,6 +6,7 @@ import {
   CalendarMode,
   exhibitionPriorityMap,
   getConcertDotColor,
+  getAnimeDotColor,
   getMovieDotColor,
   getWeekLabels,
   isConcertType,
@@ -147,8 +148,12 @@ export const CalendarGrid: React.FC<Props> = ({
                     {d.day}
                   </div>
 
-                  {(mode === 'concert' || mode === 'movie') && musicEvents.length > 0 && (() => {
-                    const filteredEvents = mode === 'movie' ? musicEvents.filter((ev) => ev.type === '映画') : musicEvents.filter((ev) => ev.type !== '映画');
+                  {(mode === 'concert' || mode === 'movie' || mode === 'anime') && musicEvents.length > 0 && (() => {
+                    const filteredEvents = mode === 'movie'
+                      ? musicEvents.filter((ev) => ev.type === '映画')
+                      : mode === 'anime'
+                        ? musicEvents.filter((ev) => ev.type === 'アニメ')
+                        : musicEvents.filter((ev) => ev.type !== '映画' && ev.type !== 'アニメ');
                     if (!filteredEvents.length) return null;
                     const sorted = [...filteredEvents].sort((a, b) => EVENT_PRIORITY[a.type] - EVENT_PRIORITY[b.type]);
                     const primary = sorted[0];
@@ -156,6 +161,7 @@ export const CalendarGrid: React.FC<Props> = ({
 
                     if (primary) {
                       if (primary.type === '映画') primaryDotColor = getMovieDotColor(primary.status);
+                      else if (primary.type === 'アニメ') primaryDotColor = getAnimeDotColor(primary.status);
                       else if (isConcertType(primary.type)) primaryDotColor = getConcertDotColor(primary.status);
                       else primaryDotColor = typeColorMap[primary.type] || theme.colors.primary;
                     }

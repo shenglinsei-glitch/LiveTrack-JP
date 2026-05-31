@@ -1,9 +1,10 @@
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { normalizeArtistData, normalizeExhibitionData, normalizeMovieData, normalizeActorData } from '@/utils/data';
+import { normalizeArtistData, normalizeExhibitionData, normalizeMovieData, normalizeActorData, normalizeAnimeData } from '@/utils/data';
 import { safeSave, safeGet } from '@/utils/storage';
-import { PageId, Artist, Tour, DisplaySettings, Status, GlobalSettings, SiteLink, TrackingStatus, TrackingErrorType, Concert, Exhibition, Movie, Actor } from '@/domain/types';
+import { PageId, Artist, Tour, DisplaySettings, Status, GlobalSettings, SiteLink, TrackingStatus, TrackingErrorType, Concert, Exhibition, Movie, Actor, Anime } from '@/domain/types';
 import { Layout } from '@/components/Layout';
+import { HomePage } from '@/pages/HomePage';
 import { ArtistListPage } from '@/pages/ArtistListPage';
 import { ConcertListPage } from '@/pages/ConcertListPage';
 import { CalendarPage } from '@/pages/CalendarPage';
@@ -16,7 +17,10 @@ import { StatusPage } from '@/pages/StatusPage';
 import { ExhibitionDetailPage } from '@/pages/ExhibitionDetailPage';
 import { MovieDetailPage } from '@/pages/MovieDetailPage';
 import { ActorDetailPage } from '@/pages/ActorDetailPage';
+import { AnimesPage } from '@/pages/AnimesPage';
+import { AnimeDetailPage } from '@/pages/AnimeDetailPage';
 import { GlassCard } from '@/components/common/GlassCard';
+import { MenuButton, sectionTitleStyle } from '@/components/BottomMenu';
 import { theme } from '@/components/common/theme';
 import { shouldTriggerAutoTrack, getTrackTargetConcerts, getDueAction, autoAdvanceConcertStatus, autoAdvanceMovieStatus, prepareFullDataForExport, migrateAlbumImagesToIndexedDB, migrateExhibitionImagesToIndexedDB } from '@/domain/logic';
 import dayjs from 'dayjs';
@@ -29,6 +33,7 @@ type NavContext = {
   exhibitionId?: string;
   movieId?: string;
   actorId?: string;
+  animeId?: string;
   fromActorId?: string;
   from?: PageId;
   edit?: boolean; // Navigation flag to start in edit mode
@@ -40,6 +45,7 @@ const STORAGE_KEYS = {
   EXHIBITIONS: 'livetrack_jp_exhibitions',
   MOVIES: 'livetrack_jp_movies',
   ACTORS: 'livetrack_jp_actors',
+  ANIMES: 'livetrack_jp_animes',
   GLOBAL_SETTINGS: 'livetrack_jp_global_settings',
   DISPLAY_SETTINGS: 'livetrack_jp_display_settings',
   ARTIST_SORT: 'livetrack_jp_artist_sort',
@@ -65,8 +71,9 @@ const fetchWithTimeout = async (url: string, timeoutMs: number) => {
 };
 
 export default function App() {
-  const [nav, setNav] = useState<NavContext>({ path: 'CONTENT' });
+  const [nav, setNav] = useState<NavContext>({ path: 'HOME' });
   const [isArtistPickerOpen, setIsArtistPickerOpen] = useState(false);
+  const [isHomeAddMenuOpen, setIsHomeAddMenuOpen] = useState(false);
   const [isTracking, setIsTracking] = useState(false);
   const trackingLockRef = useRef(false);
 
@@ -113,10 +120,16 @@ export default function App() {
     return (raw || []).map(normalizeActorData);
   });
 
+  const [animes, setAnimes] = useState<Anime[]>(() => {
+    const raw = safeGet<any[]>(STORAGE_KEYS.ANIMES, []);
+    return (raw || []).map(normalizeAnimeData);
+  });
+
   useEffect(() => { safeSave(STORAGE_KEYS.ARTISTS, artists); }, [artists]);
   useEffect(() => { safeSave(STORAGE_KEYS.EXHIBITIONS, exhibitions); }, [exhibitions]);
   useEffect(() => { safeSave(STORAGE_KEYS.MOVIES, movies); }, [movies]);
   useEffect(() => { safeSave(STORAGE_KEYS.ACTORS, actors); }, [actors]);
+  useEffect(() => { safeSave(STORAGE_KEYS.ANIMES, animes); }, [animes]);
   useEffect(() => { safeSave(STORAGE_KEYS.GLOBAL_SETTINGS, globalSettings); }, [globalSettings]);
   useEffect(() => { safeSave(STORAGE_KEYS.DISPLAY_SETTINGS, displaySettings); }, [displaySettings]);
   useEffect(() => { safeSave(STORAGE_KEYS.ARTIST_SORT, artistSortMode); }, [artistSortMode]);
@@ -236,7 +249,7 @@ export default function App() {
   // Unified Export Logic
   const handleExportAll = async () => {
     try {
-      const fullData = { ...(await prepareFullDataForExport(artists, exhibitions, movies)), actors };
+      const fullData = { ...(await prepareFullDataForExport(artists, exhibitions, movies)), actors, animes };
       const dataStr = JSON.stringify(fullData, null, 2);
       const blob = new Blob([dataStr], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -272,9 +285,12 @@ export default function App() {
     const actorsRaw: Actor[] | null = (!Array.isArray(importedData) && importedData?.actors)
       ? importedData.actors
       : null;
+    const animesRaw: Anime[] | null = (!Array.isArray(importedData) && importedData?.animes)
+      ? importedData.animes
+      : null;
 
     // Guard: if payload shape is not recognized, do nothing but surface a clear message.
-    if (!artistsRaw && !exhibitionsRaw && !moviesRaw && !actorsRaw) {
+    if (!artistsRaw && !exhibitionsRaw && !moviesRaw && !actorsRaw && !animesRaw) {
       window.alert('読み込みに失敗しました。データ形式が正しくありません。');
       return;
     }
@@ -284,7 +300,8 @@ export default function App() {
     const exhibitionCount = Array.isArray(exhibitionsRaw) ? exhibitionsRaw.length : 0;
     const movieCount = Array.isArray(moviesRaw) ? moviesRaw.length : 0;
     const actorCount = Array.isArray(actorsRaw) ? actorsRaw.length : 0;
-    if (artistCount === 0 && exhibitionCount === 0 && movieCount === 0 && actorCount === 0) {
+    const animeCount = Array.isArray(animesRaw) ? animesRaw.length : 0;
+    if (artistCount === 0 && exhibitionCount === 0 && movieCount === 0 && actorCount === 0 && animeCount === 0) {
       const ok = window.confirm('このバックアップにはデータがありません。\nこのまま上書き読み込みしますか？');
       if (!ok) return;
     }
@@ -293,6 +310,7 @@ export default function App() {
     if (exhibitionsRaw) setExhibitions((exhibitionsRaw || []).map(normalizeExhibitionData));
     if (moviesRaw) setMovies((moviesRaw || []).map(normalizeMovieData));
     if (actorsRaw) setActors((actorsRaw || []).map(normalizeActorData));
+    if (animesRaw) setAnimes((animesRaw || []).map(normalizeAnimeData));
 
     // Post-migrate in background (still on the main thread), then update state again.
     (async () => {
@@ -333,6 +351,7 @@ export default function App() {
   const navigateToExhibitionDetail = (exhibitionId: string, edit?: boolean, isNew?: boolean) => setNav({ path: 'EXHIBITION_DETAIL', exhibitionId, edit, isNew });
   const navigateToMovieDetail = (movieId: string, edit?: boolean) => setNav({ path: 'MOVIE_DETAIL', movieId, edit, from: 'CONTENT' });
   const navigateToActorDetail = (actorId: string) => setNav({ path: 'ACTOR_DETAIL', actorId, from: 'CONTENT' });
+  const navigateToAnimeDetail = (animeId: string, edit?: boolean) => setNav({ path: 'ANIME_DETAIL', animeId: animeId, edit, from: 'CONTENT' });
 
   const normalizeActorName = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase();
 
@@ -422,6 +441,59 @@ export default function App() {
     navigateToMovieDetail(newMovie.id, true);
   };
 
+  const addNewAnime = () => {
+    const nowIso = new Date().toISOString();
+    const newAnime: Anime = {
+      id: Math.random().toString(36).substr(2, 9),
+      title: '新規アニメ',
+      posterUrl: '',
+      startDate: '',
+      endDate: '',
+      studio: '',
+      director: '',
+      originalType: undefined,
+      originalTitle: '',
+      openingSongs: [],
+      endingSongs: [],
+      genres: [],
+      summary: '',
+      rating: undefined,
+      status: '放送前',
+      review: '',
+      totalEpisodes: undefined,
+      broadcastWeekday: '',
+      broadcastTime: '',
+      seasons: [{
+        id: Math.random().toString(36).substr(2, 9),
+        seasonNumber: '第1期',
+        seasonTitle: '',
+        posterUrl: '',
+        startDate: '',
+        endDate: '',
+        studio: '',
+        director: '',
+        openingSongs: [],
+        endingSongs: [],
+        genres: [],
+        summary: '',
+        rating: undefined,
+        review: '',
+        totalEpisodes: undefined,
+        broadcastWeekday: '',
+        broadcastTime: '',
+        episodes: [],
+        collapsed: false,
+        status: '放送前',
+        useAnimeTitle: true,
+      }],
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+    setAnimes(prev => [...prev, newAnime]);
+    setContentActiveTab('animes');
+    navigateToAnimeDetail(newAnime.id, true);
+  };
+
   const upsertArtist = (updated: Artist) => {
     setArtists(prev => {
       const exists = prev.some(a => a.id === updated.id);
@@ -481,6 +553,11 @@ export default function App() {
   }, []);
 
   const handlePlusClick = useCallback(() => {
+    if (nav.path === 'HOME') {
+      // 在首页弹出选择器
+      setIsHomeAddMenuOpen(true);
+      return;
+    }
     if (nav.path !== 'CONTENT') return;
     if (contentActiveTab === 'artists') {
       navigateToArtistEditor();
@@ -490,11 +567,44 @@ export default function App() {
       addNewExhibition();
     } else if (contentActiveTab === 'movies' || contentActiveTab === 'actors') {
       addNewMovie();
+    } else if (contentActiveTab === 'animes') {
+      addNewAnime();
     }
   }, [nav.path, contentActiveTab]);
 
   const renderPage = () => {
     switch (nav.path) {
+      case 'HOME':
+        return (
+          <HomePage
+            artists={artists}
+            exhibitions={exhibitions}
+            movies={movies}
+            animes={animes}
+            onNavigateToMusic={() => {
+              setNav({ path: 'CONTENT' });
+              setContentActiveTab('artists');
+            }}
+            onNavigateToExhibitions={() => {
+              setNav({ path: 'CONTENT' });
+              setContentActiveTab('exhibitions');
+            }}
+            onNavigateToMovies={() => {
+              setNav({ path: 'CONTENT' });
+              setContentActiveTab('movies');
+            }}
+            onNavigateToAnime={() => {
+              setNav({ path: 'CONTENT' });
+              setContentActiveTab('animes');
+            }}
+            onOpenConcert={(aid, tid, cid) => navigateToConcertHome(aid, tid, cid, 'HOME')}
+            onOpenExhibition={(id) => navigateToExhibitionDetail(id)}
+            onOpenMovie={(id) => navigateToMovieDetail(id)}
+            onOpenAnime={(id) => navigateToAnimeDetail(id)}
+            onExport={handleExportAll}
+            onImport={handleImportAll}
+          />
+        );
       case 'CONTENT':
         return (
           <ContentPage
@@ -533,6 +643,9 @@ export default function App() {
             onOpenMovieDetail={navigateToMovieDetail}
             onAddNewMovie={addNewMovie}
             onUpdateMovies={setMovies}
+            animes={animes}
+            onOpenAnimeDetail={navigateToAnimeDetail}
+            onAddNewAnime={addNewAnime}
             onExport={handleExportAll}
             onImport={handleImportAll}
           />
@@ -543,6 +656,7 @@ export default function App() {
             artists={artists}
             exhibitions={exhibitions}
             movies={movies}
+            animes={animes}
             onOpenConcert={(aid, tid, cid) => navigateToConcertHome(aid, tid, cid, 'STATUS')}
             onOpenArtist={(id) => navigateToArtistDetail(id, 'STATUS')}
             onOpenConcertEditor={(aid, tid) => navigateToConcertEditor(aid, tid)}
@@ -554,6 +668,10 @@ export default function App() {
             onOpenMovieDetail={navigateToMovieDetail}
             onUpdateMovieStatus={(id, updates) => {
               setMovies(prev => prev.map(m => m.id === id ? normalizeMovieData({ ...m, ...updates, updatedAt: new Date().toISOString() }) : m));
+            }}
+            onOpenAnimeDetail={navigateToAnimeDetail}
+            onUpdateAnimeStatus={(id, updates) => {
+              setAnimes(prev => prev.map(a => a.id === id ? normalizeAnimeData({ ...a, ...updates, updatedAt: new Date().toISOString() }) : a));
             }}
             onExport={handleExportAll}
             onImport={handleImportAll}
@@ -621,16 +739,41 @@ export default function App() {
         );
       }
 
+      case 'ANIME_DETAIL': {
+        const anime = animes.find(a => a.id === nav.animeId);
+        if (!anime) return null;
+        return (
+          <AnimeDetailPage
+            anime={anime}
+            onUpdateAnime={(updated) => {
+              setAnimes(prev => prev.map(a => a.id === updated.id ? normalizeAnimeData(updated) : a));
+            }}
+            onDeleteAnime={(id) => {
+              setAnimes(prev => prev.filter(a => a.id !== id));
+              setNav({ path: 'CONTENT' });
+              setContentActiveTab('animes');
+            }}
+            onBack={() => {
+              setNav({ path: 'CONTENT' });
+              setContentActiveTab('animes');
+            }}
+            initialEditMode={!!nav.edit}
+          />
+        );
+      }
+
       case 'CALENDAR':
         return (
           <CalendarPage
             artists={artists}
             exhibitions={exhibitions}
             movies={movies}
+            animes={animes}
             onOpenArtist={(id) => navigateToArtistDetail(id, 'CALENDAR')}
             onOpenConcert={(aid, tid, cid) => navigateToConcertHome(aid, tid, cid, 'CALENDAR')}
             onOpenExhibition={(id) => navigateToExhibitionDetail(id)}
             onOpenMovie={(id) => navigateToMovieDetail(id)}
+            onOpenAnime={(id) => navigateToAnimeDetail(id)}
             onRefreshAll={handleRefreshAll}
             isMenuOpenExternally={isCalendarMenuOpen}
             onMenuClose={() => setIsCalendarMenuOpen(false)}
@@ -713,7 +856,7 @@ export default function App() {
       <Layout
         currentPath={nav.path}
         onNavigate={p => setNav({ path: p })}
-        onPlusClick={nav.path === 'CONTENT' ? handlePlusClick : undefined}
+        onPlusClick={nav.path === 'CONTENT' || nav.path === 'HOME' ? handlePlusClick : undefined}
         hasConcertAlert={hasGlobalConcertAlert}
       >
         {renderPage()}
@@ -722,20 +865,44 @@ export default function App() {
         <div style={overlayStyle}>
           <div style={backdropStyle} onClick={() => setIsArtistPickerOpen(false)} />
           <GlassCard padding="24px" style={pickerCardStyle}>
-            <h3>アーティストを選択</h3>
-            <div style={pickerListStyle}>
+            <h3 style={{ fontSize: 18, fontWeight: 900, marginBottom: 16 }}>アーティストを選択</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 300, overflowY: 'auto' }}>
               {artists.map(a => (
-                <button
+                <MenuButton
                   key={a.id}
-                  type="button"
+                  label={a.name}
                   onClick={() => { navigateToConcertEditor(a.id); setIsArtistPickerOpen(false); }}
-                  style={pickerButtonStyle}
-                >
-                  {a.name}
-                </button>
+                />
               ))}
             </div>
-            <button type="button" onClick={() => setIsArtistPickerOpen(false)} style={closeButtonStyle}>閉じる</button>
+            <MenuButton label="閉じる" onClick={() => setIsArtistPickerOpen(false)} style={{ marginTop: 16 }} />
+          </GlassCard>
+        </div>
+      )}
+      {isHomeAddMenuOpen && (
+        <div style={overlayStyle}>
+          <div style={backdropStyle} onClick={() => setIsHomeAddMenuOpen(false)} />
+          <GlassCard padding="24px" style={pickerCardStyle}>
+            <h3 style={{ fontSize: 18, fontWeight: 900, marginBottom: 16 }}>追加する内容</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <MenuButton
+                label="アーティスト（音楽）"
+                onClick={() => { navigateToArtistEditor(); setIsHomeAddMenuOpen(false); }}
+              />
+              <MenuButton
+                label="展覧"
+                onClick={() => { addNewExhibition(); setIsHomeAddMenuOpen(false); }}
+              />
+              <MenuButton
+                label="映画"
+                onClick={() => { addNewMovie(); setIsHomeAddMenuOpen(false); }}
+              />
+              <MenuButton
+                label="アニメ"
+                onClick={() => { addNewAnime(); setIsHomeAddMenuOpen(false); }}
+              />
+            </div>
+            <MenuButton label="閉じる" onClick={() => setIsHomeAddMenuOpen(false)} style={{ marginTop: 16 }} />
           </GlassCard>
         </div>
       )}
@@ -746,6 +913,3 @@ export default function App() {
 const overlayStyle: React.CSSProperties = { position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' };
 const backdropStyle: React.CSSProperties = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)' };
 const pickerCardStyle: React.CSSProperties = { width: '100%', maxWidth: '360px', position: 'relative' };
-const pickerListStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto' };
-const pickerButtonStyle: React.CSSProperties = { padding: '16px', borderRadius: '16px', border: '1px solid rgba(0,0,0,0.05)', background: 'white', textAlign: 'left', fontWeight: '700', fontSize: '15px', cursor: 'pointer' };
-const closeButtonStyle: React.CSSProperties = { padding: '12px', borderRadius: '12px', border: 'none', background: 'rgba(0,0,0,0.05)', fontWeight: '700', cursor: 'pointer', marginTop: '16px', width: '100%' };
