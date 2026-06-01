@@ -265,7 +265,7 @@ export const ArtistListPage: React.FC<Props> = ({
             <button onClick={onOpenArtistEditor} style={{ padding: '12px 24px', borderRadius: '12px', background: theme.colors.primary, color: 'white', border: 'none', fontWeight: 'bold' }}>＋ {TEXT.BUTTONS.ADD}</button>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '16px' }}>
             {displayArtists.map((artist, index) => (
               <div key={artist.id} draggable={prefs.sortKey === 'manual' && (prefs.filters?.length ?? 0) === 0} onDragStart={() => handleDragStart(index)} onDragEnter={() => handleDragEnter(index)} onDragEnd={handleDragEnd} onDragOver={(e) => { if (prefs.sortKey === 'manual' && (prefs.filters?.length ?? 0) === 0) e.preventDefault(); }}>
                 <ArtistGridCard artist={artist} onClick={() => onOpenArtist(artist.id)} />

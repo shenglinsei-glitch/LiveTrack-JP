@@ -5,7 +5,6 @@ import { GlassCard } from '@/components/common/GlassCard';
 import { Label, Value, SubValue, SectionTitle } from '@/components/detail/DetailText';
 import { Exhibition, ExhibitionStatus, ExhibitionTicketSalesStatus } from '@/domain/types';
 import { Icons } from '@/components/common/IconButton';
-import { WheelDateTimePicker, WheelTimePicker } from '@/components/common/WheelDateTimePicker';
 import {
   Select,
   Input,
@@ -16,7 +15,26 @@ import {
 } from 'antd';
 import dayjs from 'dayjs';
 
-// Unified wheel style date/time pickers shared with movie, concert and anime pages.
+const toNativeDateTimeValue = (value: string | null | undefined) => value ? value.replace(' ', 'T').slice(0, 16) : '';
+const fromNativeDateTimeValue = (value: string) => value ? value.replace('T', ' ') : '';
+
+const nativeDateInputStyle: React.CSSProperties = {
+  width: '100%',
+  minHeight: 44,
+  borderRadius: 14,
+  border: '1px solid rgba(15,23,42,0.08)',
+  background: 'rgba(255,255,255,0.9)',
+  padding: '0 12px',
+  fontSize: 14,
+  fontWeight: 700,
+  color: theme.colors.text,
+  outline: 'none',
+  boxSizing: 'border-box',
+  colorScheme: 'light',
+  WebkitAppearance: 'none',
+  appearance: 'none',
+};
+
 const CustomExhibitionDatePicker = ({
   value,
   onChange,
@@ -28,11 +46,12 @@ const CustomExhibitionDatePicker = ({
   showTime?: boolean;
   placeholder?: string;
 }) => (
-  <WheelDateTimePicker
-    value={value || ''}
-    onChange={onChange}
-    mode={showTime ? 'datetime' : 'date'}
+  <input
+    type={showTime ? 'datetime-local' : 'date'}
+    value={showTime ? toNativeDateTimeValue(value) : (value || '').slice(0, 10)}
+    onChange={(e) => onChange(showTime ? fromNativeDateTimeValue(e.target.value) : e.target.value)}
     placeholder={placeholder || '未設定'}
+    style={nativeDateInputStyle}
   />
 );
 
@@ -45,7 +64,7 @@ const CustomExhibitionTimePicker = ({
   onChange: (val: string) => void;
   placeholder?: string;
 }) => (
-  <WheelTimePicker value={value || ''} onChange={onChange} placeholder={placeholder} />
+  <input type="time" value={(value || '').slice(0, 5)} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={nativeDateInputStyle} />
 );
 
 interface Props {

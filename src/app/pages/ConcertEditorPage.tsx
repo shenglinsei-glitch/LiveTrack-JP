@@ -7,7 +7,6 @@ import { Artist, Tour, Concert, Status } from '@/domain/types';
 import { Icons, IconButton } from '@/components/common/IconButton';
 import { sortPerformancesForDisplay, checkGlobalDateConflicts } from '@/domain/logic';
 import { PageShell } from '@/components/common/PageShell';
-import { WheelDateTimePicker } from '@/components/common/WheelDateTimePicker';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -79,12 +78,37 @@ const StatusPicker = ({ value, onChange }: { value: Status; onChange: (s: Status
 };
 
 
+const toNativeDateTimeValue = (value: string | null | undefined) => {
+  if (!value) return '';
+  return value.replace(' ', 'T').slice(0, 16);
+};
+
+const fromNativeDateTimeValue = (value: string) => value ? value.replace('T', ' ') : '';
+
+const nativeDateInputStyle: React.CSSProperties = {
+  width: '100%',
+  maxWidth: '100%',
+  minWidth: 0,
+  boxSizing: 'border-box',
+  minHeight: 44,
+  padding: '0 12px',
+  borderRadius: '12px',
+  border: '1px solid rgba(0,0,0,0.08)',
+  background: 'white',
+  fontSize: '14px',
+  outline: 'none',
+  colorScheme: 'light',
+  WebkitAppearance: 'none',
+  appearance: 'none',
+};
+
 const CustomDatePicker = ({ value, onChange, showTime = false, placeholder }: { value: string | null | undefined; onChange: (val: string) => void; showTime?: boolean; placeholder?: string }) => (
-  <WheelDateTimePicker
-    value={value || ''}
-    onChange={onChange}
-    mode={showTime ? 'datetime' : 'date'}
+  <input
+    type={showTime ? 'datetime-local' : 'date'}
+    value={showTime ? toNativeDateTimeValue(value) : (value || '').slice(0, 10)}
+    onChange={(e) => onChange(showTime ? fromNativeDateTimeValue(e.target.value) : e.target.value)}
     placeholder={placeholder || '未設定'}
+    style={nativeDateInputStyle}
   />
 );
 

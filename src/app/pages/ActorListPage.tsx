@@ -82,7 +82,7 @@ const ActorGridCard: React.FC<{ actor: Actor; movies: Movie[]; onClick: () => vo
           <div
             style={{
               fontWeight: '900',
-              fontSize: '15px',
+              fontSize: '14px',
               color: 'white',
               marginBottom: '4px',
               whiteSpace: 'nowrap',
@@ -107,7 +107,7 @@ const ActorGridCard: React.FC<{ actor: Actor; movies: Movie[]; onClick: () => vo
             />
             <div
               style={{
-                fontSize: '11px',
+                fontSize: '10px',
                 fontWeight: '700',
                 color: 'rgba(255, 255, 255, 0.86)',
                 whiteSpace: 'nowrap',
@@ -142,7 +142,7 @@ export const ActorListPage: React.FC<ActorListPageProps> = ({ actors, movies, on
             </div>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '14px' }}>
             {displayActors.map(actor => (
               <ActorGridCard
                 key={actor.id}

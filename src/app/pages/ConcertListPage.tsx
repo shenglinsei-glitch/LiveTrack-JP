@@ -66,7 +66,6 @@ const formatCompactDateTime = (v?: string, includeYear: boolean = false) => {
     const hh = mDate[4];
     const min = mDate[5];
     const prefix = includeYear ? `${yy}/` : '';
-    if (hh && min) return `${prefix}${mm}/${dd} ${hh}:${min}`;
     return `${prefix}${mm}/${dd}`;
   }
 
@@ -78,7 +77,6 @@ const formatCompactDateTime = (v?: string, includeYear: boolean = false) => {
     const hh = mSlash[4];
     const min = mSlash[5];
     const prefix = includeYear ? `${yy}/` : '';
-    if (hh && min) return `${prefix}${mm}/${dd} ${String(parseInt(hh, 10)).padStart(2, '0')}:${min}`;
     return `${prefix}${mm}/${dd}`;
   }
 
@@ -86,9 +84,7 @@ const formatCompactDateTime = (v?: string, includeYear: boolean = false) => {
   if (!isNaN(d.getTime())) {
     const mm = String(d.getMonth() + 1);
     const dd = String(d.getDate());
-    const hh = String(d.getHours()).padStart(2, '0');
-    const min = String(d.getMinutes()).padStart(2, '0');
-    return `${includeYear ? d.getFullYear() + '/' : ''}${mm}/${dd} ${hh}:${min}`;
+    return `${includeYear ? d.getFullYear() + '/' : ''}${mm}/${dd}`;
   }
 
   return s;
@@ -233,9 +229,9 @@ const TourGroupCard: React.FC<{
             style={{
               background: statusColor,
               color: 'white',
-              padding: '4px 12px',
+              padding: '3px 9px',
               borderRadius: 10,
-              fontSize: 11,
+              fontSize: 10,
               fontWeight: 900,
               lineHeight: 1,
               boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
@@ -253,7 +249,7 @@ const TourGroupCard: React.FC<{
             right: 0,
             bottom: 0,
             zIndex: 5,
-            padding: '56px 16px 12px',
+            padding: '48px 10px 10px',
             background:
               'linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.62) 28%, rgba(0,0,0,0.28) 55%, transparent 78%)',
             color: 'white',
@@ -264,7 +260,7 @@ const TourGroupCard: React.FC<{
           <div style={{ marginBottom: 4 }}>
             <div
               style={{
-                fontSize: 12,
+                fontSize: 10,
                 fontWeight: 800,
                 opacity: 0.85,
                 marginBottom: 2,
@@ -275,7 +271,7 @@ const TourGroupCard: React.FC<{
             </div>
             <div
               style={{
-                fontSize: 16,
+                fontSize: 13,
                 fontWeight: 900,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -315,19 +311,19 @@ const TourGroupCard: React.FC<{
                     lineHeight: 1.2,
                   }}
                 >
-                  <div style={{ fontSize: 13, fontWeight: 900, minWidth: 74, color: 'white' }}>
+                  <div style={{ fontSize: 10, fontWeight: 900, minWidth: 54, color: 'white' }}>
                     {formatCompactDateTime(c.concertAt || c.date, true)}
                   </div>
                   <div
                     style={{
-                      fontSize: 12,
+                      fontSize: 10,
                       color: 'white',
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       flex: 1,
                       textAlign: 'center',
-                      padding: '0 8px',
+                      padding: '0 4px',
                       fontWeight: '600',
                     }}
                   >
@@ -363,7 +359,7 @@ const TourGroupCard: React.FC<{
                 padding: '6px 0 0',
                 marginTop: 2,
                 color: 'rgba(255,255,255,0.9)',
-                fontSize: 12,
+                fontSize: 10,
                 fontWeight: 900,
                 cursor: 'pointer',
                 display: 'flex',
@@ -619,7 +615,7 @@ export const ConcertListPage: React.FC<Props> = ({
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14 }}>
                 {group.items.map((tg) => {
                   const main = tg.concerts[0];
                   return (
@@ -641,7 +637,7 @@ export const ConcertListPage: React.FC<Props> = ({
             </div>
           ))
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14 }}>
             {tourGrouped?.map((tg) => {
               const main = tg.concerts[0];
               return (

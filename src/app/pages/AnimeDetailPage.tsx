@@ -7,7 +7,6 @@ import { GlassCard } from '@/components/common/GlassCard';
 import { Label, Value, SectionTitle } from '@/components/detail/DetailText';
 import { DetailHeader, DetailChip, DetailLinkIconButton } from '@/components/detail/DetailHeader';
 import { DetailPageLayout } from '@/components/detail/DetailPageLayout';
-import { WheelDatePicker } from '@/components/common/WheelDateTimePicker';
 
 interface AnimeDetailPageProps {
   anime: Anime;
@@ -150,8 +149,15 @@ const TextArea: React.FC<{ value: string; onChange: (v: string) => void; placeho
 
 
 
+const nativeDateInputStyle: React.CSSProperties = {
+  ...inputStyle,
+  colorScheme: 'light',
+  WebkitAppearance: 'none',
+  appearance: 'none',
+};
+
 const DateField: React.FC<{ value?: string; onChange: (v: string) => void; placeholder?: string }> = ({ value, onChange, placeholder = '未設定' }) => (
-  <WheelDatePicker value={value || ''} onChange={onChange} placeholder={placeholder} />
+  <input type="date" value={(value || '').slice(0, 10)} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={nativeDateInputStyle} />
 );
 
 const sectionCardStyle: React.CSSProperties = {
@@ -451,7 +457,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
       review: '',
       episodes: [],
       collapsed: false,
-      status: '放送前',
+      status: asArray(draft.seasons).length === 0 ? (draft.status || '放送前') : '放送前',
       useAnimeTitle: true,
     };
     updateDraft({ seasons: [...asArray(draft.seasons), newSeason] });
@@ -808,8 +814,17 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
             <Input value={draft.title} onChange={(v) => updateDraft({ title: v })} placeholder="タイトルを入力" />
           </div>
           <div style={{ marginBottom: 14 }}>
-            <Label>ステータス</Label>
-            <span style={{ display: 'inline-flex', marginTop: 6, background: `${getAnimeStatusColor(deriveAnimeStatus(draft))}22`, color: getAnimeStatusColor(deriveAnimeStatus(draft)), padding: '5px 10px', borderRadius: 999, fontSize: 12, fontWeight: 900 }}>{deriveAnimeStatus(draft)}</span>
+            <Label>{asArray(draft.seasons).length > 0 ? '総ステータス（シーズンから自動）' : 'ステータス（手動）'}</Label>
+            {asArray(draft.seasons).length > 0 ? (
+              <>
+                <span style={{ display: 'inline-flex', marginTop: 6, background: `${getAnimeStatusColor(deriveAnimeStatus(draft))}22`, color: getAnimeStatusColor(deriveAnimeStatus(draft)), padding: '5px 10px', borderRadius: 999, fontSize: 12, fontWeight: 900 }}>{deriveAnimeStatus(draft)}</span>
+                <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, color: theme.colors.textWeak }}>シーズンを追加しているため、総ステータスは各シーズンの状態から自動計算されます。</div>
+              </>
+            ) : (
+              <select value={draft.status || '放送前'} onChange={(e) => updateDraft({ status: e.target.value as AnimeStatus })} style={selectStyle}>
+                {ANIME_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}
+              </select>
+            )}
           </div>
           <div style={{ marginBottom: 14 }}>
             <Label>総ポスター画像URL</Label>

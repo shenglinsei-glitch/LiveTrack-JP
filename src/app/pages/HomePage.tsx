@@ -610,9 +610,11 @@ export const HomePage: React.FC<HomePageProps> = ({
       <div style={{ padding: '24px 16px 140px', marginTop: 'calc(env(safe-area-inset-top) + 20px)' }}>
         {/* 顶部菜单按钮 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h1 style={{ fontSize: '28px', fontWeight: '900', color: '#111827', margin: 0 }}>
-            LiveTrack <span style={{ color: '#53BEE8' }}>JP</span>
-          </h1>
+          <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#111827', margin: 0 }}>
+  Fave
+  <span style={{ color: '#53BEE8' }}>A</span>
+  rchive
+</h1>
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             style={{

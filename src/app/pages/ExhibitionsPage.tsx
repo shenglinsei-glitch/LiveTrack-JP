@@ -131,7 +131,7 @@ export const ExhibitionsPage: React.FC<ExhibitionsPageProps> = ({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))',
+          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
           gap: '16px',
           padding: hideHeader ? '8px 16px 140px 16px' : '24px 16px 140px 16px',
           marginTop: hideHeader ? 0 : 'calc(env(safe-area-inset-top) + 20px)'

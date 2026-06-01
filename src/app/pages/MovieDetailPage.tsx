@@ -6,7 +6,6 @@ import { Icons, IconButton } from '@/components/common/IconButton';
 import { GlassCard } from '@/components/common/GlassCard';
 import { Label, Value, SubValue, SectionTitle } from '@/components/detail/DetailText';
 import { DetailHeader, DetailChip, DetailLinkIconButton } from '@/components/detail/DetailHeader';
-import { WheelDatePicker, WheelDateTimePicker, WheelTimePicker } from '@/components/common/WheelDateTimePicker';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { DetailPageLayout } from '@/components/detail/DetailPageLayout';
 
@@ -213,16 +212,26 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, actors 
   );
 
   
+  const toNativeDateTimeValue = (value?: string) => value ? value.replace(' ', 'T').slice(0, 16) : '';
+  const fromNativeDateTimeValue = (value: string) => value ? value.replace('T', ' ') : '';
+
+  const nativeDateInputStyle: React.CSSProperties = {
+    ...inputStyle,
+    colorScheme: 'light',
+    WebkitAppearance: 'none',
+    appearance: 'none',
+  };
+
   const CustomDatePicker: React.FC<{ value?: string; onChange: (v: string) => void }> = ({ value, onChange }) => (
-    <WheelDatePicker value={value} onChange={onChange} placeholder="未設定" />
+    <input type="date" value={(value || '').slice(0, 10)} onChange={(e) => onChange(e.target.value)} style={nativeDateInputStyle} />
   );
 
   const CustomDateTimePicker: React.FC<{ value?: string; onChange: (v: string) => void }> = ({ value, onChange }) => (
-    <WheelDateTimePicker value={value} onChange={onChange} mode="datetime" placeholder="未設定" />
+    <input type="datetime-local" value={toNativeDateTimeValue(value)} onChange={(e) => onChange(fromNativeDateTimeValue(e.target.value))} style={nativeDateInputStyle} />
   );
 
   const TimePicker: React.FC<{ value?: string; onChange: (v: string) => void; readOnly?: boolean }> = ({ value, onChange, readOnly }) => (
-    <WheelTimePicker value={value} onChange={onChange} placeholder="未設定" readOnly={readOnly} />
+    <input type="time" value={(value || '').slice(0, 5)} onChange={(e) => onChange(e.target.value)} readOnly={readOnly} disabled={readOnly} style={{ ...nativeDateInputStyle, opacity: readOnly ? 0.75 : 1 }} />
   );
 
   const AddButton: React.FC<{ onClick: () => void; children: React.ReactNode }> = ({ onClick, children }) => (

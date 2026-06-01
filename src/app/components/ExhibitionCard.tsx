@@ -38,12 +38,13 @@ export const ExhibitionCard: React.FC<ExhibitionCardProps> = ({
       title={displayTitle}
       subtitle={displaySubtitle}
       alt={displayTitle}
-      statusNode={!hideStatus && exhibition ? <StatusBadge domain="exhibition" status={getEffectiveExhibitionStatus(exhibition)} /> : undefined}
+      statusNode={!hideStatus && exhibition ? <StatusBadge domain="exhibition" status={getEffectiveExhibitionStatus(exhibition)} style={{ minHeight: 20, padding: '2px 8px', fontSize: 10, borderRadius: 8 }} /> : undefined}
       rightTopNode={exhibition && (exhibition.advanceTicketPurchased || exhibition.ticketSalesStatus === 'purchased') ? (
-        <div style={{ background: '#10B981', color: 'white', padding: '4px 12px', borderRadius: 8, fontSize: 11, fontWeight: 900, boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)' }}>
+        <div style={{ background: '#10B981', color: 'white', padding: '3px 8px', borderRadius: 8, fontSize: 10, fontWeight: 900, boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)' }}>
           購入済
         </div>
       ) : undefined}
+      compact
       fallback={(
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>
           <Icons.Exhibitions style={{ width: 48, height: 48 }} />

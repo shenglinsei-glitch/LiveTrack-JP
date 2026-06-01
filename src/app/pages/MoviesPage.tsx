@@ -150,7 +150,7 @@ export const MoviesPage: React.FC<MoviesPageProps> = ({ movies, onOpenDetail, on
             <div style={{ fontWeight: 700 }}>映画情報がありません。</div>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth <= 480 ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth <= 480 ? 'repeat(2, minmax(0, 1fr))' : 'repeat(auto-fill, minmax(180px, 1fr))', gap: window.innerWidth <= 480 ? 12 : 16 }}>
             {displayMovies.map((movie) => {
               return (
                 <div key={movie.id} onClick={() => onOpenDetail(movie.id)} style={{ cursor: 'pointer' }}>
@@ -158,19 +158,19 @@ export const MoviesPage: React.FC<MoviesPageProps> = ({ movies, onOpenDetail, on
                     padding="0"
                     style={{
                       overflow: 'hidden',
-                      borderRadius: 24,
+                      borderRadius: 22,
                       height: '100%',
                       boxShadow: '0 4px 20px rgba(0,0,0,0.06)'
                     }}
                   >
-                    <div style={{ position: 'relative', paddingTop: '140%', background: '#F3F4F6' }}>
+                    <div style={{ position: 'relative', paddingTop: '133%', background: '#F3F4F6' }}>
                       {movie.posterUrl ? (
                         <img src={movie.posterUrl} alt={movie.title} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.18)', transformOrigin: 'center center', willChange: 'transform' }} />
                       ) : (
                         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}><span style={{ fontSize: 48 }}>🎬</span></div>
                       )}
 
-                      <StatusBadge domain="movie" status={movie.status} style={{ position: 'absolute', top: 10, left: 10 }} />
+                      <StatusBadge domain="movie" status={movie.status} style={{ position: 'absolute', top: 8, left: 8, minHeight: 20, padding: '2px 8px', fontSize: 10, borderRadius: 8 }} />
 
                       <div
                         style={{
@@ -178,13 +178,13 @@ export const MoviesPage: React.FC<MoviesPageProps> = ({ movies, onOpenDetail, on
                           left: 0,
                           right: 0,
                           bottom: 0,
-                          padding: '24px 12px 12px',
+                          padding: '22px 10px 10px',
                           background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.42) 60%, transparent 100%)',
                           color: '#fff'
                         }}
                       >
-                        <div style={{ fontSize: 16, fontWeight: 900, lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{movie.title}</div>
-                        <div style={{ marginTop: 4, fontSize: 11, fontWeight: 700, opacity: 0.82 }}>{movie.status === '抽選中' ? `結果日：${fmtDate(movie.lotteryResultAt)}` : movie.status === '発売前' ? `発売日：${fmtDate(movie.saleAt)}` : movie.watchDate ? `鑑賞日：${fmtDate(movie.watchDate)}` : `公開日：${fmtDate(movie.releaseDate)}`}</div>
+                        <div style={{ fontSize: 14, fontWeight: 900, lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{movie.title}</div>
+                        <div style={{ marginTop: 3, fontSize: 10, fontWeight: 700, opacity: 0.82, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{movie.status === '抽選中' ? `結果日：${fmtDate(movie.lotteryResultAt)}` : movie.status === '発売前' ? `発売日：${fmtDate(movie.saleAt)}` : movie.watchDate ? `鑑賞日：${fmtDate(movie.watchDate)}` : `公開日：${fmtDate(movie.releaseDate)}`}</div>
                       </div>
                     </div>
                   </GlassCard>

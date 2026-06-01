@@ -181,7 +181,7 @@ export const AnimesPage: React.FC<AnimesPageProps> = ({ animes, onOpenDetail, on
             <div style={{ fontWeight: 700 }}>アニメ情報がありません。</div>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth <= 480 ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth <= 480 ? 'repeat(2, minmax(0, 1fr))' : 'repeat(auto-fill, minmax(180px, 1fr))', gap: window.innerWidth <= 480 ? 12 : 16 }}>
             {displayAnimes.map((anime) => {
               const watchingSeason = getCurrentWatchingSeason(anime);
               const displayTitle = getSeasonDisplayTitle(anime, watchingSeason);
@@ -194,12 +194,12 @@ export const AnimesPage: React.FC<AnimesPageProps> = ({ animes, onOpenDetail, on
                     padding="0"
                     style={{
                       overflow: 'hidden',
-                      borderRadius: 24,
+                      borderRadius: 22,
                       height: '100%',
                       boxShadow: '0 4px 20px rgba(0,0,0,0.06)'
                     }}
                   >
-                    <div style={{ position: 'relative', paddingTop: '140%', background: '#F3F4F6' }}>
+                    <div style={{ position: 'relative', paddingTop: '133%', background: '#F3F4F6' }}>
                       {anime.posterUrl ? (
                         <img src={anime.posterUrl} alt={anime.title} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.06)', transformOrigin: 'center' }} />
                       ) : (
@@ -207,13 +207,13 @@ export const AnimesPage: React.FC<AnimesPageProps> = ({ animes, onOpenDetail, on
                       )}
 
                       {anime.rating && (
-                        <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(0,0,0,0.7)', color: 'white', padding: '4px 8px', borderRadius: 8, fontSize: 12, fontWeight: 900 }}>
+                        <div style={{ position: 'absolute', top: 8, left: 8, background: 'rgba(0,0,0,0.7)', color: 'white', padding: '3px 7px', borderRadius: 8, fontSize: 10, fontWeight: 900 }}>
                           ★ {anime.rating.toFixed(1)}
                         </div>
                       )}
 
                       {displayStatus && (
-                        <div style={{ position: 'absolute', top: 10, right: 10, background: statusTone.bg, color: statusTone.color, padding: '4px 8px', borderRadius: 999, fontSize: 11, fontWeight: 900, boxShadow: '0 4px 12px rgba(0,0,0,0.10)' }}>
+                        <div style={{ position: 'absolute', top: 8, right: 8, background: statusTone.bg, color: statusTone.color, padding: '3px 7px', borderRadius: 999, fontSize: 10, fontWeight: 900, boxShadow: '0 4px 12px rgba(0,0,0,0.10)' }}>
                           {displayStatus}
                         </div>
                       )}
@@ -224,19 +224,19 @@ export const AnimesPage: React.FC<AnimesPageProps> = ({ animes, onOpenDetail, on
                           left: 0,
                           right: 0,
                           bottom: 0,
-                          padding: '24px 12px 12px',
+                          padding: '22px 10px 10px',
                           background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.42) 60%, transparent 100%)',
                           color: '#fff'
                         }}
                       >
-                        <div style={{ fontSize: 16, fontWeight: 900, lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayTitle}</div>
-                        <div style={{ marginTop: 4, fontSize: 12, fontWeight: 700, opacity: 0.88, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontSize: 14, fontWeight: 900, lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayTitle}</div>
+                        <div style={{ marginTop: 3, fontSize: 10, fontWeight: 700, opacity: 0.88, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {broadcastText || (anime.startDate && anime.endDate ? `${fmtDate(anime.startDate)} ～ ${fmtDate(anime.endDate)}` : anime.startDate ? `${fmtDate(anime.startDate)} ～` : anime.studio || '制作未設定')}{anime.totalEpisodes ? `・全${anime.totalEpisodes}話` : ''}
                         </div>
                         {anime.genres && anime.genres.length > 0 && (
-                          <div style={{ marginTop: 6, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                          <div style={{ marginTop: 5, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                             {anime.genres.slice(0, 3).map((genre, idx) => (
-                              <span key={idx} style={{ fontSize: 10, fontWeight: 700, background: 'rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: 4 }}>{genre}</span>
+                              <span key={idx} style={{ fontSize: 9, fontWeight: 700, background: 'rgba(255,255,255,0.2)', padding: '2px 5px', borderRadius: 4 }}>{genre}</span>
                             ))}
                           </div>
                         )}
