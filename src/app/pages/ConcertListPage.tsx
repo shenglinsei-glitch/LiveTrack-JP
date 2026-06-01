@@ -569,7 +569,7 @@ export const ConcertListPage: React.FC<Props> = ({
         )
       }
     >
-      <div style={{ padding: '16px' }}>
+      <div style={{ padding: hideHeader ? '0 0 140px' : '16px' }}>
         {!hasAny ? (
           <div
             style={{
@@ -615,7 +615,7 @@ export const ConcertListPage: React.FC<Props> = ({
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16 }}>
                 {group.items.map((tg) => {
                   const main = tg.concerts[0];
                   return (
@@ -637,7 +637,7 @@ export const ConcertListPage: React.FC<Props> = ({
             </div>
           ))
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16 }}>
             {tourGrouped?.map((tg) => {
               const main = tg.concerts[0];
               return (

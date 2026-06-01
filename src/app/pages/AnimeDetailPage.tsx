@@ -641,7 +641,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
             <div style={infoGridStyle}>
               <InfoItem label="放送開始日">{formatDateWithWeek(anime.startDate) || null}</InfoItem>
               <InfoItem label="放送終了日">{formatDateWithWeek(anime.endDate) || null}</InfoItem>
-              <InfoItem label="制作会社">{anime.studio || null}</InfoItem>
+              <InfoItem label="アニメーション制作">{anime.studio || null}</InfoItem>
               <InfoItem label="監督">{anime.director || null}</InfoItem>
               <InfoItem label="原作種別">{anime.originalType || null}</InfoItem>
               <InfoItem label="原作作者">{anime.originalTitle || null}</InfoItem>
@@ -711,7 +711,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
                         <div style={infoGridStyle}>
                           <InfoItem label="放送開始日">{formatDateWithWeek(season.startDate) || null}</InfoItem>
                           <InfoItem label="放送終了日">{formatDateWithWeek(season.endDate) || null}</InfoItem>
-                          <InfoItem label="制作会社">{season.studio || null}</InfoItem>
+                          <InfoItem label="アニメーション制作">{season.studio || null}</InfoItem>
                           <InfoItem label="監督">{season.director || null}</InfoItem>
                           <InfoItem label="評価">{season.rating !== undefined ? `★ ${season.rating.toFixed(1)} / 5` : null}</InfoItem>
                           <InfoItem label="集数">{season.totalEpisodes !== undefined && season.totalEpisodes > 0 ? `全${season.totalEpisodes}話` : null}</InfoItem>
@@ -868,8 +868,8 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
             </div>
           </div>
           <div style={{ marginBottom: 14 }}>
-            <Label>制作会社</Label>
-            <Input value={draft.studio || ''} onChange={(v) => updateDraft({ studio: v })} placeholder="制作会社を入力" />
+            <Label>アニメーション制作</Label>
+            <Input value={draft.studio || ''} onChange={(v) => updateDraft({ studio: v })} placeholder="アニメーション制作を入力" />
           </div>
           <div style={{ marginBottom: 14 }}>
             <Label>監督</Label>
@@ -1020,8 +1020,8 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
                     </div>
                   </div>
                   <div style={{ marginBottom: 14 }}>
-                    <Label>制作会社</Label>
-                    <Input value={season.studio || ''} onChange={(v) => updateSeason(seasonIdx, { studio: v })} placeholder="制作会社" />
+                    <Label>アニメーション制作</Label>
+                    <Input value={season.studio || ''} onChange={(v) => updateSeason(seasonIdx, { studio: v })} placeholder="アニメーション制作" />
                   </div>
                   <div style={{ marginBottom: 14 }}>
                     <Label>監督</Label>

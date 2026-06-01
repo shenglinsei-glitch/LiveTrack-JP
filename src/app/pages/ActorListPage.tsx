@@ -132,7 +132,7 @@ export const ActorListPage: React.FC<ActorListPageProps> = ({ actors, movies, on
 
   return (
     <PageShell disablePadding>
-      <div style={{ padding: '0 16px 140px' }}>
+      <div style={{ padding: '0 0 140px' }}>
         {displayActors.length === 0 ? (
           <div style={{ padding: '110px 0', textAlign: 'center', color: '#9CA3AF', display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center' }}>
             <div style={{ fontSize: 48, opacity: 0.25 }}>🎭</div>
@@ -142,7 +142,7 @@ export const ActorListPage: React.FC<ActorListPageProps> = ({ actors, movies, on
             </div>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '16px' }}>
             {displayActors.map(actor => (
               <ActorGridCard
                 key={actor.id}

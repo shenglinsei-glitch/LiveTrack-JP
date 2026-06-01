@@ -167,7 +167,7 @@ export const AnimesPage: React.FC<AnimesPageProps> = ({ animes, onOpenDetail, on
     <PageShell disablePadding>
       {menuLayer}
 
-      <div style={{ padding: hideHeader ? '8px 16px 140px' : '24px 16px 140px', marginTop: hideHeader ? 0 : 'calc(env(safe-area-inset-top) + 20px)' }}>
+      <div style={{ padding: hideHeader ? '0 0 140px' : '24px 16px 140px', marginTop: hideHeader ? 0 : 'calc(env(safe-area-inset-top) + 20px)' }}>
         {!hideHeader && (
           <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
             <button onClick={() => setIsMenuOpen(!isMenuOpen)} style={{ width: 44, height: 44, borderRadius: 9999, border: '1px solid rgba(15,23,42,0.06)', background: 'rgba(255,255,255,0.72)', backdropFilter: 'blur(16px)', color: '#9CA3AF', boxShadow: '0 6px 18px rgba(15,23,42,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
@@ -181,7 +181,7 @@ export const AnimesPage: React.FC<AnimesPageProps> = ({ animes, onOpenDetail, on
             <div style={{ fontWeight: 700 }}>アニメ情報がありません。</div>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth <= 480 ? 'repeat(2, minmax(0, 1fr))' : 'repeat(auto-fill, minmax(180px, 1fr))', gap: window.innerWidth <= 480 ? 12 : 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth <= 480 ? 'repeat(2, minmax(0, 1fr))' : 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
             {displayAnimes.map((anime) => {
               const watchingSeason = getCurrentWatchingSeason(anime);
               const displayTitle = getSeasonDisplayTitle(anime, watchingSeason);
