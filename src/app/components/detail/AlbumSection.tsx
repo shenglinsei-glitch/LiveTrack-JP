@@ -76,16 +76,19 @@ export const AlbumSection: React.FC<AlbumSectionProps> = ({
   };
 
   return (
-    <div>
+    <div style={{ minWidth: 0, maxWidth: '100%' }}>
       <div
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          gap: 8,
+          flexWrap: 'wrap',
+          minWidth: 0,
           marginBottom: 16,
         }}
       >
-        <h3 style={{ fontSize: 16, fontWeight: 900, margin: 0, color: theme.colors.text }}>
+        <h3 style={{ fontSize: 16, fontWeight: 900, margin: 0, color: theme.colors.text, minWidth: 0 }}>
           {title}
         </h3>
         <button
@@ -99,13 +102,16 @@ export const AlbumSection: React.FC<AlbumSectionProps> = ({
             fontSize: 13,
             fontWeight: 700,
             cursor: 'pointer',
+            flexShrink: 0,
+            maxWidth: '100%',
+            boxSizing: 'border-box',
           }}
         >
           {addButtonText}
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, minWidth: 0 }}>
         {items.map((it, idx) => (
           <div
             key={it.id}

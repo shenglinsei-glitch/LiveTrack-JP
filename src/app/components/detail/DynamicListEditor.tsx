@@ -54,19 +54,23 @@ export function DynamicListEditor<T extends DynamicListItem>({
   };
 
   return (
-    <div>
+    <div style={{ minWidth: 0, maxWidth: '100%', boxSizing: 'border-box' }}>
       {items.map((item, index) => (
         <div
           key={item.id}
           style={{
             marginBottom: 16,
             padding: 16,
+            minWidth: 0,
+            maxWidth: '100%',
+            boxSizing: 'border-box',
+            overflow: 'hidden',
             background: 'rgba(0,0,0,0.02)',
             borderRadius: 12,
             border: '1px solid rgba(15,23,42,0.06)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, minWidth: 0 }}>
             {showOrder && (
               <div
                 style={{
@@ -127,6 +131,8 @@ export function DynamicListEditor<T extends DynamicListItem>({
         onClick={handleAdd}
         style={{
           width: '100%',
+          maxWidth: '100%',
+          boxSizing: 'border-box',
           padding: '12px',
           fontSize: 14,
           fontWeight: 700,

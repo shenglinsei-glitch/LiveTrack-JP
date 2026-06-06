@@ -9,9 +9,10 @@ import { AlbumSection } from '@/components/detail/AlbumSection';
 import { FormSection, FormField } from '@/components/detail/FormSection';
 import { TagInputField } from '@/components/detail/TagInputField';
 import { DynamicListEditor } from '@/components/detail/DynamicListEditor';
+import { GoodsSection } from '@/components/detail/GoodsSection';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { DetailPageLayout } from '@/components/detail/DetailPageLayout';
-import { Exhibition, ExhibitionSpecialHours, ExhibitionClosedDay, ExhibitionUrl, ExhibitionGoods, ExhibitionArtist } from '@/domain/types';
+import { Exhibition, ExhibitionSpecialHours, ExhibitionClosedDay, ExhibitionUrl, ExhibitionArtist } from '@/domain/types';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useRemoteImage } from '@/components/RemoteImage';
 import { getEffectiveExhibitionStatus } from '@/domain/logic';
@@ -40,6 +41,9 @@ const formatDateWithWeekday = (dateStr?: string) => {
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
+  maxWidth: '100%',
+  minWidth: 0,
+  boxSizing: 'border-box',
   minHeight: 44,
   borderRadius: 14,
   border: '1px solid rgba(15,23,42,0.08)',
@@ -232,7 +236,7 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
         </DetailSection>
       ) : (
         <FormSection title="スケジュール">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
             <FormField label="開始日">
               <input type="date" value={formData.startDate || ''} onChange={e => setFormData(p => ({ ...p, startDate: e.target.value }))} style={inputStyle} />
             </FormField>
@@ -240,7 +244,7 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
               <input type="date" value={formData.endDate || ''} onChange={e => setFormData(p => ({ ...p, endDate: e.target.value }))} style={inputStyle} />
             </FormField>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
             <FormField label="通常開館">
               <input type="time" value={formData.regularOpenTime || formData.weekdayStartTime || ''} onChange={e => setFormData(p => ({ ...p, regularOpenTime: e.target.value }))} style={inputStyle} />
             </FormField>
@@ -275,7 +279,7 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
                       <option value="土">土曜日</option>
                     </select>
                   )}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
                     <input type="time" value={item.startTime} onChange={e => onUpdate({ ...item, startTime: e.target.value })} style={inputStyle} placeholder="開館" />
                     <input type="time" value={item.endTime} onChange={e => onUpdate({ ...item, endTime: e.target.value })} style={inputStyle} placeholder="閉館" />
                   </div>
@@ -452,7 +456,7 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
         )
       ) : (
         <FormSection title="観覧済み">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
             <FormField label="日付">
               <input
                 type="date"
@@ -534,63 +538,16 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
       {!isEditMode ? (
         formData.goods && formData.goods.length > 0 && (
           <DetailSection title="グッズ">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-              {formData.goods.map(goods => (
-                <div key={goods.id} style={{ padding: 12, background: 'rgba(0,0,0,0.02)', borderRadius: 12, border: '1px solid rgba(15,23,42,0.06)' }}>
-                  {goods.imageUrl && (
-                    <div style={{ aspectRatio: '1/1', borderRadius: 8, overflow: 'hidden', marginBottom: 8, background: '#F3F4F6' }}>
-                      <img src={goods.imageUrl} alt={goods.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </div>
-                  )}
-                  <div style={{ fontSize: 14, fontWeight: 700, color: theme.colors.text, marginBottom: 4 }}>{goods.name}</div>
-                  {goods.price && <div style={{ fontSize: 12, fontWeight: 600, color: theme.colors.textSecondary }}>¥{goods.price.toLocaleString()}</div>}
-                  {goods.quantity && <div style={{ fontSize: 12, fontWeight: 600, color: theme.colors.textSecondary }}>数量: {goods.quantity}</div>}
-                </div>
-              ))}
-            </div>
+            <GoodsSection items={formData.goods || []} />
           </DetailSection>
         )
       ) : (
         <FormSection title="グッズ">
-          <DynamicListEditor<ExhibitionGoods>
+          <GoodsSection
             items={formData.goods || []}
             onChange={items => setFormData(p => ({ ...p, goods: items }))}
-            createNew={() => ({ id: generateId(), name: '', price: undefined, quantity: undefined, imageUrl: '' })}
+            isEditMode
             itemLabel="グッズ"
-            renderItem={(item, _, onUpdate) => (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <input
-                  type="text"
-                  value={item.name}
-                  onChange={e => onUpdate({ ...item, name: e.target.value })}
-                  placeholder="商品名"
-                  style={inputStyle}
-                />
-                <input
-                  type="url"
-                  value={item.imageUrl || ''}
-                  onChange={e => onUpdate({ ...item, imageUrl: e.target.value })}
-                  placeholder="画像URL"
-                  style={inputStyle}
-                />
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-                  <input
-                    type="number"
-                    value={item.price || ''}
-                    onChange={e => onUpdate({ ...item, price: Number(e.target.value) })}
-                    placeholder="価格"
-                    style={inputStyle}
-                  />
-                  <input
-                    type="number"
-                    value={item.quantity || ''}
-                    onChange={e => onUpdate({ ...item, quantity: Number(e.target.value) })}
-                    placeholder="数量"
-                    style={inputStyle}
-                  />
-                </div>
-              </div>
-            )}
           />
         </FormSection>
       )}

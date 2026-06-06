@@ -7,6 +7,7 @@ import { InfoRow, InfoGrid } from '@/components/detail/InfoRow';
 import { AlbumSection } from '@/components/detail/AlbumSection';
 import { Artist, Tour, Concert } from '@/domain/types';
 import { Icons, IconButton } from '@/components/common/IconButton';
+import { GoodsSection } from '@/components/detail/GoodsSection';
 import dayjs from 'dayjs';
 
 interface Props {
@@ -215,6 +216,13 @@ export const ConcertHomePage: React.FC<Props> = ({
               </div>
             ))}
           </div>
+        </DetailSection>
+      )}
+
+      {/* グッズ */}
+      {concert.goods && concert.goods.length > 0 && (
+        <DetailSection title="グッズ">
+          <GoodsSection items={concert.goods || []} />
         </DetailSection>
       )}
 

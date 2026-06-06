@@ -2,12 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { theme } from '@/components/common/theme';
 import { GlassCard } from '@/components/common/GlassCard';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { Artist, Tour, Concert, Status, LotteryHistoryItem, ConcertSetlistItem } from '@/domain/types';
+import { Artist, Tour, Concert, Status, LotteryHistoryItem, ConcertSetlistItem, GoodsItem } from '@/domain/types';
 import { Icons, IconButton } from '@/components/common/IconButton';
 import { sortPerformancesForDisplay, checkGlobalDateConflicts } from '@/domain/logic';
 import { PageShell } from '@/components/common/PageShell';
 import { TagSelectInput } from '@/components/common/TagSelectInput';
 import { DynamicListEditor } from '@/components/detail/DynamicListEditor';
+import { GoodsSection } from '@/components/detail/GoodsSection';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -183,6 +184,7 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
       imageIds: [],
       lotteryHistory: [],
       setlist: [],
+      goods: [],
     };
     setFormData(prev => ({ ...prev, concerts: [...(prev.concerts || []), nc] }));
     setExpandedConcertId(nc.id);
@@ -291,7 +293,7 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
                       </div>
 
                       {/* 日時 */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
                         <Field label="開演日時"><CustomDatePicker value={c.concertAt || (c.date === 'TBD' ? '' : c.date)} onChange={v => handleUpdateConcert(c.id, { concertAt: v, date: v.split(' ')[0] })} showTime placeholder="開演日時を設定" /></Field>
                         {isAttending && <Field label="開場時刻"><input type="time" value={c.doorTime || ''} onChange={e => handleUpdateConcert(c.id, { doorTime: e.target.value })} style={inputStyle} /></Field>}
                         {isAttending && <Field label="開演時刻"><input type="time" value={c.startTime || ''} onChange={e => handleUpdateConcert(c.id, { startTime: e.target.value })} style={inputStyle} /></Field>}
@@ -369,6 +371,18 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
                                 style={inputStyle}
                               />
                             )}
+                          />
+                        </div>
+                      )}
+
+                      {isAttending && (
+                        <div>
+                          <div style={{ fontSize: '12px', color: theme.colors.textSecondary, marginBottom: 8, fontWeight: 'bold' }}>グッズ</div>
+                          <GoodsSection<GoodsItem>
+                            items={c.goods || []}
+                            onChange={(items) => handleUpdateConcert(c.id, { goods: items })}
+                            isEditMode
+                            itemLabel="グッズ"
                           />
                         </div>
                       )}

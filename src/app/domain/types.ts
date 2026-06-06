@@ -72,6 +72,14 @@ export interface ConcertSetlistItem {
   order: number;
 }
 
+export interface GoodsItem {
+  id: string;
+  imageUrl?: string;
+  name: string;
+  price?: number;
+  quantity?: number;
+}
+
 export interface Concert {
   id: string;
   date: string;
@@ -101,6 +109,7 @@ export interface Concert {
   seatType?: string; // 座席種類
   seatLocation?: string; // 座席
   setlist?: ConcertSetlistItem[]; // セットリスト
+  goods?: GoodsItem[]; // グッズ
 }
 
 export interface LotteryHistoryItem {
@@ -166,13 +175,7 @@ export interface ExhibitionUrl {
   url: string;
 }
 
-export interface ExhibitionGoods {
-  id: string;
-  imageUrl?: string;
-  name: string;
-  price?: number;
-  quantity?: number;
-}
+export interface ExhibitionGoods extends GoodsItem {}
 
 export interface Exhibition {
   id: string;

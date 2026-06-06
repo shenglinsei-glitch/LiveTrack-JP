@@ -10,7 +10,7 @@ interface FormSectionProps {
 
 export const FormSection: React.FC<FormSectionProps> = ({ title, children, style }) => {
   return (
-    <GlassCard style={{ marginBottom: 16, ...style }}>
+    <GlassCard style={{ marginBottom: 16, minWidth: 0, maxWidth: '100%', overflow: 'hidden', boxSizing: 'border-box', ...style }}>
       {title && (
         <h3 style={{ fontSize: 16, fontWeight: 900, color: theme.colors.text, marginBottom: 16 }}>
           {title}
@@ -29,7 +29,7 @@ interface FormFieldProps {
 
 export const FormField: React.FC<FormFieldProps> = ({ label, children, required = false }) => {
   return (
-    <div style={{ marginBottom: 16 }}>
+    <div style={{ marginBottom: 16, minWidth: 0, maxWidth: '100%', boxSizing: 'border-box' }}>
       <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: theme.colors.textSecondary, marginBottom: 6 }}>
         {label}
         {required && <span style={{ color: theme.colors.primary, marginLeft: 4 }}>*</span>}
