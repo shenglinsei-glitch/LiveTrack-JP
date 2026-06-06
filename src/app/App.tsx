@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { normalizeArtistData, normalizeExhibitionData, normalizeMovieData, normalizeActorData, normalizeAnimeData } from '@/utils/data';
 import { safeSave, safeGet } from '@/utils/storage';
-import { PageId, Artist, Tour, DisplaySettings, Status, GlobalSettings, SiteLink, TrackingStatus, TrackingErrorType, Concert, Exhibition, Movie, Actor, Anime } from '@/domain/types';
+import { PageId, Artist, Tour, DisplaySettings, Status, GlobalSettings, SiteLink, TrackingStatus, TrackingErrorType, Concert, Exhibition, Movie, Actor, Anime, TagMasters } from '@/domain/types';
 import { Layout } from '@/components/Layout';
 import { HomePage } from '@/pages/HomePage';
 import { ArtistListPage } from '@/pages/ArtistListPage';
@@ -19,6 +19,7 @@ import { MovieDetailPage } from '@/pages/MovieDetailPage';
 import { ActorDetailPage } from '@/pages/ActorDetailPage';
 import { AnimesPage } from '@/pages/AnimesPage';
 import { AnimeDetailPage } from '@/pages/AnimeDetailPage';
+import { TagManagementPage } from '@/pages/TagManagementPage';
 import { GlassCard } from '@/components/common/GlassCard';
 import { MenuButton, sectionTitleStyle } from '@/components/BottomMenu';
 import { theme } from '@/components/common/theme';
@@ -46,11 +47,38 @@ const STORAGE_KEYS = {
   MOVIES: 'livetrack_jp_movies',
   ACTORS: 'livetrack_jp_actors',
   ANIMES: 'livetrack_jp_animes',
+  TAG_MASTERS: 'livetrack_jp_tag_masters',
+  FAVE_ARCHIVE_TAGS: 'fave-archive-tags',
   GLOBAL_SETTINGS: 'livetrack_jp_global_settings',
   DISPLAY_SETTINGS: 'livetrack_jp_display_settings',
   ARTIST_SORT: 'livetrack_jp_artist_sort',
   CONCERT_SORT: 'livetrack_jp_concert_sort'
 };
+
+
+const DEFAULT_TAG_MASTERS: TagMasters = {
+  venues: [],
+  cinemas: [],
+  exhibitionVenues: [],
+  movieGenres: [],
+  animeGenres: [],
+  animeStudios: [],
+  directors: [],
+  artists: [],
+  general: [],
+};
+
+const normalizeTagMasters = (raw?: Partial<TagMasters> | null): TagMasters => ({
+  venues: Array.isArray(raw?.venues) ? raw!.venues : [],
+  cinemas: Array.isArray(raw?.cinemas) ? raw!.cinemas : [],
+  exhibitionVenues: Array.isArray(raw?.exhibitionVenues) ? raw!.exhibitionVenues : [],
+  movieGenres: Array.isArray(raw?.movieGenres) ? raw!.movieGenres : [],
+  animeGenres: Array.isArray(raw?.animeGenres) ? raw!.animeGenres : [],
+  animeStudios: Array.isArray(raw?.animeStudios) ? raw!.animeStudios : [],
+  directors: Array.isArray(raw?.directors) ? raw!.directors : [],
+  artists: Array.isArray(raw?.artists) ? raw!.artists : [],
+  general: Array.isArray(raw?.general) ? raw!.general : [],
+});
 
 const normalizeUrl = (raw: string): string => {
   const v = (raw || '').trim();
@@ -125,11 +153,20 @@ export default function App() {
     return (raw || []).map(normalizeAnimeData);
   });
 
+  const [tagMasters, setTagMasters] = useState<TagMasters>(() => {
+    const saved = safeGet<Partial<TagMasters> | null>(STORAGE_KEYS.TAG_MASTERS, null) || safeGet<Partial<TagMasters> | null>(STORAGE_KEYS.FAVE_ARCHIVE_TAGS, null);
+    return normalizeTagMasters(saved || DEFAULT_TAG_MASTERS);
+  });
+
   useEffect(() => { safeSave(STORAGE_KEYS.ARTISTS, artists); }, [artists]);
   useEffect(() => { safeSave(STORAGE_KEYS.EXHIBITIONS, exhibitions); }, [exhibitions]);
   useEffect(() => { safeSave(STORAGE_KEYS.MOVIES, movies); }, [movies]);
   useEffect(() => { safeSave(STORAGE_KEYS.ACTORS, actors); }, [actors]);
   useEffect(() => { safeSave(STORAGE_KEYS.ANIMES, animes); }, [animes]);
+  useEffect(() => {
+    safeSave(STORAGE_KEYS.TAG_MASTERS, tagMasters);
+    safeSave(STORAGE_KEYS.FAVE_ARCHIVE_TAGS, tagMasters);
+  }, [tagMasters]);
 
   const availableAnimeGenres = useMemo(() => {
     const set = new Set<string>();
@@ -258,7 +295,7 @@ export default function App() {
   // Unified Export Logic
   const handleExportAll = async () => {
     try {
-      const fullData = { ...(await prepareFullDataForExport(artists, exhibitions, movies)), actors, animes };
+      const fullData = { ...(await prepareFullDataForExport(artists, exhibitions, movies)), actors, animes, tagMasters };
       const dataStr = JSON.stringify(fullData, null, 2);
       const blob = new Blob([dataStr], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -297,9 +334,12 @@ export default function App() {
     const animesRaw: Anime[] | null = (!Array.isArray(importedData) && importedData?.animes)
       ? importedData.animes
       : null;
+    const tagMastersRaw: TagMasters | null = (!Array.isArray(importedData) && importedData?.tagMasters)
+      ? importedData.tagMasters
+      : null;
 
     // Guard: if payload shape is not recognized, do nothing but surface a clear message.
-    if (!artistsRaw && !exhibitionsRaw && !moviesRaw && !actorsRaw && !animesRaw) {
+    if (!artistsRaw && !exhibitionsRaw && !moviesRaw && !actorsRaw && !animesRaw && !tagMastersRaw) {
       window.alert('読み込みに失敗しました。データ形式が正しくありません。');
       return;
     }
@@ -320,6 +360,7 @@ export default function App() {
     if (moviesRaw) setMovies((moviesRaw || []).map(normalizeMovieData));
     if (actorsRaw) setActors((actorsRaw || []).map(normalizeActorData));
     if (animesRaw) setAnimes((animesRaw || []).map(normalizeAnimeData));
+    if (tagMastersRaw) setTagMasters(normalizeTagMasters(tagMastersRaw));
 
     // Post-migrate in background (still on the main thread), then update state again.
     (async () => {
@@ -361,6 +402,7 @@ export default function App() {
   const navigateToMovieDetail = (movieId: string, edit?: boolean) => setNav({ path: 'MOVIE_DETAIL', movieId, edit, from: 'CONTENT' });
   const navigateToActorDetail = (actorId: string) => setNav({ path: 'ACTOR_DETAIL', actorId, from: 'CONTENT' });
   const navigateToAnimeDetail = (animeId: string, edit?: boolean) => setNav({ path: 'ANIME_DETAIL', animeId: animeId, edit, from: 'CONTENT' });
+  const navigateToTagManagement = () => setNav({ path: 'TAG_MANAGEMENT' });
 
   const normalizeActorName = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase();
 
@@ -483,6 +525,16 @@ export default function App() {
     navigateToAnimeDetail(newAnime.id, true);
   };
 
+  const addTagToMasters = (key: keyof TagMasters, value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    if ((tagMasters[key] || []).includes(trimmed)) return;
+    setTagMasters(prev => ({
+      ...normalizeTagMasters(prev),
+      [key]: [...(prev[key] || []), trimmed],
+    }));
+  };
+
   const upsertArtist = (updated: Artist) => {
     setArtists(prev => {
       const exists = prev.some(a => a.id === updated.id);
@@ -592,6 +644,7 @@ export default function App() {
             onOpenAnime={(id) => navigateToAnimeDetail(id)}
             onExport={handleExportAll}
             onImport={handleImportAll}
+            onNavigateToTagManagement={navigateToTagManagement}
           />
         );
       case 'CONTENT':
@@ -683,6 +736,8 @@ export default function App() {
             onBack={navigateToExhibitionList}
             initialEditMode={nav.edit}
             initialIsNew={nav.isNew}
+            exhibitionVenues={tagMasters.exhibitionVenues}
+            onAddExhibitionVenue={(v) => addTagToMasters('exhibitionVenues', v)}
           />
         );
       }
@@ -709,6 +764,10 @@ export default function App() {
               else { setNav({ path: 'CONTENT' }); setContentActiveTab('movies'); }
             }}
             initialEditMode={!!nav.edit}
+            cinemas={tagMasters.cinemas}
+            movieGenres={tagMasters.movieGenres}
+            onAddCinema={(v) => addTagToMasters('cinemas', v)}
+            onAddMovieGenre={(v) => addTagToMasters('movieGenres', v)}
           />
         );
       }
@@ -734,7 +793,8 @@ export default function App() {
         return (
           <AnimeDetailPage
             anime={anime}
-            availableGenres={availableAnimeGenres}
+            availableGenres={tagMasters.animeGenres}
+            availableStudios={tagMasters.animeStudios}
             onUpdateAnime={(updated) => {
               setAnimes(prev => prev.map(a => a.id === updated.id ? normalizeAnimeData(updated) : a));
             }}
@@ -748,9 +808,28 @@ export default function App() {
               setContentActiveTab('animes');
             }}
             initialEditMode={!!nav.edit}
+            onAddAnimeGenre={(v) => addTagToMasters('animeGenres', v)}
+            onAddAnimeStudio={(v) => addTagToMasters('animeStudios', v)}
           />
         );
       }
+
+      case 'TAG_MANAGEMENT':
+        return (
+          <TagManagementPage
+            tagMasters={tagMasters}
+            onUpdateTagMasters={setTagMasters}
+            artists={artists}
+            exhibitions={exhibitions}
+            movies={movies}
+            animes={animes}
+            onUpdateArtists={setArtists}
+            onUpdateExhibitions={setExhibitions}
+            onUpdateMovies={setMovies}
+            onUpdateAnimes={setAnimes}
+            onBack={() => setNav({ path: 'HOME' })}
+          />
+        );
 
       case 'CALENDAR':
         return (
@@ -834,6 +913,8 @@ export default function App() {
             onSave={t => upsertTour(artist.id, t)}
             onCancel={() => navigateToArtistDetail(artist.id, nav.from)}
             onDeleteTour={(aid, tid) => { setArtists(p => p.map(a => a.id !== aid ? a : { ...a, tours: a.tours.filter(tour => tour.id !== tid) })); navigateToArtistDetail(aid, nav.from); }}
+            venues={tagMasters.venues}
+            onAddVenue={(v) => addTagToMasters('venues', v)}
           />
         );
       }

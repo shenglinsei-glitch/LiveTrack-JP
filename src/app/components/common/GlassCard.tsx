@@ -8,7 +8,7 @@ interface GlassCardProps {
   children: React.ReactNode;
   variant?: CardVariant;
   className?: string;
-  onClick?: () => void;
+  onClick?: React.MouseEventHandler<HTMLDivElement>;
   padding?: string;
   style?: React.CSSProperties;
 }

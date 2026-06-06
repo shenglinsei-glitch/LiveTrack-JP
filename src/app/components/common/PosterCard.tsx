@@ -14,6 +14,7 @@ interface PosterCardProps {
   onClick: () => void;
   alt?: string;
   compact?: boolean;
+  extraContent?: React.ReactNode;
 }
 
 export const PosterCard: React.FC<PosterCardProps> = ({
@@ -28,6 +29,7 @@ export const PosterCard: React.FC<PosterCardProps> = ({
   onClick,
   alt,
   compact = false,
+  extraContent,
 }) => {
   const imageStyle: React.CSSProperties = {
     position: 'absolute',
@@ -84,6 +86,7 @@ export const PosterCard: React.FC<PosterCardProps> = ({
                 {meta}
               </div>
             ) : null}
+            {extraContent ? extraContent : null}
           </div>
         </div>
       </GlassCard>

@@ -32,9 +32,11 @@ interface ConcertWithMetadata extends Concert {
   artistName: string;
   artistId: string;
   artistImageUrl: string;
+  artistImageId?: string;
   tourName: string;
   tourId: string;
   tourImageUrl: string;
+  tourImageId?: string;
   tourOfficialUrl?: string;
 }
 

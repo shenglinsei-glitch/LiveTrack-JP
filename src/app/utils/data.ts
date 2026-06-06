@@ -1,222 +1,305 @@
-import { Artist, Exhibition, SiteLink, Tour, Concert, Movie, Actor, Anime, Season, Episode, OpeningSong, EndingSong, AnimeStatus } from '@/domain/types';
+import {
+  Actor,
+  Anime,
+  AnimeStatus,
+  Artist,
+  Concert,
+  Exhibition,
+  ExhibitionArtist,
+  ExhibitionClosedDay,
+  ExhibitionGoods,
+  ExhibitionSpecialHours,
+  ExhibitionUrl,
+  Movie,
+  Tour,
+} from '@/domain/types';
 
-export const normalizeArtistData = (artist: any): Artist => {
+const makeId = (prefix = 'id') => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+const asArray = <T,>(value: T[] | null | undefined): T[] => (Array.isArray(value) ? value : []);
+const asString = (value: unknown, fallback = ''): string => (typeof value === 'string' ? value : fallback);
+const asNumber = (value: unknown, fallback = 0): number => (typeof value === 'number' && Number.isFinite(value) ? value : fallback);
+const asBoolean = (value: unknown, fallback = false): boolean => (typeof value === 'boolean' ? value : fallback);
+
+const normalizeConcert = (raw: any): Concert => {
+  const lotteryHistory = asArray<any>(raw?.lotteryHistory).map((item, index) => ({
+    id: asString(item?.id, makeId(`lottery-${index}`)),
+    at: asString(item?.at, new Date().toISOString()),
+    result: (item?.result === 'WON' ? 'WON' : 'LOST') as 'WON' | 'LOST',
+    lotteryName: item?.lotteryName ?? raw?.lotteryName ?? null,
+    resultAt: item?.resultAt ?? raw?.resultAt ?? null,
+  }));
+
+  const setlist = asArray<any>(raw?.setlist).map((item, index) => ({
+    id: asString(item?.id, makeId(`setlist-${index}`)),
+    song: asString(item?.song ?? item?.songName),
+    order: asNumber(item?.order, index + 1),
+  }));
+
   return {
-    ...artist,
-    id: String(artist.id || Math.random().toString(36).substr(2, 9)),
-    name: artist.name || '名称未設定',
-    imageUrl: artist.imageUrl || '',
-    links: Array.isArray(artist.links) ? artist.links : [],
-    autoTrackConcerts: !!artist.autoTrackConcerts,
-    autoTrackTickets: !!artist.autoTrackTickets,
-    tours: Array.isArray(artist.tours) ? artist.tours.map((t: any) => ({
-      ...t,
-      id: String(t.id || Math.random().toString(36).substr(2, 9)),
-      name: t.name || '名称未設定',
-      imageUrl: t.imageUrl || '',
-      concerts: Array.isArray(t.concerts) ? t.concerts.map((c: any) => ({
-        ...c,
-        id: String(c.id || Math.random().toString(36).substr(2, 9)),
-        date: c.date || 'TBD',
-        venue: c.venue || '',
-        status: c.status || '発売前',
-        performances: Array.isArray(c.performances) ? c.performances : [],
-        imageIds: Array.isArray(c.imageIds) ? c.imageIds : []
-      })) : []
-    })) : []
+    id: asString(raw?.id, makeId('concert')),
+    date: asString(raw?.date),
+    venue: asString(raw?.venue),
+    price: asNumber(raw?.price, 0),
+    saleLink: asString(raw?.saleLink),
+    status: raw?.status || '検討中',
+    isParticipated: asBoolean(raw?.isParticipated, raw?.status === '参戦予定' || raw?.status === '参戦済み'),
+    imageIds: asArray<string>(raw?.imageIds),
+    images: asArray<string>(raw?.images),
+    saleAt: raw?.saleAt ?? null,
+    deadlineAt: raw?.deadlineAt ?? null,
+    resultAt: raw?.resultAt ?? null,
+    concertAt: raw?.concertAt ?? null,
+    lotteryName: raw?.lotteryName ?? null,
+    lotteryResult: raw?.lotteryResult ?? null,
+    lotteryHistory,
+    doorTime: asString(raw?.doorTime),
+    startTime: asString(raw?.startTime),
+    seatType: asString(raw?.seatType),
+    seatLocation: asString(raw?.seatLocation),
+    setlist,
   };
 };
 
-export const normalizeExhibitionData = (ex: any): Exhibition => {
-  return {
-    ...ex,
-    id: String(ex.id || Math.random().toString(36).substr(2, 9)),
-    title: ex.title || '名称未設定',
-    startDate: ex.startDate || '',
-    endDate: ex.endDate || '',
-    status: ex.status || 'NONE',
-    ticketSalesStatus: ex.ticketSalesStatus || 'none',
-    hasAdvanceTicket: !!ex.hasAdvanceTicket,
-    advanceSaleAt: ex.advanceSaleAt || ex.saleStartAt || '',
-    advanceTicketPurchased: !!ex.advanceTicketPurchased || ex.ticketSalesStatus === 'purchased',
-    needsReservation: !!ex.needsReservation,
-    holidaySameAsWeekday: !!ex.holidaySameAsWeekday,
-    holidayPriceSameAsWeekday: !!ex.holidayPriceSameAsWeekday,
-    imageIds: Array.isArray(ex.imageIds) ? ex.imageIds : [],
-    artists: Array.isArray(ex.artists) ? ex.artists : []
-  };
-};
-
-
-export const normalizeMovieData = (movie: any): Movie => {
-  const now = new Date().toISOString();
-  return {
-    ...movie,
-    id: String(movie.id || Math.random().toString(36).substr(2, 9)),
-    title: movie.title || '新規映画',
-    posterUrl: movie.posterUrl || '',
-    theaterName: movie.theaterName || '',
-    screenName: movie.screenName || '',
-    seat: movie.seat || '',
-    releaseDate: movie.releaseDate || '',
-    watchDate: movie.watchDate || '',
-    startTime: movie.startTime || '',
-    endTime: movie.endTime || '',
-    memo: movie.memo || '',
-    actors: Array.isArray(movie.actors) ? movie.actors : [],
-    directors: Array.isArray(movie.directors) ? movie.directors : [],
-    price: typeof movie.price === 'number' ? movie.price : (movie.price === '' || movie.price == null ? undefined : Number(movie.price) || undefined),
-    ticketType: movie.ticketType || '通常',
-    status: movie.status || '未上映',
-    websiteUrl: movie.websiteUrl || '',
-    saleAt: movie.saleAt || '',
-    deadlineAt: movie.deadlineAt || '',
-    saleLink: movie.saleLink || '',
-    lotteryName: movie.lotteryName || '',
-    lotteryUrl: movie.lotteryUrl || '',
-    lotteryResultAt: movie.lotteryResultAt || '',
-    lotteryPrice: typeof movie.lotteryPrice === 'number' ? movie.lotteryPrice : (movie.lotteryPrice === '' || movie.lotteryPrice == null ? undefined : Number(movie.lotteryPrice) || undefined),
-    lotteryResult: movie.lotteryResult === 'WON' || movie.lotteryResult === 'LOST' ? movie.lotteryResult : null,
-    lotteryHistory: Array.isArray(movie.lotteryHistory) ? movie.lotteryHistory : [],
-    createdAt: movie.createdAt || now,
-    updatedAt: movie.updatedAt || movie.createdAt || now,
-  };
-};
-
-
-export const normalizeActorData = (actor: any): Actor => {
-  const now = new Date().toISOString();
-  return {
-    ...actor,
-    id: String(actor?.id || Math.random().toString(36).substr(2, 9)),
-    name: String(actor?.name || '').trim() || '名前未設定',
-    avatar: actor?.avatar || '',
-    isFollowed: actor?.isFollowed !== false,
-    createdAt: actor?.createdAt || now,
-    updatedAt: actor?.updatedAt || actor?.createdAt || now,
-  };
-};
-
-
-const normalizeAnimeStatus = (status?: string, watchDecision?: string): AnimeStatus => {
-  const raw = String(status || '').trim();
-  if (raw === '放送前') return '放送前';
-  if (raw === '視聴予定') return '視聴予定';
-  if (raw === '視聴中') return '視聴中';
-  if (raw === '保留') return '保留';
-  if (raw === '視聴済み') return '視聴済み';
-  if (raw === '視聴中止') return '視聴中止';
-  if (raw === '見送り' || raw === '未視聴') return '見送り';
-
-  const decision = String(watchDecision || '').trim();
-  if (decision === 'watch' || decision === '視聴' || decision === '見る') return '視聴予定';
-  if (decision === 'skip' || decision === '見送り' || decision === '見ない') return '見送り';
-
-  return '放送前';
-};
-
-const normalizeSong = (song: any): OpeningSong | EndingSong => ({
-  songTitle: song?.songTitle || '',
-  artistName: song?.artistName || '',
-  coverUrl: song?.coverUrl || '',
-  musicUrl: song?.musicUrl || '',
+const normalizeTour = (raw: any): Tour => ({
+  id: asString(raw?.id, makeId('tour')),
+  name: asString(raw?.name, '名称未設定'),
+  imageUrl: asString(raw?.imageUrl),
+  memo: raw?.memo,
+  officialUrl: raw?.officialUrl,
+  concerts: asArray<any>(raw?.concerts).map(normalizeConcert),
 });
 
-const normalizeEpisode = (episode: any, idx: number): Episode => ({
-  ...episode,
-  id: String(episode?.id || Math.random().toString(36).substr(2, 9)),
-  episodeNumber: typeof episode?.episodeNumber === 'number' ? episode.episodeNumber : idx + 1,
-  title: episode?.title || '',
-  summary: episode?.summary || '',
-  review: episode?.review || '',
-  watchedDate: episode?.watchedDate || '',
+export const normalizeArtistData = (raw: any): Artist => ({
+  id: asString(raw?.id, makeId('artist')),
+  name: asString(raw?.name, '名称未設定'),
+  imageUrl: asString(raw?.imageUrl),
+  links: asArray<any>(raw?.links).map((link) => ({
+    name: asString(link?.name),
+    url: asString(link?.url),
+    autoTrack: asBoolean(link?.autoTrack),
+    lastCheckedAt: link?.lastCheckedAt,
+    lastSuccessAt: link?.lastSuccessAt,
+    matchedKeywords: asArray<string>(link?.matchedKeywords),
+    lastHitAt: link?.lastHitAt,
+    acknowledgedAt: link?.acknowledgedAt,
+    trackingStatus: link?.trackingStatus,
+    errorMessage: link?.errorMessage,
+    trackCapability: link?.trackCapability,
+    trackCapabilityCheckedAt: link?.trackCapabilityCheckedAt,
+  })),
+  autoTrackConcerts: asBoolean(raw?.autoTrackConcerts),
+  autoTrackTickets: asBoolean(raw?.autoTrackTickets),
+  tours: asArray<any>(raw?.tours).map(normalizeTour),
+  order: raw?.order,
 });
 
-const looksLikeSeasonNumber = (value?: string) => /^第.+[期季]$|^Season\s*\d+$/i.test(String(value || '').trim());
-
-const isAutoGeneratedEmptySeason = (season: any): boolean => {
-  if (!season) return true;
-  const emptyTextFields = [
-    season.seasonTitle,
-    season.posterUrl,
-    season.websiteUrl,
-    season.startDate,
-    season.endDate,
-    season.studio,
-    season.director,
-    season.originalTitle,
-    season.summary,
-    season.review,
-    season.broadcastWeekday,
-    season.broadcastTime,
-  ].every((value) => !String(value || '').trim());
-
-  const emptyArrays = [season.openingSongs, season.endingSongs, season.genres, season.episodes].every((value) => !Array.isArray(value) || value.length === 0);
-  const noNumericInfo = season.rating == null && season.totalEpisodes == null;
-  const defaultNumber = !String(season.seasonNumber || '').trim() || ['第1期', '第1シリーズ', 'Season 1'].includes(String(season.seasonNumber || '').trim());
-  const defaultStatus = !String(season.status || '').trim() || normalizeAnimeStatus(season.status, season.watchDecision) === '放送前';
-
-  return emptyTextFields && emptyArrays && noNumericInfo && defaultNumber && defaultStatus && !season.watchDecision;
-};
-
-const normalizeSeason = (season: any, idx: number, anime?: any): Season => ({
-  ...season,
-  id: String(season?.id || Math.random().toString(36).substr(2, 9)),
-  seasonNumber: season?.seasonNumber || (looksLikeSeasonNumber(season?.seasonTitle) ? season.seasonTitle : `第${idx + 1}期`),
-  seasonTitle: looksLikeSeasonNumber(season?.seasonTitle) ? '' : (season?.seasonTitle || ''),
-  posterUrl: season?.posterUrl || '',
-  startDate: season?.startDate || (idx === 0 ? anime?.startDate || '' : ''),
-  endDate: season?.endDate || (idx === 0 ? anime?.endDate || '' : ''),
-  studio: season?.studio || (idx === 0 ? anime?.studio || '' : ''),
-  director: season?.director || (idx === 0 ? anime?.director || '' : ''),
-  originalType: season?.originalType || (idx === 0 ? anime?.originalType : undefined),
-  originalTitle: season?.originalTitle || (idx === 0 ? anime?.originalTitle || '' : ''),
-  openingSongs: Array.isArray(season?.openingSongs) ? season.openingSongs.map(normalizeSong) : [],
-  endingSongs: Array.isArray(season?.endingSongs) ? season.endingSongs.map(normalizeSong) : [],
-  genres: Array.from(new Set((Array.isArray(season?.genres) ? season.genres : []).map((g: any) => String(g || '').trim()).filter(Boolean))),
-  summary: season?.summary || '',
-  rating: typeof season?.rating === 'number' ? season.rating : (season?.rating ? Number(season.rating) : undefined),
-  review: season?.review || '',
-  totalEpisodes: typeof season?.totalEpisodes === 'number' ? season.totalEpisodes : (season?.totalEpisodes ? Number(season.totalEpisodes) : undefined),
-  broadcastWeekday: season?.broadcastWeekday || '',
-  broadcastTime: '',
-  episodes: Array.isArray(season?.episodes) ? season.episodes.map(normalizeEpisode) : [],
-  status: normalizeAnimeStatus(season?.status, season?.watchDecision),
-  watchDecision: season?.watchDecision,
-  collapsed: idx === 0 ? season?.collapsed === true : season?.collapsed !== false,
+const normalizeExhibitionArtist = (raw: any, index: number): ExhibitionArtist => ({
+  id: asString(raw?.id, makeId(`exhibition-artist-${index}`)),
+  name: asString(raw?.name),
+  note: raw?.note,
 });
 
-export const normalizeAnimeData = (anime: any): Anime => {
-  const now = new Date().toISOString();
-  const rawSeasons = Array.isArray(anime?.seasons) ? anime.seasons : [];
-  const shouldDropOnlyEmptyDefaultSeason = rawSeasons.length === 1 && isAutoGeneratedEmptySeason(rawSeasons[0]);
-  const baseSeasons = shouldDropOnlyEmptyDefaultSeason ? [] : rawSeasons;
-  const normalizedSeasons = baseSeasons.map((season: any, idx: number) => normalizeSeason(season, idx, anime));
-  const latestSeasonPosterUrl = [...normalizedSeasons].reverse().find((season) => season.posterUrl?.trim())?.posterUrl || anime?.posterUrl || '';
+const normalizeSpecialHours = (raw: any, index: number): ExhibitionSpecialHours => ({
+  id: asString(raw?.id, makeId(`special-hours-${index}`)),
+  type: raw?.type === 'weekday' ? 'weekday' : 'date',
+  dateOrWeekday: asString(raw?.dateOrWeekday ?? raw?.date ?? raw?.weekday),
+  startTime: asString(raw?.startTime ?? raw?.openTime),
+  endTime: asString(raw?.endTime ?? raw?.closeTime),
+});
+
+const normalizeClosedDay = (raw: any, index: number): ExhibitionClosedDay => ({
+  id: asString(raw?.id, makeId(`closed-day-${index}`)),
+  type: raw?.type === 'weekday' ? 'weekday' : 'date',
+  dateOrWeekday: asString(raw?.dateOrWeekday ?? raw?.date ?? raw?.weekday ?? raw),
+});
+
+const normalizeUrlItem = (raw: any, index: number): ExhibitionUrl => ({
+  id: asString(raw?.id, makeId(`url-${index}`)),
+  name: asString(raw?.name, index === 0 ? '公式サイト' : ''),
+  url: asString(raw?.url ?? raw),
+});
+
+const normalizeGoods = (raw: any, index: number): ExhibitionGoods => ({
+  id: asString(raw?.id, makeId(`goods-${index}`)),
+  imageUrl: asString(raw?.imageUrl),
+  name: asString(raw?.name),
+  price: typeof raw?.price === 'number' ? raw.price : undefined,
+  quantity: typeof raw?.quantity === 'number' ? raw.quantity : undefined,
+});
+
+export const normalizeExhibitionData = (raw: any): Exhibition => {
+  const websiteUrl = asString(raw?.websiteUrl ?? raw?.officialUrl);
+  const urls = asArray<any>(raw?.urls).map(normalizeUrlItem);
+  if (websiteUrl && urls.length === 0) {
+    urls.push({ id: makeId('url'), name: '公式サイト', url: websiteUrl });
+  }
+
+  const venueName = asString(raw?.venueName ?? raw?.venue);
+  const venueTags = asArray<string>(raw?.venueTags).filter(Boolean);
+  if (venueName && venueTags.length === 0) venueTags.push(venueName);
 
   return {
-    ...anime,
-    id: String(anime?.id || Math.random().toString(36).substr(2, 9)),
-    title: String(anime?.title || '').trim() || 'タイトル未設定',
-    posterUrl: latestSeasonPosterUrl,
-    status: normalizeAnimeStatus(anime?.status, anime?.watchDecision),
-    startDate: anime?.startDate || '',
-    endDate: anime?.endDate || '',
-    studio: anime?.studio || '',
-    director: anime?.director || '',
-    originalType: anime?.originalType || undefined,
-    originalTitle: anime?.originalTitle || '',
-    openingSongs: Array.isArray(anime?.openingSongs) ? anime.openingSongs.map(normalizeSong) : [],
-    endingSongs: Array.isArray(anime?.endingSongs) ? anime.endingSongs.map(normalizeSong) : [],
-    genres: Array.from(new Set((Array.isArray(anime?.genres) ? anime.genres : []).map((g: any) => String(g || '').trim()).filter(Boolean))),
-    summary: anime?.summary || '',
-    rating: typeof anime?.rating === 'number' ? anime.rating : (anime?.rating ? Number(anime.rating) : undefined),
-    review: anime?.review || '',
-    totalEpisodes: typeof anime?.totalEpisodes === 'number' ? anime.totalEpisodes : (anime?.totalEpisodes ? Number(anime.totalEpisodes) : undefined),
-    broadcastWeekday: anime?.broadcastWeekday || '',
-    broadcastTime: '',
-    seasons: normalizedSeasons,
-    createdAt: anime?.createdAt || now,
-    updatedAt: anime?.updatedAt || anime?.createdAt || now,
+    id: asString(raw?.id, makeId('exhibition')),
+    title: asString(raw?.title, '名称未設定'),
+    imageUrl: asString(raw?.imageUrl),
+    startDate: asString(raw?.startDate),
+    endDate: asString(raw?.endDate),
+    websiteUrl,
+    area: asString(raw?.area),
+    venueName,
+    venue: asString(raw?.venue),
+    venueTags,
+    weekdayStartTime: asString(raw?.weekdayStartTime ?? raw?.regularOpenTime),
+    weekdayEndTime: asString(raw?.weekdayEndTime ?? raw?.regularCloseTime),
+    holidaySameAsWeekday: asBoolean(raw?.holidaySameAsWeekday, true),
+    holidayStartTime: asString(raw?.holidayStartTime),
+    holidayEndTime: asString(raw?.holidayEndTime),
+    regularOpenTime: asString(raw?.regularOpenTime ?? raw?.weekdayStartTime),
+    regularCloseTime: asString(raw?.regularCloseTime ?? raw?.weekdayEndTime),
+    specialHours: asArray<any>(raw?.specialHours).map(normalizeSpecialHours),
+    closedDates: asArray<string>(raw?.closedDates),
+    closedDays: asArray<any>(raw?.closedDays).map(normalizeClosedDay),
+    noClosedDays: asBoolean(raw?.noClosedDays),
+    weekdayPrice: raw?.weekdayPrice,
+    holidayPrice: raw?.holidayPrice,
+    holidayPriceSameAsWeekday: asBoolean(raw?.holidayPriceSameAsWeekday, true),
+    isFree: asBoolean(raw?.isFree),
+    admissionFee: typeof raw?.admissionFee === 'number' ? raw.admissionFee : raw?.weekdayPrice,
+    ticketSalesStatus: raw?.ticketSalesStatus || 'none',
+    saleStartAt: raw?.saleStartAt,
+    hasAdvanceTicket: raw?.hasAdvanceTicket,
+    advanceSaleAt: raw?.advanceSaleAt,
+    advanceTicketPurchased: raw?.advanceTicketPurchased,
+    needsReservation: asBoolean(raw?.needsReservation ?? raw?.reservationRequired),
+    reservationRequired: asBoolean(raw?.reservationRequired ?? raw?.needsReservation),
+    reservationStartAt: raw?.reservationStartAt,
+    reservationEndAt: raw?.reservationEndAt,
+    visitedAt: raw?.visitedAt,
+    visitedAtDate: asString(raw?.visitedAtDate ?? (typeof raw?.visitedAt === 'string' ? raw.visitedAt.slice(0, 10) : '')),
+    visitTime: asString(raw?.visitTime ?? (typeof raw?.visitedAt === 'string' && raw.visitedAt.length >= 16 ? raw.visitedAt.slice(11, 16) : '')),
+    status: raw?.status || 'NONE',
+    description: asString(raw?.description),
+    artists: asArray<any>(raw?.artists).map(normalizeExhibitionArtist),
+    imageIds: asArray<string>(raw?.imageIds),
+    goods: asArray<any>(raw?.goods).map(normalizeGoods),
+    comment: asString(raw?.comment),
+    urls,
   };
 };
+
+export const normalizeMovieData = (raw: any): Movie => ({
+  id: asString(raw?.id, makeId('movie')),
+  title: asString(raw?.title, '名称未設定'),
+  posterUrl: asString(raw?.posterUrl),
+  theaterName: asString(raw?.theaterName),
+  screenName: asString(raw?.screenName),
+  seat: asString(raw?.seat),
+  releaseDate: raw?.releaseDate,
+  watchDate: raw?.watchDate,
+  startTime: raw?.startTime,
+  endTime: raw?.endTime,
+  memo: raw?.memo,
+  actors: asArray<string>(raw?.actors),
+  directors: asArray<string>(raw?.directors),
+  genres: asArray<string>(raw?.genres ?? (raw?.genre ? [raw.genre] : [])),
+  price: raw?.price,
+  ticketType: raw?.ticketType || '通常',
+  status: raw?.status || '未上映',
+  websiteUrl: raw?.websiteUrl,
+  saleAt: raw?.saleAt,
+  deadlineAt: raw?.deadlineAt,
+  saleLink: raw?.saleLink,
+  lotteryName: raw?.lotteryName,
+  lotteryUrl: raw?.lotteryUrl,
+  lotteryResultAt: raw?.lotteryResultAt,
+  lotteryPrice: raw?.lotteryPrice,
+  lotteryResult: raw?.lotteryResult ?? null,
+  lotteryHistory: asArray<any>(raw?.lotteryHistory).map((item) => ({
+    at: asString(item?.at, new Date().toISOString()),
+    result: item?.result === 'WON' ? 'WON' : 'LOST',
+    lotteryName: item?.lotteryName,
+    lotteryResultAt: item?.lotteryResultAt,
+  })),
+  createdAt: asString(raw?.createdAt, new Date().toISOString()),
+  updatedAt: asString(raw?.updatedAt, new Date().toISOString()),
+});
+
+export const normalizeActorData = (raw: any): Actor => ({
+  id: asString(raw?.id, makeId('actor')),
+  name: asString(raw?.name, '名称未設定'),
+  avatar: asString(raw?.avatar),
+  isFollowed: asBoolean(raw?.isFollowed, true),
+  createdAt: asString(raw?.createdAt, new Date().toISOString()),
+  updatedAt: asString(raw?.updatedAt, new Date().toISOString()),
+});
+
+const normalizeSong = (raw: any) => ({
+  songTitle: asString(raw?.songTitle),
+  artistName: asString(raw?.artistName),
+  coverUrl: asString(raw?.coverUrl),
+  musicUrl: asString(raw?.musicUrl),
+});
+
+const normalizeEpisode = (raw: any, index: number) => ({
+  id: asString(raw?.id, makeId(`episode-${index}`)),
+  episodeNumber: asNumber(raw?.episodeNumber, index + 1),
+  title: asString(raw?.title),
+  summary: asString(raw?.summary),
+  review: asString(raw?.review),
+  watchedDate: asString(raw?.watchedDate),
+});
+
+const normalizeSeason = (raw: any, index: number) => ({
+  id: asString(raw?.id, makeId(`season-${index}`)),
+  seasonNumber: asString(raw?.seasonNumber),
+  seasonTitle: asString(raw?.seasonTitle),
+  posterUrl: asString(raw?.posterUrl),
+  websiteUrl: asString(raw?.websiteUrl),
+  startDate: asString(raw?.startDate),
+  endDate: asString(raw?.endDate),
+  studio: asString(raw?.studio),
+  director: asString(raw?.director),
+  originalType: raw?.originalType,
+  originalTitle: asString(raw?.originalTitle),
+  openingSongs: asArray<any>(raw?.openingSongs).map(normalizeSong),
+  endingSongs: asArray<any>(raw?.endingSongs).map(normalizeSong),
+  genres: asArray<string>(raw?.genres),
+  summary: asString(raw?.summary),
+  rating: typeof raw?.rating === 'number' ? raw.rating : undefined,
+  review: asString(raw?.review),
+  totalEpisodes: typeof raw?.totalEpisodes === 'number' ? raw.totalEpisodes : undefined,
+  broadcastWeekday: raw?.broadcastWeekday || '',
+  broadcastTime: asString(raw?.broadcastTime),
+  episodes: asArray<any>(raw?.episodes).map(normalizeEpisode),
+  collapsed: asBoolean(raw?.collapsed, false),
+  status: (raw?.status || '放送前') as AnimeStatus,
+  watchDecision: raw?.watchDecision,
+  useAnimeTitle: asBoolean(raw?.useAnimeTitle, true),
+});
+
+export const normalizeAnimeData = (raw: any): Anime => ({
+  id: asString(raw?.id, makeId('anime')),
+  title: asString(raw?.title, '名称未設定'),
+  posterUrl: asString(raw?.posterUrl),
+  websiteUrl: asString(raw?.websiteUrl),
+  status: (raw?.status || '放送前') as AnimeStatus,
+  startDate: asString(raw?.startDate),
+  endDate: asString(raw?.endDate),
+  studio: asString(raw?.studio),
+  director: asString(raw?.director),
+  originalType: raw?.originalType,
+  originalTitle: asString(raw?.originalTitle),
+  openingSongs: asArray<any>(raw?.openingSongs).map(normalizeSong),
+  endingSongs: asArray<any>(raw?.endingSongs).map(normalizeSong),
+  genres: asArray<string>(raw?.genres),
+  summary: asString(raw?.summary),
+  rating: typeof raw?.rating === 'number' ? raw.rating : undefined,
+  review: asString(raw?.review),
+  totalEpisodes: typeof raw?.totalEpisodes === 'number' ? raw.totalEpisodes : undefined,
+  broadcastWeekday: raw?.broadcastWeekday || '',
+  broadcastTime: asString(raw?.broadcastTime),
+  watchDecision: raw?.watchDecision,
+  seasons: asArray<any>(raw?.seasons).map(normalizeSeason),
+  createdAt: asString(raw?.createdAt, new Date().toISOString()),
+  updatedAt: asString(raw?.updatedAt, new Date().toISOString()),
+});

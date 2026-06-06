@@ -11,6 +11,7 @@ import { RemoteImage } from '@/components/RemoteImage';
 interface ConcertWithMetadata extends Concert {
   artistName: string;
   artistId: string;
+  concertId: string;
   artistImageUrl: string;
   artistImageId?: string;
   tourName: string;

@@ -109,7 +109,8 @@ export const ExhibitionsPage: React.FC<ExhibitionsPageProps> = ({
   }, [exhibitions, selectedStatuses, sortKey]);
 
   const toggleStatus = (status: ExhibitionStatus) => {
-    const base = selectedStatuses && selectedStatuses.length ? selectedStatuses : ['NONE', 'PLANNED', 'RESERVED', 'VISITED', 'SKIPPED', 'ENDED'];
+    const defaultStatuses: ExhibitionStatus[] = ['NONE', 'PLANNED', 'RESERVED', 'VISITED', 'SKIPPED', 'ENDED'];
+    const base: ExhibitionStatus[] = selectedStatuses && selectedStatuses.length ? selectedStatuses : defaultStatuses;
     const next = new Set<ExhibitionStatus>(base);
     if (next.has(status)) next.delete(status);
     else next.add(status);

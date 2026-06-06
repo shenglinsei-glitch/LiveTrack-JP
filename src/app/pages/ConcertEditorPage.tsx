@@ -1,12 +1,13 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { theme } from '@/components/common/theme';
 import { GlassCard } from '@/components/common/GlassCard';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { Artist, Tour, Concert, Status } from '@/domain/types';
+import { Artist, Tour, Concert, Status, LotteryHistoryItem, ConcertSetlistItem } from '@/domain/types';
 import { Icons, IconButton } from '@/components/common/IconButton';
 import { sortPerformancesForDisplay, checkGlobalDateConflicts } from '@/domain/logic';
 import { PageShell } from '@/components/common/PageShell';
+import { TagSelectInput } from '@/components/common/TagSelectInput';
+import { DynamicListEditor } from '@/components/detail/DynamicListEditor';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -26,6 +27,8 @@ interface Props {
   onSave: (updatedTour: Tour) => void;
   onCancel: () => void;
   onDeleteTour: (artistId: string, tourId: string) => void;
+  venues?: string[];
+  onAddVenue?: (venue: string) => void;
 }
 
 const statusOptions: { value: Status; label: string; color: string }[] = [
@@ -42,8 +45,8 @@ const StatusPicker = ({ value, onChange }: { value: Status; onChange: (s: Status
   const current = statusOptions.find(o => o.value === value) || statusOptions[0];
   return (
     <div style={{ position: 'relative' }}>
-      <div 
-        onClick={() => setIsOpen(!isOpen)} 
+      <div
+        onClick={() => setIsOpen(!isOpen)}
         style={{ ...inputStyle, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -57,14 +60,14 @@ const StatusPicker = ({ value, onChange }: { value: Status; onChange: (s: Status
           <div style={{ position: 'fixed', inset: 0, zIndex: 100 }} onClick={() => setIsOpen(false)} />
           <GlassCard padding="8px" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 101, marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
             {statusOptions.map(opt => (
-              <div 
-                key={opt.value} 
-                onClick={() => { onChange(opt.value); setIsOpen(false); }} 
-                style={{ 
-                  padding: '10px 12px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', 
-                  background: value === opt.value ? 'rgba(83, 190, 232, 0.1)' : 'transparent', 
-                  color: value === opt.value ? theme.colors.primary : theme.colors.textMain, 
-                  display: 'flex', alignItems: 'center', gap: '8px' 
+              <div
+                key={opt.value}
+                onClick={() => { onChange(opt.value); setIsOpen(false); }}
+                style={{
+                  padding: '10px 12px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer',
+                  background: value === opt.value ? 'rgba(83, 190, 232, 0.1)' : 'transparent',
+                  color: value === opt.value ? theme.colors.primary : theme.colors.textMain,
+                  display: 'flex', alignItems: 'center', gap: '8px'
                 }}
               >
                 <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: opt.color }} />{opt.label}
@@ -76,7 +79,6 @@ const StatusPicker = ({ value, onChange }: { value: Status; onChange: (s: Status
     </div>
   );
 };
-
 
 const toNativeDateTimeValue = (value: string | null | undefined) => {
   if (!value) return '';
@@ -112,8 +114,7 @@ const CustomDatePicker = ({ value, onChange, showTime = false, placeholder }: { 
   />
 );
 
-
-export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, allArtists, onSave, onCancel, onDeleteTour }) => {
+export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, allArtists, onSave, onCancel, onDeleteTour, venues = [], onAddVenue }) => {
   const getInitialData = (): Tour => {
     const base = tourId && tour ? { ...tour } : { id: generateId(), name: '', imageUrl: '', memo: '', concerts: [], officialUrl: '' };
     return {
@@ -130,47 +131,65 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
   const [isDeleteConcertModalOpen, setIsDeleteConcertModalOpen] = useState<string | null>(null);
   const [conflictDates, setConflictDates] = useState<string[]>([]);
 
-  useEffect(() => { 
-    if (tour) { 
+  useEffect(() => {
+    if (tour) {
       const normalized = {
         ...tour,
         concerts: Array.isArray(tour.concerts) ? tour.concerts : [],
       };
-      setFormData(normalized); 
-      setImageUrlDraft(normalized.imageUrl); 
-      initialSnapshotRef.current = JSON.stringify(normalized); 
-    } 
+      setFormData(normalized);
+      setImageUrlDraft(normalized.imageUrl);
+      initialSnapshotRef.current = JSON.stringify(normalized);
+    }
   }, [tourId, tour]);
-  
-  useEffect(() => { 
-    setHasChanges(JSON.stringify(formData) !== initialSnapshotRef.current); 
+
+  useEffect(() => {
+    setHasChanges(JSON.stringify(formData) !== initialSnapshotRef.current);
   }, [formData]);
 
   const handleSave = (e?: React.MouseEvent) => {
-    if (e) e.preventDefault(); // Safety for touch triggers
-    
-    // Explicit Validation
+    if (e) e.preventDefault();
+
     if (!formData.name.trim()) {
       window.alert("ツアー名を入力してください。");
       return;
     }
 
     const conflicts = checkGlobalDateConflicts(allArtists, formData.id, formData.concerts);
-    if (conflicts.length > 0) { 
-      setConflictDates(conflicts); 
-      return; 
+    if (conflicts.length > 0) {
+      setConflictDates(conflicts);
+      return;
     }
-    
+
+    if (onAddVenue) {
+      formData.concerts.forEach((concert) => {
+        const trimmed = concert.venue?.trim();
+        if (trimmed) onAddVenue(trimmed);
+      });
+    }
+
     onSave(formData);
   };
 
   const handleAddConcert = () => {
-    const nc: Concert = { id: generateId(), date: 'TBD', venue: '', price: 0, saleLink: '', status: '発売前', isParticipated: false, imageIds: [] };
+    const nc: Concert = {
+      id: generateId(),
+      date: 'TBD',
+      venue: '',
+      price: 0,
+      saleLink: '',
+      status: '発売前',
+      isParticipated: false,
+      imageIds: [],
+      lotteryHistory: [],
+      setlist: [],
+    };
     setFormData(prev => ({ ...prev, concerts: [...(prev.concerts || []), nc] }));
     setExpandedConcertId(nc.id);
   };
 
-  const handleUpdateConcert = (id: string, updates: Partial<Concert>) => setFormData(prev => ({ ...prev, concerts: (prev.concerts || []).map(c => c.id === id ? { ...c, ...updates } : c) }));
+  const handleUpdateConcert = (id: string, updates: Partial<Concert>) =>
+    setFormData(prev => ({ ...prev, concerts: (prev.concerts || []).map(c => c.id === id ? { ...c, ...updates } : c) }));
 
   const handleLoadImage = () => {
     if (imageUrlDraft.trim()) {
@@ -196,17 +215,18 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
             {formData.imageUrl ? <img src={formData.imageUrl} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '32px', opacity: 0.2 }}>🎸</span>}
           </div>
         </div>
+
         <section style={{ marginBottom: theme.spacing.xl }}>
           <h3 style={sectionTitleStyle}>ツアー情報</h3>
           <GlassCard padding={theme.spacing.md} style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
             <Field label="ツアー名"><input type="text" value={formData.name} onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} style={inputStyle} /></Field>
             <Field label="画像URL">
               <div style={{ display: 'flex', gap: '8px', width: '100%', minWidth: 0, alignItems: 'stretch' }}>
-                <input 
-                  type="url" 
-                  value={imageUrlDraft} 
-                  onChange={e => setImageUrlDraft(e.target.value)} 
-                  style={inputStyle} 
+                <input
+                  type="url"
+                  value={imageUrlDraft}
+                  onChange={e => setImageUrlDraft(e.target.value)}
+                  style={inputStyle}
                 />
                 <button
                   type="button"
@@ -231,6 +251,7 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
             <Field label="公式サイトURL"><input type="url" value={formData.officialUrl || ''} onChange={e => setFormData(p => ({ ...p, officialUrl: e.target.value }))} style={inputStyle} /></Field>
           </GlassCard>
         </section>
+
         <section style={{ marginBottom: theme.spacing.xl }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.sm }}>
             <h3 style={{ ...sectionTitleStyle, marginBottom: 0 }}>公演一覧</h3>
@@ -239,29 +260,119 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
           <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
             {sortPerformancesForDisplay(formData.concerts || []).map(c => {
               const exp = expandedConcertId === c.id;
+              const isAttending = c.status === '参戦予定' || c.status === '参戦済み';
+
               return (
                 <GlassCard key={c.id} padding="0" style={{ position: 'relative', zIndex: exp ? 10 : 1 }}>
                   <div onClick={() => setExpandedConcertId(exp ? null : c.id)} style={{ padding: theme.spacing.md, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: '700', minWidth: 0, wordBreak: 'break-word' }}>{c.concertAt || c.date}</div><div style={{ fontSize: '12px', color: theme.colors.textSecondary, minWidth: 0, wordBreak: 'break-word' }}>{c.venue || '会場未入力'}</div></div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ fontSize: '12px', fontWeight: 'bold', color: theme.colors.status[c.status] }}>{c.status}</span><span>{exp ? '▲' : '▼'}</span></div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: '700', minWidth: 0, wordBreak: 'break-word' }}>{c.concertAt || c.date}</div>
+                      <div style={{ fontSize: '12px', color: theme.colors.textSecondary, minWidth: 0, wordBreak: 'break-word' }}>{c.venue || '会場未入力'}</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 'bold', color: theme.colors.status[c.status] }}>{c.status}</span>
+                      <span>{exp ? '▲' : '▼'}</span>
+                    </div>
                   </div>
                   {exp && (
                     <div style={{ padding: theme.spacing.md, borderTop: '1px solid rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+                      {/* 基本情報 */}
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
-                        <Field label="状态"><StatusPicker value={c.status} onChange={v => handleUpdateConcert(c.id, { status: v })} /></Field>
-                        <Field label="会場"><input type="text" value={c.venue} onChange={e => handleUpdateConcert(c.id, { venue: e.target.value })} style={inputStyle} /></Field>
+                        <Field label="ステータス"><StatusPicker value={c.status} onChange={v => handleUpdateConcert(c.id, { status: v })} /></Field>
+                        <Field label="会場">
+                          <TagSelectInput
+                            value={c.venue}
+                            onChange={v => handleUpdateConcert(c.id, { venue: v })}
+                            candidates={venues}
+                            onAddCandidate={onAddVenue}
+                            placeholder="会場を入力"
+                          />
+                        </Field>
                       </div>
+
+                      {/* 日時 */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
+                        <Field label="開演日時"><CustomDatePicker value={c.concertAt || (c.date === 'TBD' ? '' : c.date)} onChange={v => handleUpdateConcert(c.id, { concertAt: v, date: v.split(' ')[0] })} showTime placeholder="開演日時を設定" /></Field>
+                        {isAttending && <Field label="開場時刻"><input type="time" value={c.doorTime || ''} onChange={e => handleUpdateConcert(c.id, { doorTime: e.target.value })} style={inputStyle} /></Field>}
+                        {isAttending && <Field label="開演時刻"><input type="time" value={c.startTime || ''} onChange={e => handleUpdateConcert(c.id, { startTime: e.target.value })} style={inputStyle} /></Field>}
+                      </div>
+
+                      {/* チケット情報 - 参戦予定/参戦済みの場合のみ */}
+                      {isAttending && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
+                          <Field label="座席種類"><input type="text" value={c.seatType || ''} onChange={e => handleUpdateConcert(c.id, { seatType: e.target.value })} style={inputStyle} placeholder="例：SS席" /></Field>
+                          <Field label="座席"><input type="text" value={c.seatLocation || ''} onChange={e => handleUpdateConcert(c.id, { seatLocation: e.target.value })} style={inputStyle} placeholder="例：1階 A列 10番" /></Field>
+                        </div>
+                      )}
+
+                      {/* 販売・抽選情報 */}
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
                         {c.status === '発売前' && <Field label="発売日"><CustomDatePicker value={c.saleAt} onChange={v => handleUpdateConcert(c.id, { saleAt: v })} showTime /></Field>}
                         {(c.status === '検討中' || c.status === '発売前') && <Field label="締切日"><CustomDatePicker value={c.deadlineAt} onChange={v => handleUpdateConcert(c.id, { deadlineAt: v })} showTime /></Field>}
                         {c.status === '抽選中' && <Field label="結果日"><CustomDatePicker value={c.resultAt} onChange={v => handleUpdateConcert(c.id, { resultAt: v })} showTime /></Field>}
-                        <Field label="開演日時"><CustomDatePicker value={c.concertAt || (c.date === 'TBD' ? '' : c.date)} onChange={v => handleUpdateConcert(c.id, { concertAt: v, date: v.split(' ')[0] })} showTime placeholder="開演日時を設定" /></Field>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
                         <Field label="チケット価格"><input type="number" value={c.price || ''} onChange={e => handleUpdateConcert(c.id, { price: Number(e.target.value) })} style={inputStyle} /></Field>
                         <Field label="抽選名"><input type="text" value={c.lotteryName || ''} onChange={e => handleUpdateConcert(c.id, { lotteryName: e.target.value })} style={inputStyle} /></Field>
                       </div>
                       <Field label="販売サイトURL"><input type="url" value={c.saleLink} onChange={e => handleUpdateConcert(c.id, { saleLink: e.target.value })} style={inputStyle} /></Field>
+
+                      {/* 抽選履歴 - 参戦予定/参戦済みの場合のみ */}
+                      {isAttending && (
+                        <div>
+                          <div style={{ fontSize: '12px', color: theme.colors.textSecondary, marginBottom: 8, fontWeight: 'bold' }}>抽選履歴</div>
+                          <DynamicListEditor<LotteryHistoryItem>
+                            items={c.lotteryHistory || []}
+                            onChange={(items) => handleUpdateConcert(c.id, { lotteryHistory: items })}
+                            createNew={() => ({ id: generateId(), at: new Date().toISOString(), result: 'LOST', lotteryName: '', resultAt: null })}
+                            itemLabel="抽選履歴"
+                            renderItem={(item, _, onUpdate) => (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                <input
+                                  type="text"
+                                  value={item.lotteryName || ''}
+                                  onChange={(e) => onUpdate({ ...item, lotteryName: e.target.value })}
+                                  placeholder="抽選名"
+                                  style={inputStyle}
+                                />
+                                <select
+                                  value={item.result}
+                                  onChange={(e) => onUpdate({ ...item, result: e.target.value as 'WON' | 'LOST' })}
+                                  style={inputStyle}
+                                >
+                                  <option value="WON">当選</option>
+                                  <option value="LOST">落選</option>
+                                </select>
+                              </div>
+                            )}
+                          />
+                        </div>
+                      )}
+
+                      {/* セットリスト - 参戦済みの場合のみ */}
+                      {c.status === '参戦済み' && (
+                        <div>
+                          <div style={{ fontSize: '12px', color: theme.colors.textSecondary, marginBottom: 8, fontWeight: 'bold' }}>セットリスト</div>
+                          <DynamicListEditor<ConcertSetlistItem>
+                            items={c.setlist || []}
+                            onChange={(items) => {
+                              const withOrder = items.map((item, idx) => ({ ...item, order: idx + 1 }));
+                              handleUpdateConcert(c.id, { setlist: withOrder });
+                            }}
+                            createNew={() => ({ id: generateId(), song: '', order: (c.setlist?.length || 0) + 1 })}
+                            itemLabel="曲"
+                            showOrder
+                            renderItem={(item, _, onUpdate) => (
+                              <input
+                                type="text"
+                                value={item.song}
+                                onChange={(e) => onUpdate({ ...item, song: e.target.value })}
+                                placeholder="曲名"
+                                style={inputStyle}
+                              />
+                            )}
+                          />
+                        </div>
+                      )}
+
                       <button type="button" onClick={() => setIsDeleteConcertModalOpen(c.id)} style={{ padding: '8px', color: theme.colors.error, background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px' }}>この公演を削除</button>
                     </div>
                   )}
@@ -270,18 +381,20 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
             })}
           </div>
         </section>
-        <button 
-          type="button" 
-          disabled={!hasChanges || !formData.name} 
-          onClick={handleSave} 
-          style={{ 
-            width: '100%', padding: '16px', borderRadius: '16px', 
-            background: !hasChanges || !formData.name ? 'rgba(0,0,0,0.05)' : theme.colors.primary, 
-            color: 'white', border: 'none', fontWeight: 'bold', cursor: 'pointer' 
+
+        <button
+          type="button"
+          disabled={!hasChanges || !formData.name}
+          onClick={handleSave}
+          style={{
+            width: '100%', padding: '16px', borderRadius: '16px',
+            background: !hasChanges || !formData.name ? 'rgba(0,0,0,0.05)' : theme.colors.primary,
+            color: 'white', border: 'none', fontWeight: 'bold', cursor: 'pointer'
           }}
         >
           保存
         </button>
+
         <ConfirmDialog isOpen={conflictDates.length > 0} title="重复警告" message={`同日に他公演があります：${conflictDates.join(', ')}`} confirmLabel="強制保存" onClose={() => setConflictDates([])} onConfirm={() => onSave(formData)} />
         <ConfirmDialog isOpen={isDeleteTourModalOpen} title="ツアー削除" message="すべて削除されます。復元不可。" confirmLabel="削除" isDestructive onClose={() => setIsDeleteTourModalOpen(false)} onConfirm={() => onDeleteTour(artistId, formData.id)} />
         <ConfirmDialog isOpen={!!isDeleteConcertModalOpen} title="公演削除" message="この公演を削除しますか？" confirmLabel="削除" isDestructive onClose={() => setIsDeleteConcertModalOpen(null)} onConfirm={() => isDeleteConcertModalOpen && setFormData(p => ({ ...p, concerts: p.concerts.filter(c => c.id !== isDeleteConcertModalOpen) }))} />

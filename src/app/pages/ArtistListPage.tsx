@@ -97,7 +97,7 @@ export const ArtistListPage: React.FC<Props> = ({
 
   const getRelevantConcertDate = (artist: Artist, direction: 'near' | 'far' = 'near'): Date | null => {
     const activeStatusFilters = new Set<Status>((prefs.filters || []).filter((key): key is Status => (
-      key === '発売前' || key === '検討中' || key === '抽選中' || key === '参戦予定' || key === '参戦済み' || key === '見送り'
+      key === '発売前' || key === '検討中' || key === '抽選中' || key === '参戦予定' || key === '参戦済み' || key === '見送'
     )));
 
     const dates: Date[] = [];

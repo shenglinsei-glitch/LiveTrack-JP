@@ -1,7 +1,7 @@
 import React from 'react';
 import { Movie } from '@/domain/types';
-import { GlassCard } from '@/components/common/GlassCard';
 import { StatusBadge } from '@/components/common/StatusBadge';
+import { PosterCard } from '@/components/common/PosterCard';
 import dayjs from 'dayjs';
 
 interface MovieCardProps {
@@ -42,56 +42,19 @@ export const MovieCard: React.FC<MovieCardProps> = ({
     : null;
 
   return (
-    <div onClick={onClick} style={{ cursor: 'pointer' }}>
-      <GlassCard
-        padding="0"
-        style={{
-          overflow: 'hidden',
-          borderRadius: 24,
-          height: '100%',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.06)'
-        }}
-      >
-        <div style={{ position: 'relative', paddingTop: '140%', background: '#F3F4F6' }}>
-          {displayImage ? (
-            <img src={displayImage} alt={displayTitle} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.18)', transformOrigin: 'center center', willChange: 'transform'  }} />
-          ) : (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>
-              <span style={{ fontSize: 48 }}>🎬</span>
-            </div>
-          )}
-
-          {!hideStatus && movie && (
-            <StatusBadge domain="movie" status={movie.status} style={{ position: 'absolute', top: 10, left: 10 }} />
-          )}
-
-          <div
-            style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              bottom: 0,
-              padding: '24px 12px 12px',
-              background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.42) 60%, transparent 100%)',
-              color: '#fff'
-            }}
-          >
-            <div style={{ fontSize: 16, fontWeight: 900, lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {displayTitle}
-            </div>
-            {displaySubtitle && (
-              <div style={{ marginTop: 4, fontSize: 12, fontWeight: 700, opacity: 0.88, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {displaySubtitle}
-              </div>
-            )}
-            {displayMeta && (
-              <div style={{ marginTop: 4, fontSize: 11, fontWeight: 700, opacity: 0.82 }}>
-                {displayMeta}
-              </div>
-            )}
-          </div>
+    <PosterCard
+      onClick={onClick}
+      imageUrl={displayImage}
+      title={displayTitle}
+      subtitle={displaySubtitle}
+      meta={displayMeta || undefined}
+      alt={displayTitle}
+      statusNode={!hideStatus && movie ? <StatusBadge domain="movie" status={movie.status} /> : undefined}
+      fallback={(
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>
+          <span style={{ fontSize: 48 }}>🎬</span>
         </div>
-      </GlassCard>
-    </div>
+      )}
+    />
   );
 };

@@ -30,7 +30,7 @@ export const ExhibitionDescriptionSection: React.FC<Props> = ({
   const [isExpanded, setIsExpanded] = useState(true);
   const artists = exhibition.artists || [];
 
-  const handleAddArtist = () => onUpdateArtists([...artists, { name: '' }]);
+  const handleAddArtist = () => onUpdateArtists([...artists, { id: `artist-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name: '' }]);
   const handleRemoveArtist = (index: number) => onUpdateArtists(artists.filter((_, i) => i !== index));
   const handleUpdateArtist = (index: number, patch: Partial<ExhibitionArtist>) =>
     onUpdateArtists(artists.map((a, i) => (i === index ? { ...a, ...patch } : a)));

@@ -66,6 +66,12 @@ export interface SiteLink {
   trackCapabilityCheckedAt?: string;
 }
 
+export interface ConcertSetlistItem {
+  id: string;
+  song: string;
+  order: number;
+}
+
 export interface Concert {
   id: string;
   date: string;
@@ -75,7 +81,7 @@ export interface Concert {
   status: Status;
   isParticipated: boolean;
   imageIds: string[];
-  images?: string[]; 
+  images?: string[];
   saleAt?: string | null;
   deadlineAt?: string | null;
   resultAt?: string | null;
@@ -88,9 +94,17 @@ export interface Concert {
    * 1回の抽選につき複数回記録される可能性があるため append-only。
    */
   lotteryHistory?: LotteryHistoryItem[];
+
+  // Concert Detail Fields (参戦予定/参戦済み用)
+  doorTime?: string; // 開場 HH:mm
+  startTime?: string; // 開演 HH:mm
+  seatType?: string; // 座席種類
+  seatLocation?: string; // 座席
+  setlist?: ConcertSetlistItem[]; // セットリスト
 }
 
 export interface LotteryHistoryItem {
+  id: string;
   /** 記録した時刻（ISO） */
   at: string;
   /** 結果 */
@@ -127,8 +141,37 @@ export type ExhibitionTicketSalesStatus = 'none' | 'before_sale' | 'not_purchase
 export type ExhibitionStatus = 'NONE' | 'PLANNED' | 'RESERVED' | 'SKIPPED' | 'VISITED' | 'ENDED';
 
 export interface ExhibitionArtist {
+  id: string;
   name: string;
   note?: string;
+}
+
+export interface ExhibitionSpecialHours {
+  id: string;
+  type: 'date' | 'weekday'; // date specific or weekday recurring
+  dateOrWeekday: string; // YYYY-MM-DD or 日/月/火/水/木/金/土
+  startTime: string; // HH:mm
+  endTime: string; // HH:mm
+}
+
+export interface ExhibitionClosedDay {
+  id: string;
+  type: 'date' | 'weekday';
+  dateOrWeekday: string; // YYYY-MM-DD or 日/月/火/水/木/金/土
+}
+
+export interface ExhibitionUrl {
+  id: string;
+  name: string; // e.g. 公式サイト, チケット, SNS
+  url: string;
+}
+
+export interface ExhibitionGoods {
+  id: string;
+  imageUrl?: string;
+  name: string;
+  price?: number;
+  quantity?: number;
 }
 
 export interface Exhibition {
@@ -137,24 +180,33 @@ export interface Exhibition {
   imageUrl?: string;
   startDate: string; // YYYY-MM-DD
   endDate: string;   // YYYY-MM-DD
-  
+
   // Basic & Venue
   websiteUrl?: string;
-  area?: string;      // e.g. 新宿区
-  venueName?: string; // e.g. 森美術館
+  area?: string;      // e.g. 新宿区 (legacy)
+  venueName?: string; // e.g. 森美術館 (legacy)
   venue?: string;     // legacy backup
-  
+  venueTags?: string[]; // NEW: 会場タグ（推奨）
+
   // Opening Hours
-  weekdayStartTime?: string; // HH:mm
-  weekdayEndTime?: string;   // HH:mm
+  weekdayStartTime?: string; // HH:mm (legacy: regularOpenTime)
+  weekdayEndTime?: string;   // HH:mm (legacy: regularCloseTime)
   holidaySameAsWeekday: boolean;
   holidayStartTime?: string;
   holidayEndTime?: string;
+  regularOpenTime?: string; // HH:mm 通常開館
+  regularCloseTime?: string; // HH:mm 通常閉館
+  specialHours?: ExhibitionSpecialHours[]; // 特別時間
+  closedDates?: string[]; // 休館日 YYYY-MM-DD or 曜日 (legacy)
+  closedDays?: ExhibitionClosedDay[]; // NEW: 休館日（推奨）
+  noClosedDays?: boolean; // NEW: 会期中無休
 
   // Pricing
-  weekdayPrice?: number;
-  holidayPrice?: number;
-  holidayPriceSameAsWeekday: boolean;
+  weekdayPrice?: number; // legacy
+  holidayPrice?: number; // legacy
+  holidayPriceSameAsWeekday: boolean; // legacy
+  isFree?: boolean; // 入場無料
+  admissionFee?: number; // 入場料（統一）
 
   // Ticket & Status
   ticketSalesStatus: ExhibitionTicketSalesStatus;
@@ -163,17 +215,24 @@ export interface Exhibition {
   advanceSaleAt?: string;
   advanceTicketPurchased?: boolean;
   needsReservation: boolean;
+  reservationRequired?: boolean; // NEW: 予約必須（推奨）
   reservationStartAt?: string;
   reservationEndAt?: string;
-  
+
   // Visit Tracking
-  visitedAt?: string; // YYYY-MM-DD HH:mm
+  visitedAt?: string; // YYYY-MM-DD HH:mm (legacy)
+  visitedAtDate?: string; // NEW: YYYY-MM-DD（推奨）
+  visitTime?: string; // HH:mm 観覧時間
+
   status: ExhibitionStatus;
 
   // Content
   description?: string;
   artists?: ExhibitionArtist[];
   imageIds?: string[];
+  goods?: ExhibitionGoods[]; // グッズ
+  comment?: string; // コメント
+  urls?: ExhibitionUrl[]; // NEW: 複数URL対応
 }
 
 
@@ -202,6 +261,7 @@ export interface Movie {
   memo?: string;
   actors: string[];
   directors: string[];
+  genres?: string[];
   price?: number;
   ticketType: MovieTicketType;
   status: MovieStatus;
@@ -363,4 +423,19 @@ export type PageId =
   | 'MOVIE_DETAIL'
   | 'ACTOR_DETAIL'
   | 'ANIME_DETAIL'
-  | 'ANIME_EDITOR';
+  | 'ANIME_EDITOR'
+  | 'TAG_MANAGEMENT';
+
+export interface TagMasters {
+  venues: string[]; // 公演会場
+  cinemas: string[]; // 映画館
+  exhibitionVenues: string[]; // 展覧会場
+  movieGenres: string[]; // 映画ジャンル
+  animeGenres: string[]; // アニメジャンル
+  animeStudios: string[]; // アニメ制作会社
+  directors: string[]; // 監督
+  artists: string[]; // アーティスト
+  general: string[]; // その他
+}
+
+export type TagMasterKey = keyof TagMasters;

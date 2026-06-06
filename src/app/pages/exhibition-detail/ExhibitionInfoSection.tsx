@@ -5,6 +5,7 @@ import { GlassCard } from '@/components/common/GlassCard';
 import { Label, Value, SubValue, SectionTitle } from '@/components/detail/DetailText';
 import { Exhibition, ExhibitionStatus, ExhibitionTicketSalesStatus } from '@/domain/types';
 import { Icons } from '@/components/common/IconButton';
+import { TagSelectInput } from '@/components/common/TagSelectInput';
 import {
   Select,
   Input,
@@ -72,9 +73,11 @@ interface Props {
   allExhibitions: Exhibition[];
   isEditMode: boolean;
   onChange: (updates: Partial<Exhibition>) => void;
+  exhibitionVenues?: string[];
+  onAddExhibitionVenue?: (venue: string) => void;
 }
 
-export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibitions, isEditMode, onChange }) => {
+export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibitions, isEditMode, onChange, exhibitionVenues = [], onAddExhibitionVenue }) => {
   const [isExpanded, setIsExpanded] = useState(true);
 
   const areaOptions = useMemo(() => {
@@ -191,18 +194,13 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
                 </div>
                 <div>
                   <Label>会場名</Label>
-                  <Input
-                    style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}
-                    value={exhibition.venueName || exhibition.venue}
-                    onChange={(e) => onChange({ venueName: e.target.value })}
-                    placeholder="会場名を入力/選択"
-                    list="exhibition-venue-options"
+                  <TagSelectInput
+                    value={exhibition.venueName || exhibition.venue || ''}
+                    onChange={(v) => onChange({ venueName: v })}
+                    candidates={exhibitionVenues}
+                    onAddCandidate={onAddExhibitionVenue}
+                    placeholder="会場名を入力"
                   />
-                  <datalist id="exhibition-venue-options">
-                    {venueOptions.map((v) => (
-                      <option key={v} value={v} />
-                    ))}
-                  </datalist>
                 </div>
               </div>
 

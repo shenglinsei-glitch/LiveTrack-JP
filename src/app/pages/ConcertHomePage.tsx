@@ -1,13 +1,13 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { theme } from '@/components/common/theme';
-import { ImageDialog } from '@/components/ImageDialog';
-import { GlassCard } from '@/components/common/GlassCard';
-import { Label, Value, SectionTitle } from '@/components/detail/DetailText';
 import { DetailHeader, DetailChip, DetailLinkIconButton } from '@/components/detail/DetailHeader';
 import { DetailPageLayout } from '@/components/detail/DetailPageLayout';
+import { DetailSection } from '@/components/detail/DetailSection';
+import { InfoRow, InfoGrid } from '@/components/detail/InfoRow';
+import { AlbumSection } from '@/components/detail/AlbumSection';
 import { Artist, Tour, Concert } from '@/domain/types';
 import { Icons, IconButton } from '@/components/common/IconButton';
-import { bulkGetImageUrls, bulkPutImageUrls, putImageUrl, setImageUrl, deleteImage } from '@/domain/imageStore';
+import dayjs from 'dayjs';
 
 interface Props {
   artistId: string;
@@ -21,63 +21,12 @@ interface Props {
   onUpdateConcertAlbum: (artistId: string, tourId: string, concertId: string, imageIds: string[]) => void;
 }
 
-type AlbumItem = { id: string; url: string };
-
-
-const normalizeDateTimeText = (v?: string | null) => (v || '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
-
-const formatConcertDateTime = (v?: string | null) => {
-  const text = normalizeDateTimeText(v);
-  if (!text || text === 'TBD') return null;
-  const m = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?/);
-  if (m) {
-    const [, y, mo, d, h, min] = m;
-    const date = `${y}/${String(Number(mo))}/${String(Number(d))}`;
-    return h && min ? `${date} ${String(Number(h)).padStart(2, '0')}:${min}` : date;
-  }
-  return text;
-};
-
-const LinkPill: React.FC<{ onClick: () => void; children: React.ReactNode }> = ({ onClick, children }) => (
-  <button
-    onClick={onClick}
-    style={{
-      border: 'none',
-      background: 'rgba(83, 190, 232, 0.12)',
-      color: theme.colors.primary,
-      fontSize: 14,
-      fontWeight: 800,
-      borderRadius: 999,
-      padding: '10px 14px',
-      cursor: 'pointer',
-      width: 'fit-content'
-    }}
-  >
-    {children}
-  </button>
-);
-
-const CollapsibleSection: React.FC<{ title: string; defaultOpen?: boolean; children: React.ReactNode; rightLabel?: string; rightAction?: React.ReactNode }> = ({ title, defaultOpen = true, children, rightLabel, rightAction }) => {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <GlassCard padding="20px" style={{ marginBottom: 16, background: 'rgba(255,255,255,0.72)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.4)' }}>
-      <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button
-          type="button"
-          onClick={() => setOpen(v => !v)}
-          style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', padding: 0, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
-        >
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <SectionTitle title={title} style={{ marginTop: 0, marginBottom: open ? 12 : 0 }} dividerStyle={{ opacity: open ? 1 : 0 }} />
-          </div>
-          {rightLabel ? <div style={{ fontSize: 12, color: theme.colors.textWeak, fontWeight: 800 }}>{rightLabel}</div> : null}
-          <Icons.ChevronLeft style={{ width: 18, height: 18, color: theme.colors.textWeak, transform: open ? 'rotate(-90deg)' : 'rotate(180deg)', transition: 'transform 0.2s ease' }} />
-        </button>
-        {rightAction ? <div style={{ display: 'flex', alignItems: 'center' }}>{rightAction}</div> : null}
-      </div>
-      {open ? children : null}
-    </GlassCard>
-  );
+const formatDateWithWeekday = (dateStr?: string) => {
+  if (!dateStr) return '';
+  const d = dayjs(dateStr);
+  if (!d.isValid()) return dateStr;
+  const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+  return `${d.format('YYYY年MM月DD日')}（${weekdays[d.day()]}）`;
 };
 
 export const ConcertHomePage: React.FC<Props> = ({
@@ -91,213 +40,192 @@ export const ConcertHomePage: React.FC<Props> = ({
   onOpenConcertEditor,
   onUpdateConcertAlbum
 }) => {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingTarget, setEditingTarget] = useState<{ id: string; index: number } | null>(null);
-  const [fullscreenUrl, setFullscreenUrl] = useState<string | null>(null);
-  const [failedUrls, setFailedUrls] = useState<Set<string>>(new Set());
+  const bgUrl = tour.imageUrl || artist.imageUrl || '';
+  const heroImageUrl = tour.imageUrl || artist.imageUrl || '';
 
-  const bgCandidates = [tour.imageUrl, artist.imageUrl].filter(Boolean) as string[];
-  const [bgIndex, setBgIndex] = useState<number>(0);
-  const bgUrl = bgCandidates[bgIndex] || '';
+  const concertDate = concert.concertAt || concert.date;
 
-  const dragItem = useRef<number | null>(null);
-  const dragOverItem = useRef<number | null>(null);
+  // 基本情報
+  const basicInfo = [
+    { label: '日付', value: formatDateWithWeekday(concertDate) },
+    { label: '開場', value: concert.doorTime },
+    { label: '開演', value: concert.startTime },
+    { label: '会場', value: concert.venue },
+  ];
 
-  const imageIds = concert.imageIds || [];
-  const legacyUrls = (concert as any).images || [];
-  const [items, setItems] = useState<AlbumItem[]>([]);
+  // チケット情報
+  const ticketInfo = [
+    { label: '座席種類', value: concert.seatType },
+    { label: '座席', value: concert.seatLocation },
+  ];
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        if ((!imageIds || imageIds.length === 0) && Array.isArray(legacyUrls) && legacyUrls.length > 0) {
-          const legacyItems: AlbumItem[] = legacyUrls
-            .filter((u: any) => typeof u === 'string' && u.trim() && !u.startsWith('data:image') && !u.startsWith('blob:'))
-            .map((u: string, i: number) => ({ id: `legacy_${i}`, url: u }));
-          if (!cancelled) setItems(legacyItems);
-          const ids = await bulkPutImageUrls(legacyItems.map(x => x.url));
-          if (!cancelled && ids.length > 0) onUpdateConcertAlbum(artistId, tour.id, concertId, ids);
-          return;
-        }
-        const map = await bulkGetImageUrls(imageIds);
-        const next = (imageIds || []).map(id => ({ id, url: map[id] })).filter((x): x is AlbumItem => !!x.url);
-        if (!cancelled) setItems(next);
-      } catch {
-        if (!cancelled) setItems([]);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [artistId, tour.id, concertId, imageIds.join('|'), Array.isArray(legacyUrls) ? legacyUrls.length : 0, onUpdateConcertAlbum]);
+  // 抽選履歴
+  const lotteryHistory = concert.lotteryHistory || [];
+  const hasLotteryHistory = lotteryHistory.length > 0;
 
-  useEffect(() => { setBgIndex(0); }, [tour.imageUrl, artist.imageUrl]);
+  // セットリスト
+  const setlist = useMemo(() => {
+    const list = concert.setlist || [];
+    return list.sort((a, b) => a.order - b.order);
+  }, [concert.setlist]);
 
-  const handleBgError = () => setBgIndex(prev => (prev + 1 < bgCandidates.length ? prev + 1 : prev));
-  const handleAddOrReplace = async (urlRaw: string) => {
-    const url = urlRaw.trim();
-    if (!url) return;
-    try {
-      if (editingTarget) {
-        await setImageUrl(editingTarget.id, url);
-        onUpdateConcertAlbum(artistId, tour.id, concertId, [...imageIds]);
-        setFailedUrls(prev => {
-          const next = new Set(prev);
-          const old = items[editingTarget.index]?.url;
-          if (old) next.delete(old);
-          return next;
-        });
-        setEditingTarget(null);
-      } else {
-        const id = await putImageUrl(url);
-        onUpdateConcertAlbum(artistId, tour.id, concertId, [...imageIds, id]);
-      }
-    } finally {}
-  };
-  const handleImageError = (url: string) => setFailedUrls(prev => new Set([...prev, url]));
-  const handleRemove = async (id: string) => { try { await deleteImage(id); } catch {} onUpdateConcertAlbum(artistId, tour.id, concertId, imageIds.filter(x => x !== id)); };
-  const handleReplace = (id: string, index: number) => { setEditingTarget({ id, index }); setIsDialogOpen(true); };
-  const handleDragStart = (index: number) => { dragItem.current = index; };
-  const handleDragEnter = (index: number) => { dragOverItem.current = index; };
-  const handleDragEnd = () => {
-    if (dragItem.current !== null && dragOverItem.current !== null && dragItem.current !== dragOverItem.current) {
-      const newIds = [...imageIds];
-      const dragged = newIds[dragItem.current];
-      newIds.splice(dragItem.current, 1);
-      newIds.splice(dragOverItem.current, 0, dragged);
-      onUpdateConcertAlbum(artistId, tour.id, concertId, newIds);
-    }
-    dragItem.current = null;
-    dragOverItem.current = null;
-  };
-
-  const countLabel = useMemo(() => `${items.length} 枚の思い出`, [items.length]);
-  const heroImageUrl = tour.imageUrl || bgUrl || artist.imageUrl || '';
-  const salesLinkHeaderAction = concert.saleLink ? (
-    <button
-      type="button"
-      onClick={() => window.open(concert.saleLink!, '_blank', 'noopener,noreferrer')}
-      title="販売リンクを開く"
-      style={{
-        width: 28,
-        height: 28,
-        borderRadius: 999,
-        border: 'none',
-        background: 'rgba(83, 190, 232, 0.10)',
-        color: theme.colors.primary,
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'pointer',
-        padding: 0,
-        flexShrink: 0,
-      }}
-    >
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14 3h7v7" />
-        <path d="M10 14L21 3" />
-        <path d="M21 14v4a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h4" />
-      </svg>
-    </button>
-  ) : null;
+  const hasSetlist = setlist.length > 0;
 
   return (
     <DetailPageLayout backgroundUrl={bgUrl} bottomPadding={140}>
-        <DetailHeader
-          title={tour.name || ''}
-          titlePlaceholder="公演名未設定"
-          posterUrl={heroImageUrl}
-          posterAlt={tour.name}
-          onBack={onBack}
-          actions={<IconButton icon={<Icons.Edit />} onClick={() => onOpenConcertEditor(artistId, tour.id)} style={{ background: 'rgba(255,255,255,0.82)', border: 'none', color: theme.colors.primary }} />}
-          subtitle={<button onClick={() => onOpenArtistDetail(artist.id)} style={{ width: 'fit-content', border: 'none', background: 'transparent', padding: 0, color: 'rgba(255,255,255,0.92)', fontSize: 13, fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: '4px', textDecorationColor: 'rgba(255,255,255,0.45)', cursor: 'pointer' }}>{artist.name}</button>}
-          tags={
-            <>
-              <DetailChip label={concert.status} bg={theme.colors.status[concert.status as keyof typeof theme.colors.status] || theme.colors.primary} />
-              <DetailChip label={concert.isParticipated ? '参戦済み' : '公演情報'} subtle />
-              {concert.saleLink ? <DetailLinkIconButton onClick={() => window.open(concert.saleLink, '_blank', 'noopener,noreferrer')} title="販売ページを開く" /> : null}
-              {tour.officialUrl ? <DetailLinkIconButton onClick={() => window.open(tour.officialUrl!, '_blank', 'noopener,noreferrer')} title="ツアー公式サイトを開く" /> : null}
-            </>
-          }
-        />
-
-        <CollapsibleSection title="基本情報">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16, width: '100%' }}>
-            <div><Label>開演日時</Label><Value>{formatConcertDateTime(concert.concertAt || concert.date)}</Value></div>
-            <div><Label>会場</Label><Value>{concert.venue}</Value></div>
-            <div><Label>チケットステータス</Label><Value>{concert.status || '未設定'}</Value></div>
-            <div><Label>料金</Label><Value>{concert.price ? `${concert.price.toLocaleString()} 円` : null}</Value></div>
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection title="抽選・販売情報" defaultOpen={!!(concert.lotteryName || concert.saleAt || concert.deadlineAt || concert.resultAt || concert.saleLink)} rightAction={salesLinkHeaderAction}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16, width: '100%' }}>
-            <div><Label>発売開始</Label><Value placeholder="">{concert.saleAt || null}</Value></div>
-            <div><Label>申込締切</Label><Value placeholder="">{concert.deadlineAt || null}</Value></div>
-            <div><Label>抽選結果日時</Label><Value placeholder="">{concert.resultAt || null}</Value></div>
-            <div><Label>抽選名</Label><Value placeholder="">{concert.lotteryName || null}</Value></div>
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection title="アルバム" rightLabel={countLabel} defaultOpen>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-            <IconButton
-              icon={<Icons.Plus />}
-              primary
-              size={48}
-              onClick={() => { setEditingTarget(null); setIsDialogOpen(true); }}
-              style={{ boxShadow: '0 8px 24px -6px rgba(83, 190, 232, 0.5)' }}
+      <DetailHeader
+        title={tour.name || ''}
+        titlePlaceholder="公演名未設定"
+        posterUrl={heroImageUrl}
+        posterAlt={tour.name}
+        onBack={onBack}
+        actions={
+          <IconButton
+            icon={<Icons.Edit />}
+            onClick={() => onOpenConcertEditor(artistId, tour.id)}
+            style={{ background: 'rgba(255,255,255,0.82)', border: 'none', color: theme.colors.primary }}
+          />
+        }
+        subtitle={
+          <button
+            onClick={() => onOpenArtistDetail(artist.id)}
+            style={{
+              width: 'fit-content',
+              border: 'none',
+              background: 'transparent',
+              padding: 0,
+              color: 'rgba(255,255,255,0.92)',
+              fontSize: 13,
+              fontWeight: 600,
+              textDecoration: 'underline',
+              textUnderlineOffset: '4px',
+              textDecorationColor: 'rgba(255,255,255,0.45)',
+              cursor: 'pointer',
+            }}
+          >
+            {artist.name}
+          </button>
+        }
+        tags={
+          <>
+            <DetailChip
+              label={concert.status}
+              bg={theme.colors.status[concert.status as keyof typeof theme.colors.status] || theme.colors.primary}
             />
-          </div>
-          {items.length === 0 ? (
-            <div style={{ minHeight: 160, borderRadius: 24, border: '1px dashed rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.colors.textWeak, fontWeight: 700 }}>写真を追加</div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 16 }}>
-              {items.map((it, idx) => {
-                const isFailed = failedUrls.has(it.url);
-                return (
-                  <div
-                    key={`${it.id}-${idx}`}
-                    draggable
-                    onDragStart={() => handleDragStart(idx)}
-                    onDragEnter={() => handleDragEnter(idx)}
-                    onDragEnd={handleDragEnd}
-                    onDragOver={(e) => e.preventDefault()}
-                    style={{ position: 'relative', aspectRatio: '1/1', borderRadius: 24, overflow: 'hidden', background: 'rgba(0,0,0,0.2)', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'grab' }}
-                  >
-                    {isFailed ? (
-                      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: theme.colors.textWeak, fontSize: 12, padding: 16, textAlign: 'center' }}>
-                        <div style={{ fontWeight: 700, marginBottom: 12 }}>読み込めません</div>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <LinkPill onClick={() => handleReplace(it.id, idx)}>置換</LinkPill>
-                          <button onClick={() => handleRemove(it.id)} style={{ border: 'none', background: 'rgba(247,137,63,0.12)', color: theme.colors.error, fontSize: 11, padding: '10px 12px', borderRadius: 999, fontWeight: 800, cursor: 'pointer' }}>削除</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <img src={it.url} referrerPolicy="no-referrer" alt="" loading="lazy" onError={() => handleImageError(it.url)} onClick={() => setFullscreenUrl(it.url)} style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }} />
-                        <button onClick={(e) => { e.stopPropagation(); handleRemove(it.id); }} style={{ position: 'absolute', top: 12, right: 12, width: 28, height: 28, borderRadius: 14, background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>×</button>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CollapsibleSection>
+            <DetailChip label={concert.isParticipated ? '参戦済み' : '公演情報'} subtle />
+            {concert.saleLink && (
+              <DetailLinkIconButton
+                onClick={() => window.open(concert.saleLink, '_blank', 'noopener,noreferrer')}
+                title="販売ページを開く"
+              />
+            )}
+            {tour.officialUrl && (
+              <DetailLinkIconButton
+                onClick={() => window.open(tour.officialUrl!, '_blank', 'noopener,noreferrer')}
+                title="ツアー公式サイトを開く"
+              />
+            )}
+          </>
+        }
+      />
 
-      {fullscreenUrl && (
-        <div onClick={() => setFullscreenUrl(null)} className="fade-in" style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(0,0,0,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <img src={fullscreenUrl} referrerPolicy="no-referrer" alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 8 }} />
-          <button style={{ position: 'absolute', top: 24, right: 24, background: 'none', border: 'none', color: 'white', fontSize: 32, cursor: 'pointer' }} onClick={() => setFullscreenUrl(null)}>×</button>
-        </div>
+      {/* 基本情報 */}
+      <DetailSection title="基本情報">
+        <InfoGrid items={basicInfo} />
+      </DetailSection>
+
+      {/* チケット情報 */}
+      {(concert.seatType || concert.seatLocation) && (
+        <DetailSection title="チケット情報">
+          <InfoGrid items={ticketInfo} />
+        </DetailSection>
       )}
 
-      <ImageDialog
-        isOpen={isDialogOpen}
-        onClose={() => { setIsDialogOpen(false); setEditingTarget(null); }}
-        onAdd={async (url) => { await handleAddOrReplace(url); setIsDialogOpen(false); }}
-        title={editingTarget ? '画像のURLを更新' : '思い出の写真を追加'}
-      />
+      {/* 抽選履歴 */}
+      {hasLotteryHistory && (
+        <DetailSection title="抽選履歴">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {lotteryHistory.map((item, idx) => (
+              <div
+                key={idx}
+                style={{
+                  padding: 12,
+                  background: 'rgba(0,0,0,0.02)',
+                  borderRadius: 12,
+                  border: '1px solid rgba(15,23,42,0.06)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: theme.colors.text }}>
+                    {item.lotteryName || '抽選'}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 800,
+                      padding: '4px 10px',
+                      borderRadius: 12,
+                      background: item.result === 'WON' ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
+                      color: item.result === 'WON' ? '#10B981' : '#EF4444',
+                    }}
+                  >
+                    {item.result === 'WON' ? '当選' : '落選'}
+                  </div>
+                </div>
+                {item.resultAt && (
+                  <div style={{ fontSize: 12, fontWeight: 600, color: theme.colors.textSecondary }}>
+                    結果発表: {dayjs(item.resultAt).format('YYYY/MM/DD HH:mm')}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </DetailSection>
+      )}
+
+      {/* ライブセットリスト */}
+      {hasSetlist && (
+        <DetailSection title="ライブセットリスト">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {setlist.map((item, idx) => (
+              <div
+                key={item.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '8px 12px',
+                  background: 'rgba(0,0,0,0.02)',
+                  borderRadius: 10,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 800,
+                    color: theme.colors.textSecondary,
+                    minWidth: 30,
+                  }}
+                >
+                  {idx + 1}.
+                </div>
+                <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: theme.colors.text }}>
+                  {item.song}
+                </div>
+              </div>
+            ))}
+          </div>
+        </DetailSection>
+      )}
+
+      {/* アルバム */}
+      <DetailSection title="アルバム">
+        <AlbumSection
+          imageIds={concert.imageIds || []}
+          onChange={(newImageIds) => onUpdateConcertAlbum(artistId, tour.id, concertId, newImageIds)}
+          title=""
+        />
+      </DetailSection>
     </DetailPageLayout>
   );
 };

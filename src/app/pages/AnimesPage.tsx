@@ -1,9 +1,10 @@
 import React, { useMemo, useRef, useState } from 'react';
 import dayjs from 'dayjs';
-import { Anime, AnimeStatus, Season } from '@/domain/types';
+import { Anime, AnimeStatus } from '@/domain/types';
 import { PageShell } from '@/components/common/PageShell';
 import { GlassCard } from '@/components/common/GlassCard';
 import { theme } from '@/components/common/theme';
+import { AnimeCard } from '@/components/cards/AnimeCard';
 
 interface AnimesPageProps {
   animes: Anime[];
@@ -18,67 +19,12 @@ interface AnimesPageProps {
 
 type AnimeSortKey = 'date_asc' | 'date_desc' | 'title' | 'rating' | 'status';
 
-const fmtDate = (date?: string) => (date ? dayjs(date).format('YYYY/MM/DD') : '未設定');
-
-const WEEK = ['日', '月', '火', '水', '木', '金', '土'];
 const ANIME_STATUS_PRIORITY: AnimeStatus[] = ['視聴中', '視聴予定', '放送前', '保留', '視聴済み', '視聴中止', '見送り'];
+
 const deriveAnimeStatus = (anime: Anime): AnimeStatus => {
   const statuses = (anime.seasons || []).map((season) => season.status).filter(Boolean) as AnimeStatus[];
   if (!statuses.length) return anime.status || '放送前';
   return ANIME_STATUS_PRIORITY.find((status) => statuses.includes(status)) || anime.status || '放送前';
-};
-
-const getAnimeStatusTone = (status: AnimeStatus) => {
-  const solid = (bg: string) => ({ color: '#fff', bg });
-  switch (status) {
-    case '放送前':
-      return solid(theme.colors.status['発売前']);
-    case '視聴予定':
-      return solid(theme.colors.status['参戦予定']);
-    case '視聴中':
-      return solid(theme.colors.primary);
-    case '保留':
-      return solid(theme.colors.status['検討中']);
-    case '視聴済み':
-      return solid(theme.colors.status['参戦済み']);
-    case '視聴中止':
-      return solid(theme.colors.textWeak);
-    case '見送り':
-      return solid(theme.colors.status['見送']);
-    default:
-      return solid(theme.colors.textWeak);
-  }
-};
-const getCurrentWatchingSeason = (anime: Anime): Season | undefined => (anime.seasons || []).find((season) => season.status === '視聴中');
-const looksLikeSeasonNumber = (value?: string) => /^第.+[期季]$|^Season\s*\d+$/i.test(String(value || '').trim());
-const getSeasonNumber = (season?: Season) => {
-  if (!season) return '';
-  if (season.seasonNumber?.trim()) return season.seasonNumber.trim();
-  if (looksLikeSeasonNumber(season.seasonTitle)) return season.seasonTitle.trim();
-  return '';
-};
-const getEffectiveSeasonTitle = (anime: Anime, season?: Season) => {
-  if (!season) return anime.title || '';
-  if (season.useAnimeTitle || !season.seasonTitle?.trim() || looksLikeSeasonNumber(season.seasonTitle)) return anime.title || '';
-  return season.seasonTitle.trim();
-};
-const getSeasonDisplayTitle = (anime: Anime, season?: Season) => {
-  const number = getSeasonNumber(season);
-  const title = getEffectiveSeasonTitle(anime, season);
-  return number ? `${number} ${title}` : title;
-};
-const getNextDayWeekday = (date?: string) => {
-  if (!date) return '';
-  const d = dayjs(date);
-  if (!d.isValid()) return '';
-  return WEEK[d.add(1, 'day').day()];
-};
-const getBroadcastText = (anime: Anime) => {
-  const watching = getCurrentWatchingSeason(anime);
-  const startDate = watching?.startDate || anime.startDate;
-  const weekday = getNextDayWeekday(startDate) || watching?.broadcastWeekday || anime.broadcastWeekday;
-  if (!weekday) return '';
-  return `毎週${weekday}曜更新`;
 };
 
 
@@ -182,70 +128,9 @@ export const AnimesPage: React.FC<AnimesPageProps> = ({ animes, onOpenDetail, on
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth <= 480 ? 'repeat(2, minmax(0, 1fr))' : 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
-            {displayAnimes.map((anime) => {
-              const watchingSeason = getCurrentWatchingSeason(anime);
-              const displayTitle = getSeasonDisplayTitle(anime, watchingSeason);
-              const broadcastText = getBroadcastText(anime);
-              const displayStatus = deriveAnimeStatus(anime);
-              const statusTone = getAnimeStatusTone(displayStatus);
-              return (
-                <div key={anime.id} onClick={() => onOpenDetail(anime.id)} style={{ cursor: 'pointer' }}>
-                  <GlassCard
-                    padding="0"
-                    style={{
-                      overflow: 'hidden',
-                      borderRadius: 22,
-                      height: '100%',
-                      boxShadow: '0 4px 20px rgba(0,0,0,0.06)'
-                    }}
-                  >
-                    <div style={{ position: 'relative', paddingTop: '133%', background: '#F3F4F6' }}>
-                      {anime.posterUrl ? (
-                        <img src={anime.posterUrl} alt={anime.title} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.06)', transformOrigin: 'center' }} />
-                      ) : (
-                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}><span style={{ fontSize: 48 }}>📺</span></div>
-                      )}
-
-                      {anime.rating && (
-                        <div style={{ position: 'absolute', top: 8, left: 8, background: 'rgba(0,0,0,0.7)', color: 'white', padding: '3px 7px', borderRadius: 8, fontSize: 10, fontWeight: 900 }}>
-                          ★ {anime.rating.toFixed(1)}
-                        </div>
-                      )}
-
-                      {displayStatus && (
-                        <div style={{ position: 'absolute', top: 8, right: 8, background: statusTone.bg, color: statusTone.color, padding: '3px 7px', borderRadius: 999, fontSize: 10, fontWeight: 900, boxShadow: '0 4px 12px rgba(0,0,0,0.10)' }}>
-                          {displayStatus}
-                        </div>
-                      )}
-
-                      <div
-                        style={{
-                          position: 'absolute',
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          padding: '22px 10px 10px',
-                          background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.42) 60%, transparent 100%)',
-                          color: '#fff'
-                        }}
-                      >
-                        <div style={{ fontSize: 14, fontWeight: 900, lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayTitle}</div>
-                        <div style={{ marginTop: 3, fontSize: 10, fontWeight: 700, opacity: 0.88, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {broadcastText || (anime.startDate && anime.endDate ? `${fmtDate(anime.startDate)} ～ ${fmtDate(anime.endDate)}` : anime.startDate ? `${fmtDate(anime.startDate)} ～` : anime.studio || '制作未設定')}{anime.totalEpisodes ? `・全${anime.totalEpisodes}話` : ''}
-                        </div>
-                        {anime.genres && anime.genres.length > 0 && (
-                          <div style={{ marginTop: 5, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                            {anime.genres.slice(0, 3).map((genre, idx) => (
-                              <span key={idx} style={{ fontSize: 9, fontWeight: 700, background: 'rgba(255,255,255,0.2)', padding: '2px 5px', borderRadius: 4 }}>{genre}</span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </GlassCard>
-                </div>
-              );
-            })}
+            {displayAnimes.map((anime) => (
+              <AnimeCard key={anime.id} anime={anime} onClick={() => onOpenDetail(anime.id)} />
+            ))}
           </div>
         )}
       </div>

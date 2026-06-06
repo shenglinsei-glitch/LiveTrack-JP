@@ -4,9 +4,7 @@ import { GlassCard } from '@/components/common/GlassCard';
 import { theme } from '@/components/common/theme';
 import { Artist, Exhibition, Movie, Anime, Season, AnimeStatus } from '@/domain/types';
 import { Icons } from '@/components/common/IconButton';
-import { ConcertCard } from '@/components/ConcertCard';
-import { ExhibitionCard } from '@/components/ExhibitionCard';
-import { MovieCard } from '@/components/MovieCard';
+import { PosterCard } from '@/components/common/PosterCard';
 import { MenuButton, sectionTitleStyle } from '@/components/BottomMenu';
 import { RemoteImage } from '@/components/RemoteImage';
 import dayjs from 'dayjs';
@@ -30,6 +28,7 @@ interface HomePageProps {
   onOpenAnime?: (animeId: string) => void;
   onExport: () => void;
   onImport: (data: any) => void;
+  onNavigateToTagManagement?: () => void;
 }
 
 type CountdownTarget = {
@@ -55,6 +54,42 @@ type TodayEvent = CountdownTarget & {
 
 const COUNTDOWN_KEY = 'livetrack_jp_countdown_target';
 
+
+const HomeEntryFallback: React.FC<{ icon: React.ReactNode }> = ({ icon }) => (
+  <div
+    style={{
+      position: 'absolute',
+      inset: 0,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      opacity: 0.18,
+      background: 'linear-gradient(135deg, rgba(83,190,232,0.18), rgba(255,255,255,0.9))',
+    }}
+  >
+    {icon}
+  </div>
+);
+
+const HomeEntryCard: React.FC<{
+  title: string;
+  subtitle: string;
+  imageUrl?: string;
+  imageId?: string;
+  fallback: React.ReactNode;
+  onClick: () => void;
+}> = ({ title, subtitle, imageUrl, imageId, fallback, onClick }) => (
+  <PosterCard
+    onClick={onClick}
+    imageUrl={imageUrl}
+    imageId={imageId}
+    title={title}
+    subtitle={subtitle}
+    alt={title}
+    compact
+    fallback={fallback}
+  />
+);
 
 const ACTIVE_ANIME_STATUSES: AnimeStatus[] = ['放送前', '視聴予定', '視聴中', '保留'];
 const ACTIVE_MOVIE_STATUSES = ['未上映', '発売前', '抽選中', '上映中', '鑑賞予定'];
@@ -195,6 +230,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   onOpenAnime,
   onExport,
   onImport,
+  onNavigateToTagManagement,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isEditCountdownOpen, setIsEditCountdownOpen] = useState(false);
@@ -212,13 +248,15 @@ export const HomePage: React.FC<HomePageProps> = ({
   // 获取所有未来事件（用于倒计时）
   const upcomingEvents = useMemo((): CountdownTarget[] => {
     const events: CountdownTarget[] = [];
-    const now = dayjs();
+    const todayStart = dayjs().startOf('day');
 
     artists.forEach(artist => {
       artist.tours?.forEach(tour => {
         tour.concerts?.forEach(concert => {
-          const concertDate = dayjs(concert.concertAt || concert.date);
-          if (concertDate.isAfter(now) && ['発売前', '検討中', '抽選中', '参戦予定'].includes(concert.status)) {
+          const concertDateKey = toDateKey(concert.concertAt || concert.date);
+          if (!concertDateKey) return;
+          const concertDate = dayjs(concertDateKey);
+          if ((concertDate.isSame(todayStart, 'day') || concertDate.isAfter(todayStart)) && ['発売前', '検討中', '抽選中', '参戦予定'].includes(concert.status)) {
             events.push({
               type: 'concert',
               id: `${artist.id}-${tour.id}-${concert.id}`,
@@ -294,10 +332,44 @@ export const HomePage: React.FC<HomePageProps> = ({
     return events.sort((a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf());
   }, [artists, exhibitions, movies, animes]);
 
-  // 自动设置最近的事件作为倒计时目标
+  // 自动设置最近的事件作为倒计时目标，并过滤掉已过期的事件
   useEffect(() => {
-    if (!countdownTarget && upcomingEvents.length > 0) {
-      setCountdownTarget(upcomingEvents[0]);
+    const todayStart = dayjs().startOf('day');
+
+    // 过滤出所有今日或未来的有效事件
+    const validEvents = upcomingEvents.filter(event => {
+      const eventDateKey = toDateKey(event.date);
+      if (!eventDateKey) return false;
+      const eventDate = dayjs(eventDateKey);
+      return eventDate.isSame(todayStart, 'day') || eventDate.isAfter(todayStart);
+    });
+
+    // 检查当前倒计时目标是否有效
+    if (countdownTarget) {
+      const targetDateKey = toDateKey(countdownTarget.date);
+      if (targetDateKey) {
+        const targetDate = dayjs(targetDateKey);
+        // 如果倒计时目标已过期，替换为最新的有效事件
+        if (targetDate.isBefore(todayStart)) {
+          setCountdownTarget(validEvents.length > 0 ? validEvents[0] : null);
+          return;
+        }
+        // 如果倒计时目标仍在未来，但已不在有效事件列表中（例如状态改变），也替换
+        const targetStillValid = validEvents.some(event => event.id === countdownTarget.id);
+        if (!targetStillValid && validEvents.length > 0) {
+          setCountdownTarget(validEvents[0]);
+          return;
+        }
+        if (!targetStillValid && validEvents.length === 0) {
+          setCountdownTarget(null);
+          return;
+        }
+      }
+    } else {
+      // 如果没有倒计时目标，自动设置第一个有效事件
+      if (validEvents.length > 0) {
+        setCountdownTarget(validEvents[0]);
+      }
     }
   }, [upcomingEvents, countdownTarget]);
 
@@ -607,14 +679,12 @@ export const HomePage: React.FC<HomePageProps> = ({
 
   return (
     <PageShell disablePadding>
-      <div style={{ padding: '24px 16px 140px', marginTop: 'calc(env(safe-area-inset-top) + 20px)' }}>
+      <div style={{ padding: '22px 0 140px', marginTop: 'calc(env(safe-area-inset-top) + 18px)' }}>
         {/* 顶部菜单按钮 */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#111827', margin: 0 }}>
-  Fave
-  <span style={{ color: '#53BEE8' }}>A</span>
-  rchive
-</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+          <h1 style={{ fontSize: '28px', fontWeight: '850', color: '#111827', margin: 0, letterSpacing: '-0.04em' }}>
+            <span style={{ color: '#53BEE8' }}>F</span>ave<span style={{ color: '#53BEE8' }}>A</span>rchive
+          </h1>
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             style={{
@@ -647,7 +717,18 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
 
         {/* NEXT EVENT 倒计时卡片 */}
-        {countdownTarget ? (
+        {(() => {
+          // 在渲染前再次验证倒计时目标是否有效
+          if (!countdownTarget) return null;
+          const targetDateKey = toDateKey(countdownTarget.date);
+          if (!targetDateKey) return null;
+          const targetDate = dayjs(targetDateKey);
+          const todayStart = dayjs().startOf('day');
+          const isValid = targetDate.isSame(todayStart, 'day') || targetDate.isAfter(todayStart);
+
+          if (!isValid) return null;
+
+          return (
           <GlassCard
             padding="0"
             onClick={handleCountdownClick}
@@ -697,12 +778,31 @@ export const HomePage: React.FC<HomePageProps> = ({
                   </div>
                 )}
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                  <div style={{ fontSize: '48px', fontWeight: '900', color: '#53BEE8', lineHeight: 1 }}>
-                    {getDaysUntil(countdownTarget.date)}
-                  </div>
-                  <div style={{ fontSize: '16px', fontWeight: '700', color: 'rgba(255,255,255,0.9)' }}>
-                    日後
-                  </div>
+                  {(() => {
+                    const daysUntil = getDaysUntil(countdownTarget.date);
+                    if (daysUntil === 0) {
+                      return (
+                        <div style={{ fontSize: '48px', fontWeight: '900', color: '#53BEE8', lineHeight: 1 }}>
+                          本日
+                        </div>
+                      );
+                    } else if (daysUntil > 0) {
+                      return (
+                        <>
+                          <div style={{ fontSize: '16px', fontWeight: '700', color: 'rgba(255,255,255,0.9)' }}>
+                            あと
+                          </div>
+                          <div style={{ fontSize: '48px', fontWeight: '900', color: '#53BEE8', lineHeight: 1 }}>
+                            {daysUntil}
+                          </div>
+                          <div style={{ fontSize: '16px', fontWeight: '700', color: 'rgba(255,255,255,0.9)' }}>
+                            日
+                          </div>
+                        </>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
                 <div style={{ fontSize: '13px', fontWeight: '600', color: 'rgba(255,255,255,0.75)', marginTop: '8px' }}>
                   {dayjs(countdownTarget.date).format('YYYY年MM月DD日')}
@@ -710,7 +810,8 @@ export const HomePage: React.FC<HomePageProps> = ({
               </div>
             </div>
           </GlassCard>
-        ) : (
+          );
+        })() || (
           <GlassCard
             padding="32px 24px"
             style={{
@@ -722,7 +823,7 @@ export const HomePage: React.FC<HomePageProps> = ({
           >
             <div style={{ fontSize: '40px', marginBottom: '12px', opacity: 0.3 }}>📅</div>
             <div style={{ fontSize: '15px', fontWeight: '700', color: theme.colors.textSecondary }}>
-              カウントダウンを設定
+              次の予定はありません
             </div>
           </GlassCard>
         )}
@@ -806,42 +907,43 @@ export const HomePage: React.FC<HomePageProps> = ({
           )}
         </div>
 
-        {/* 内容入口卡片 - 复用现有卡片组件 */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
-          <ConcertCard
-            artist={latestConcert?.artist}
-            tour={latestConcert?.tour}
-            concert={latestConcert?.concert}
+        {/* 内容入口カード */}
+        <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '0 4px' }}>
+          <h2 style={{ fontSize: 18, fontWeight: 900, color: '#111827', margin: 0 }}>ライブラリ</h2>
+          <span style={{ fontSize: 11, fontWeight: 800, color: theme.colors.textLabel, letterSpacing: '0.08em' }}>すべての記録</span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+          <HomeEntryCard
+            title="音楽"
+            subtitle={latestConcert ? `${latestConcert.artist.name}・${artists.length}組` : `${artists.length}組`}
+            imageUrl={latestConcert?.tour?.imageUrl || latestConcert?.artist?.imageUrl}
             onClick={onNavigateToMusic}
-            overrideTitle="公演"
-            overrideSubtitle={latestConcert ? `${latestConcert.artist.name}` : `${artists.length}組`}
-            hideStatus
+            fallback={<HomeEntryFallback icon={<span style={{ fontSize: 46 }}>🎵</span>} />}
           />
 
-          <ExhibitionCard
-            exhibition={firstExhibitionWithImage}
+          <HomeEntryCard
+            title="展覧"
+            subtitle={`${exhibitions.length}件`}
+            imageUrl={firstExhibitionWithImage?.imageUrl}
+            imageId={firstExhibitionWithImage?.imageIds?.[0]}
             onClick={onNavigateToExhibitions}
-            overrideTitle="展覧会"
-            overrideSubtitle={`${exhibitions.length}件`}
-            hideStatus
+            fallback={<HomeEntryFallback icon={<Icons.Exhibitions style={{ width: 50, height: 50 }} />} />}
           />
 
-          <MovieCard
-            movie={firstMovieWithImage}
+          <HomeEntryCard
+            title="映画"
+            subtitle={`${movies.length}本`}
+            imageUrl={firstMovieWithImage?.posterUrl}
             onClick={onNavigateToMovies}
-            overrideTitle="映画"
-            overrideSubtitle={`${movies.length}本`}
-            hideStatus
-            hideMeta
+            fallback={<HomeEntryFallback icon={<span style={{ fontSize: 46 }}>🎬</span>} />}
           />
 
-          <MovieCard
-            onClick={onNavigateToAnime}
-            overrideTitle="アニメ"
-            overrideSubtitle={`${animes.length}本`}
+          <HomeEntryCard
+            title="アニメ"
+            subtitle={`${animes.length}本`}
             imageUrl={firstAnimeImageUrl}
-            hideStatus
-            hideMeta
+            onClick={onNavigateToAnime}
+            fallback={<HomeEntryFallback icon={<span style={{ fontSize: 46 }}>📺</span>} />}
           />
         </div>
       </div>
@@ -903,6 +1005,14 @@ export const HomePage: React.FC<HomePageProps> = ({
               <section style={{ borderTop: '0.5px solid rgba(0,0,0,0.1)', paddingTop: theme.spacing.md }}>
                 <h4 style={sectionTitleStyle}>データ</h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <MenuButton
+                    label="タグ管理"
+                    icon={<Icons.Tag />}
+                    onClick={() => {
+                      onNavigateToTagManagement?.();
+                      setIsMenuOpen(false);
+                    }}
+                  />
                   <MenuButton
                     label="書き出す"
                     icon={<Icons.Upload />}

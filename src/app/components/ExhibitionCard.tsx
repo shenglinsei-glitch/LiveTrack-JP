@@ -14,6 +14,7 @@ interface ExhibitionCardProps {
   imageId?: string;
   hideStatus?: boolean;
   asEntryCard?: boolean;
+  compact?: boolean;
 }
 
 export const ExhibitionCard: React.FC<ExhibitionCardProps> = ({
@@ -24,6 +25,7 @@ export const ExhibitionCard: React.FC<ExhibitionCardProps> = ({
   imageUrl,
   imageId,
   hideStatus = false,
+  compact = true,
 }) => {
   const displayImage = imageUrl || exhibition?.imageUrl;
   const displayImageId = imageId || exhibition?.imageIds?.[0];
@@ -44,7 +46,7 @@ export const ExhibitionCard: React.FC<ExhibitionCardProps> = ({
           購入済
         </div>
       ) : undefined}
-      compact
+      compact={compact}
       fallback={(
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>
           <Icons.Exhibitions style={{ width: 48, height: 48 }} />

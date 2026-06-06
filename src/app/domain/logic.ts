@@ -514,6 +514,7 @@ export const applyDecision = (
 ): Concert => {
   const withLotteryHistory = (result: 'WON' | 'LOST'): Concert => {
     const item: LotteryHistoryItem = {
+      id: Math.random().toString(36).substr(2, 9),
       at: new Date().toISOString(),
       result,
       lotteryName: payload?.lotteryName ?? concert.lotteryName ?? null,

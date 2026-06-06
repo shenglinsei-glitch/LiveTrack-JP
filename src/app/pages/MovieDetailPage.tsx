@@ -8,6 +8,8 @@ import { Label, Value, SubValue, SectionTitle } from '@/components/detail/Detail
 import { DetailHeader, DetailChip, DetailLinkIconButton } from '@/components/detail/DetailHeader';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { DetailPageLayout } from '@/components/detail/DetailPageLayout';
+import { TagSelectInput } from '@/components/common/TagSelectInput';
+import { TagMultiSelectInput } from '@/components/common/TagMultiSelectInput';
 
 interface MovieDetailPageProps {
   movie: Movie;
@@ -18,6 +20,10 @@ interface MovieDetailPageProps {
   onDeleteMovie: (id: string) => void;
   onBack: () => void;
   initialEditMode?: boolean;
+  cinemas?: string[];
+  movieGenres?: string[];
+  onAddCinema?: (cinema: string) => void;
+  onAddMovieGenre?: (genre: string) => void;
 }
 
 const NORMAL_STATUSES: MovieStatus[] = ['未上映', '上映中', '鑑賞済み', '見送り', '上映終了'];
@@ -161,7 +167,7 @@ const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title
   </GlassCard>
 );
 
-export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, actors = [], onFollowActor, onOpenActorDetail, onUpdateMovie, onDeleteMovie, onBack, initialEditMode = false }) => {
+export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, actors = [], onFollowActor, onOpenActorDetail, onUpdateMovie, onDeleteMovie, onBack, initialEditMode = false, cinemas = [], movieGenres = [], onAddCinema, onAddMovieGenre }) => {
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
   const [formData, setFormData] = useState<Movie>(movie);
 
@@ -192,6 +198,18 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, actors 
       lotteryResultAt: formData.ticketType === '舞台挨拶' && nextStatus === '抽選中' ? formData.lotteryResultAt : '',
       updatedAt: new Date().toISOString(),
     };
+
+    if (formData.theaterName?.trim() && onAddCinema) {
+      onAddCinema(formData.theaterName.trim());
+    }
+
+    if (formData.genres && onAddMovieGenre) {
+      formData.genres.forEach((genre) => {
+        const trimmed = genre.trim();
+        if (trimmed) onAddMovieGenre(trimmed);
+      });
+    }
+
     onUpdateMovie(nextMovie);
     setFormData(nextMovie);
     setIsEditMode(false);
@@ -299,7 +317,15 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, actors 
             <>
               <Section title="基本情報">
                 <Field label="ポスターURL"><Input value={formData.posterUrl} onChange={(v) => updateField('posterUrl', v)} placeholder="https://..." /></Field>
-                <Field label="劇場名"><Input value={formData.theaterName} onChange={(v) => updateField('theaterName', v)} placeholder="劇場名" /></Field>
+                <Field label="劇場名">
+                  <TagSelectInput
+                    value={formData.theaterName}
+                    onChange={(v) => updateField('theaterName', v)}
+                    candidates={cinemas}
+                    onAddCandidate={onAddCinema}
+                    placeholder="劇場名を入力"
+                  />
+                </Field>
                 <Field label="スクリーン"><Input value={formData.screenName} onChange={(v) => updateField('screenName', v)} placeholder="スクリーン名" /></Field>
                 <Field label="座席"><Input value={formData.seat} onChange={(v) => updateField('seat', v)} placeholder="例：C列 12番" /></Field>
                 <Field label="料金"><Input value={formData.price?.toString() || ''} onChange={(v) => updateField('price', v ? Number(v) : undefined)} placeholder="0" type="number" suffix="円" /></Field>
@@ -350,6 +376,17 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, actors 
                   </div>
                 ))}
                 {isEditMode && <AddButton onClick={() => addListField('directors')}>監督を追加</AddButton>}
+              </Section>
+
+              <Section title="ジャンル">
+                <TagMultiSelectInput
+                  values={formData.genres || []}
+                  onChange={(v) => updateField('genres', v)}
+                  candidates={movieGenres}
+                  onAddCandidate={onAddMovieGenre}
+                  placeholder="ジャンルを追加"
+                  readOnly={!isEditMode}
+                />
               </Section>
 
               <Section title="感想">
@@ -566,6 +603,16 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, actors 
                   ))}
                 </div>
               </ViewSection>
+
+              {formData.genres && formData.genres.length > 0 && (
+                <ViewSection title="ジャンル" countLabel={`${formData.genres.length}件`}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {formData.genres.map((genre, idx) => (
+                      <span key={idx} style={{ background: 'rgba(83, 190, 232, 0.15)', color: theme.colors.primary, padding: '6px 12px', borderRadius: 12, fontSize: 13, fontWeight: 700 }}>{genre}</span>
+                    ))}
+                  </div>
+                </ViewSection>
+              )}
 
               <ViewSection title="感想" defaultOpen={!!formData.memo}>
                 <Value style={{ whiteSpace: 'pre-wrap', lineHeight: 1.65, fontWeight: 600 }}>{formData.memo || null}</Value>
