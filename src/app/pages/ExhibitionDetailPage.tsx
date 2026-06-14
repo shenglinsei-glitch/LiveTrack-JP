@@ -202,6 +202,20 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
         }
       />
 
+      {isEditMode && (
+        <FormSection title="ポスター">
+          <FormField label="ポスター画像URL">
+            <input
+              type="url"
+              value={formData.imageUrl || ''}
+              onChange={e => setFormData(p => ({ ...p, imageUrl: e.target.value }))}
+              placeholder="https://..."
+              style={inputStyle}
+            />
+          </FormField>
+        </FormSection>
+      )}
+
       {/* 1. スケジュール */}
       {!isEditMode ? (
         <DetailSection title="スケジュール">

@@ -19,7 +19,7 @@ interface AnimesPageProps {
 
 type AnimeSortKey = 'date_asc' | 'date_desc' | 'title' | 'rating' | 'status';
 
-const ANIME_STATUS_PRIORITY: AnimeStatus[] = ['視聴中', '視聴予定', '放送前', '保留', '視聴済み', '視聴中止', '見送り'];
+const ANIME_STATUS_PRIORITY: AnimeStatus[] = ['視聴中', '視聴予定', '保留', '放送前', '視聴済み', '視聴中止', '見送り'];
 
 const deriveAnimeStatus = (anime: Anime): AnimeStatus => {
   const statuses = (anime.seasons || []).map((season) => season.status).filter(Boolean) as AnimeStatus[];
@@ -29,7 +29,7 @@ const deriveAnimeStatus = (anime: Anime): AnimeStatus => {
 
 
 export const AnimesPage: React.FC<AnimesPageProps> = ({ animes, onOpenDetail, onExport, onImport, isMenuOpenExternally, onMenuClose, hideHeader = false, menuOnly = false }) => {
-  const [sortKey, setSortKey] = useState<AnimeSortKey>('date_desc');
+  const [sortKey, setSortKey] = useState<AnimeSortKey>('status');
   const [internalMenuOpen, setInternalMenuOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -42,16 +42,22 @@ export const AnimesPage: React.FC<AnimesPageProps> = ({ animes, onOpenDetail, on
   const displayAnimes = useMemo(() => {
     const base = [...(animes || [])];
     const getDate = (anime: Anime) => dayjs(anime.startDate || anime.createdAt || '2999-12-31').valueOf();
+    const weekdayOrder: Record<string, number> = { 日: 0, 月: 1, 火: 2, 水: 3, 木: 4, 金: 5, 土: 6 };
+    const getBroadcastSortValue = (anime: Anime) => {
+      const weekday = anime.broadcastWeekday || anime.seasons?.find(season => season.broadcastWeekday)?.broadcastWeekday || '';
+      const weekdayValue = weekdayOrder[weekday];
+      if (weekdayValue !== undefined) return weekdayValue * 24 * 60 + Number((anime.broadcastTime || '00:00').slice(0, 2)) * 60 + Number((anime.broadcastTime || '00:00').slice(3, 5));
+      return getDate(anime);
+    };
 
     return base.sort((a, b) => {
       if (sortKey === 'date_desc') return getDate(b) - getDate(a);
       if (sortKey === 'date_asc') return getDate(a) - getDate(b);
       if (sortKey === 'title') return (a.title || '').localeCompare(b.title || '');
       if (sortKey === 'status') {
-        const order = ['視聴中', '視聴予定', '放送前', '保留', '視聴済み', '視聴中止', '見送り'];
-        const ia = order.indexOf(deriveAnimeStatus(a));
-        const ib = order.indexOf(deriveAnimeStatus(b));
-        return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || getDate(b) - getDate(a);
+        const ia = ANIME_STATUS_PRIORITY.indexOf(deriveAnimeStatus(a));
+        const ib = ANIME_STATUS_PRIORITY.indexOf(deriveAnimeStatus(b));
+        return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || getBroadcastSortValue(a) - getBroadcastSortValue(b) || getDate(a) - getDate(b);
       }
       if (sortKey === 'rating') {
         const ratingA = a.rating || 0;
@@ -127,7 +133,7 @@ export const AnimesPage: React.FC<AnimesPageProps> = ({ animes, onOpenDetail, on
             <div style={{ fontWeight: 700 }}>アニメ情報がありません。</div>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth <= 480 ? 'repeat(2, minmax(0, 1fr))' : 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16 }}>
             {displayAnimes.map((anime) => (
               <AnimeCard key={anime.id} anime={anime} onClick={() => onOpenDetail(anime.id)} />
             ))}

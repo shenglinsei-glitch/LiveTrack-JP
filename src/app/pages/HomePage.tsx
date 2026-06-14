@@ -660,22 +660,43 @@ export const HomePage: React.FC<HomePageProps> = ({
     return futureConcerts[0] || null;
   }, [artists]);
 
-  const firstExhibitionWithImage = useMemo(() => {
-    return exhibitions.find(e => e.imageUrl || (e.imageIds && e.imageIds.length > 0)) || exhibitions[0];
+  const latestExhibition = useMemo(() => {
+    const today = dayjs().startOf('day');
+    const scored = exhibitions.map(ex => {
+      const start = dayjs(ex.startDate || '2999-12-31');
+      const end = dayjs(ex.endDate || ex.startDate || '2999-12-31');
+      const isOngoing = start.isValid() && end.isValid() && (start.isBefore(today) || start.isSame(today, 'day')) && (end.isAfter(today) || end.isSame(today, 'day'));
+      const baseDate = isOngoing ? today : (start.isValid() && (start.isAfter(today) || start.isSame(today, 'day')) ? start : end);
+      const group = isOngoing ? 0 : (baseDate.isValid() && baseDate.isAfter(today) ? 1 : 2);
+      return { item: ex, group, time: baseDate.isValid() ? baseDate.valueOf() : Number.MAX_SAFE_INTEGER };
+    });
+    return scored.sort((a, b) => a.group - b.group || (a.group === 2 ? b.time - a.time : a.time - b.time))[0]?.item || exhibitions[0];
   }, [exhibitions]);
 
-  const firstMovieWithImage = useMemo(() => {
-    return movies.find(m => m.posterUrl) || movies[0];
+  const latestMovie = useMemo(() => {
+    const today = dayjs().startOf('day');
+    const scored = movies.map(movie => {
+      const date = dayjs(movie.watchDate || movie.releaseDate || movie.updatedAt || movie.createdAt || '2999-12-31');
+      const active = ACTIVE_MOVIE_STATUSES.includes(movie.status);
+      const future = date.isValid() && (date.isAfter(today) || date.isSame(today, 'day'));
+      return { item: movie, group: active && future ? 0 : active ? 1 : 2, time: date.isValid() ? date.valueOf() : 0 };
+    });
+    return scored.sort((a, b) => a.group - b.group || (a.group === 0 ? a.time - b.time : b.time - a.time))[0]?.item || movies[0];
   }, [movies]);
 
-  const firstAnimeWithImage = useMemo(() => {
-    return animes.find(a => a.posterUrl || a.seasons?.some(season => season.posterUrl)) || animes[0];
+  const latestAnime = useMemo(() => {
+    const today = dayjs().startOf('day');
+    const schedule = buildAnimeScheduleEvents(animes)
+      .filter(event => dayjs(event.date).isSame(today, 'day') || dayjs(event.date).isAfter(today))
+      .sort((a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf())[0];
+    if (schedule?.animeId) return animes.find(anime => anime.id === schedule.animeId) || animes[0];
+    return [...animes].sort((a, b) => dayjs(b.updatedAt || b.createdAt || b.startDate).valueOf() - dayjs(a.updatedAt || a.createdAt || a.startDate).valueOf())[0] || animes[0];
   }, [animes]);
 
-  const firstAnimeImageUrl = useMemo(() => {
-    if (!firstAnimeWithImage) return '';
-    return firstAnimeWithImage.posterUrl || firstAnimeWithImage.seasons?.find(season => season.posterUrl)?.posterUrl || '';
-  }, [firstAnimeWithImage]);
+  const latestAnimeImageUrl = useMemo(() => {
+    if (!latestAnime) return '';
+    return latestAnime.posterUrl || latestAnime.seasons?.find(season => season.posterUrl)?.posterUrl || '';
+  }, [latestAnime]);
 
   return (
     <PageShell disablePadding>
@@ -924,8 +945,8 @@ export const HomePage: React.FC<HomePageProps> = ({
           <HomeEntryCard
             title="展覧"
             subtitle={`${exhibitions.length}件`}
-            imageUrl={firstExhibitionWithImage?.imageUrl}
-            imageId={firstExhibitionWithImage?.imageIds?.[0]}
+            imageUrl={latestExhibition?.imageUrl}
+            imageId={latestExhibition?.imageIds?.[0]}
             onClick={onNavigateToExhibitions}
             fallback={<HomeEntryFallback icon={<Icons.Exhibitions style={{ width: 50, height: 50 }} />} />}
           />
@@ -933,7 +954,7 @@ export const HomePage: React.FC<HomePageProps> = ({
           <HomeEntryCard
             title="映画"
             subtitle={`${movies.length}本`}
-            imageUrl={firstMovieWithImage?.posterUrl}
+            imageUrl={latestMovie?.posterUrl}
             onClick={onNavigateToMovies}
             fallback={<HomeEntryFallback icon={<span style={{ fontSize: 46 }}>🎬</span>} />}
           />
@@ -941,7 +962,7 @@ export const HomePage: React.FC<HomePageProps> = ({
           <HomeEntryCard
             title="アニメ"
             subtitle={`${animes.length}本`}
-            imageUrl={firstAnimeImageUrl}
+            imageUrl={latestAnimeImageUrl}
             onClick={onNavigateToAnime}
             fallback={<HomeEntryFallback icon={<span style={{ fontSize: 46 }}>📺</span>} />}
           />

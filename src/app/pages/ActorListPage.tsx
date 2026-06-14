@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Actor, Movie } from '@/domain/types';
 import { PageShell } from '@/components/common/PageShell';
 import { theme } from '@/components/common/theme';
-import { RemoteImage } from '@/components/RemoteImage';
+import { PosterCard } from '@/components/common/PosterCard';
 
 interface ActorListPageProps {
   actors: Actor[];
@@ -17,111 +17,30 @@ const getMoviesForActor = (actor: Actor, movies: Movie[]) => {
 };
 
 const ActorGridCard: React.FC<{ actor: Actor; movies: Movie[]; onClick: () => void }> = ({ actor, movies, onClick }) => {
-  const [isHovered, setIsHovered] = useState(false);
   const relatedMovies = getMoviesForActor(actor, movies);
   const fallbackPoster = relatedMovies.find(m => m.posterUrl)?.posterUrl || '';
   const countLabel = `${relatedMovies.length} 作品`;
+  const displayImage = actor.avatar || fallbackPoster;
 
   return (
-    <div
+    <PosterCard
       onClick={onClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
-        background: 'white',
-        borderRadius: '24px',
-        border: '1px solid rgba(0, 0, 0, 0.04)',
-        display: 'flex',
-        flexDirection: 'column',
-        cursor: 'pointer',
-        boxShadow: isHovered ? '0 12px 24px -8px rgba(0,0,0,0.12)' : '0 4px 12px -2px rgba(0,0,0,0.03)',
-        transform: isHovered ? 'translateY(-4px)' : 'translateY(0)',
-        transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-        overflow: 'hidden',
-        position: 'relative',
-      }}
-    >
-      <div style={{ position: 'relative', paddingTop: '133%', background: '#F3F4F6' }}>
-        {actor.avatar ? (
-          <img
-            src={actor.avatar}
-            alt={actor.name}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-          />
-        ) : fallbackPoster ? (
-          <RemoteImage
-            imageUrl={fallbackPoster}
-            alt={actor.name}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-            fallback={(
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>
-                <span style={{ fontSize: '40px' }}>🎭</span>
-              </div>
-            )}
-          />
-        ) : (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>
-            <span style={{ fontSize: '40px' }}>🎭</span>
-          </div>
-        )}
-
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: '38%',
-            background: 'linear-gradient(to top, rgba(0, 0, 0, 0.62) 0%, rgba(0, 0, 0, 0.24) 62%, transparent 100%)',
-            zIndex: 1,
-            pointerEvents: 'none'
-          }}
-        />
-
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '16px 14px 12px', zIndex: 2 }}>
-          <div
-            style={{
-              fontWeight: '900',
-              fontSize: '14px',
-              color: 'white',
-              marginBottom: '4px',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              textShadow: '0 1px 4px rgba(0,0,0,0.4)'
-            }}
-          >
-            {actor.name}
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <div
-              style={{
-                width: '6px',
-                height: '6px',
-                borderRadius: '50%',
-                background: theme.colors.primary,
-                boxShadow: `0 0 8px ${theme.colors.primary}aa`,
-                flexShrink: 0
-              }}
-            />
-            <div
-              style={{
-                fontSize: '10px',
-                fontWeight: '700',
-                color: 'rgba(255, 255, 255, 0.86)',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                textShadow: '0 1px 2px rgba(0,0,0,0.3)'
-              }}
-            >
-              {countLabel}
-            </div>
-          </div>
+      imageUrl={displayImage}
+      title={actor.name}
+      meta={(
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: theme.colors.primary, boxShadow: `0 0 8px ${theme.colors.primary}aa`, flexShrink: 0 }} />
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{countLabel}</span>
+        </span>
+      )}
+      alt={actor.name}
+      compact
+      fallback={(
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>
+          <span style={{ fontSize: 48 }}>🎭</span>
         </div>
-      </div>
-    </div>
+      )}
+    />
   );
 };
 

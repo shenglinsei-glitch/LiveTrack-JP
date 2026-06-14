@@ -3,7 +3,7 @@ import { Actor, Movie } from '@/domain/types';
 import { DetailPageLayout } from '@/components/detail/DetailPageLayout';
 import { DetailHeader, DetailChip } from '@/components/detail/DetailHeader';
 import { Icons, IconButton } from '@/components/common/IconButton';
-import { GlassCard } from '@/components/common/GlassCard';
+import { DetailSection } from '@/components/detail/DetailSection';
 import { SectionTitle, Value, Label } from '@/components/detail/DetailText';
 import { theme } from '@/components/common/theme';
 import { StatusBadge } from '@/components/common/StatusBadge';
@@ -23,6 +23,9 @@ const fmtDate = (date?: string) => date && dayjs(date).isValid() ? dayjs(date).f
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
+  maxWidth: '100%',
+  minWidth: 0,
+  boxSizing: 'border-box',
   minHeight: 54,
   borderRadius: 18,
   border: '1px solid rgba(15,23,42,0.08)',
@@ -31,7 +34,6 @@ const inputStyle: React.CSSProperties = {
   fontSize: 15,
   color: theme.colors.text,
   outline: 'none',
-  boxSizing: 'border-box',
 };
 
 export const ActorDetailPage: React.FC<ActorDetailPageProps> = ({ actor, movies, onBack, onOpenMovieDetail, onUpdateActor, onUnfollowActor }) => {
@@ -84,7 +86,7 @@ export const ActorDetailPage: React.FC<ActorDetailPageProps> = ({ actor, movies,
       />
 
       {isEditMode && (
-        <GlassCard padding="20px" style={{ marginBottom: 14 }}>
+        <DetailSection title="プロフィール画像" defaultOpen>
           <div style={{ display: 'grid', gap: 14 }}>
             <div>
               <Label>プロフィール画像 / 背景画像URL</Label>
@@ -96,11 +98,10 @@ export const ActorDetailPage: React.FC<ActorDetailPageProps> = ({ actor, movies,
               />
             </div>
           </div>
-        </GlassCard>
+        </DetailSection>
       )}
 
-      <GlassCard padding="20px" style={{ marginBottom: 14 }}>
-        <SectionTitle title="出演作品" style={{ marginTop: 0, marginBottom: 14 }} />
+      <DetailSection title="出演作品" countLabel={relatedMovies.length ? `${relatedMovies.length}作品` : undefined} defaultOpen>
         {relatedMovies.length === 0 ? (
           <Value>この出演者に紐づく映画はまだありません。</Value>
         ) : (
@@ -136,7 +137,7 @@ export const ActorDetailPage: React.FC<ActorDetailPageProps> = ({ actor, movies,
             ))}
           </div>
         )}
-      </GlassCard>
+      </DetailSection>
     </DetailPageLayout>
   );
 };

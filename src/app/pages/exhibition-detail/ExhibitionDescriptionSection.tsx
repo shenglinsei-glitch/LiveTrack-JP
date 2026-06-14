@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { theme } from '@/components/common/theme';
-import { GlassCard } from '@/components/common/GlassCard';
+import { DetailSection } from '@/components/detail/DetailSection';
 import { Exhibition, ExhibitionArtist } from '@/domain/types';
 import { Icons } from '@/components/common/IconButton';
 
@@ -27,7 +27,6 @@ export const ExhibitionDescriptionSection: React.FC<Props> = ({
   onUpdateArtists,
   onUpdateDescription
 }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
   const artists = exhibition.artists || [];
 
   const handleAddArtist = () => onUpdateArtists([...artists, { id: `artist-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name: '' }]);
@@ -42,32 +41,7 @@ export const ExhibitionDescriptionSection: React.FC<Props> = ({
   );
 
   return (
-    <GlassCard padding="20px">
-      <div
-        onClick={() => !isEditMode && setIsExpanded(!isExpanded)}
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          cursor: isEditMode ? 'default' : 'pointer',
-          marginBottom: isExpanded || isEditMode ? 12 : 0
-        }}
-      >
-        <h3 style={{ fontSize: 16, fontWeight: 900, margin: 0, color: theme.colors.primary }}>展覧について</h3>
-        {!isEditMode && (
-          <Icons.ChevronLeft
-            style={{
-              width: 20,
-              height: 20,
-              transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              transform: isExpanded ? 'rotate(270deg)' : 'rotate(180deg)',
-              color: theme.colors.textSecondary
-            }}
-          />
-        )}
-      </div>
-
-      {(isExpanded || isEditMode) && (
+    <DetailSection title="展覧について" defaultOpen>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {/* Artists */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -173,7 +147,6 @@ export const ExhibitionDescriptionSection: React.FC<Props> = ({
             </div>
           )}
         </div>
-      )}
-    </GlassCard>
+    </DetailSection>
   );
 };

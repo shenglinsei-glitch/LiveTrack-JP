@@ -4,6 +4,7 @@ import { DetailHeader, DetailChip } from '@/components/detail/DetailHeader';
 import { theme } from '@/components/common/theme';
 import { IconButton, Icons } from '@/components/common/IconButton';
 import { GlassCard } from '@/components/common/GlassCard';
+import { DetailSection } from '@/components/detail/DetailSection';
 import { Artist, Concert, DisplaySettings, Status } from '@/domain/types';
 import { calcArtistStatus, sortPerformancesForDisplay } from '@/domain/logic';
 import { TEXT } from '@/components/common/constants';
@@ -342,10 +343,7 @@ export const ArtistDetailPage: React.FC<Props> = ({
         </div>
       )}
 
-      <GlassCard padding="20px" style={{ marginBottom: 120, overflow: 'hidden' }}>
-        <div style={{ color: theme.colors.primary, fontSize: 13, fontWeight: 900, marginBottom: 14 }}>
-          公演スケジュール
-        </div>
+      <DetailSection title="公演スケジュール" defaultOpen style={{ marginBottom: 120 }}>
         {processedTours.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '44px 24px', color: theme.colors.textWeak }}>
             <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.3 }}>🎪</div>
@@ -428,7 +426,7 @@ export const ArtistDetailPage: React.FC<Props> = ({
             ))}
           </div>
         )}
-      </GlassCard>
+      </DetailSection>
 
       {!isSelectionMode && (
         <IconButton 

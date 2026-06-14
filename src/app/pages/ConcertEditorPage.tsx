@@ -294,7 +294,7 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
 
                       {/* 日時 */}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
-                        <Field label="開演日時"><CustomDatePicker value={c.concertAt || (c.date === 'TBD' ? '' : c.date)} onChange={v => handleUpdateConcert(c.id, { concertAt: v, date: v.split(' ')[0] })} showTime placeholder="開演日時を設定" /></Field>
+                        <Field label="開演日"><CustomDatePicker value={c.concertAt || (c.date === 'TBD' ? '' : c.date)} onChange={v => handleUpdateConcert(c.id, { concertAt: v, date: v })} placeholder="開演日を設定" /></Field>
                         {isAttending && <Field label="開場時刻"><input type="time" value={c.doorTime || ''} onChange={e => handleUpdateConcert(c.id, { doorTime: e.target.value })} style={inputStyle} /></Field>}
                         {isAttending && <Field label="開演時刻"><input type="time" value={c.startTime || ''} onChange={e => handleUpdateConcert(c.id, { startTime: e.target.value })} style={inputStyle} /></Field>}
                       </div>

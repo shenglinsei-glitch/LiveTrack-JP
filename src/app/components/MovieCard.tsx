@@ -13,6 +13,7 @@ interface MovieCardProps {
   hideStatus?: boolean;
   hideMeta?: boolean;
   asEntryCard?: boolean;
+  compact?: boolean;
 }
 
 const fmtDate = (date?: string) => (date ? dayjs(date).format('YYYY/MM/DD') : '未設定');
@@ -26,6 +27,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({
   hideStatus = false,
   hideMeta = false,
   asEntryCard = false,
+  compact = true,
 }) => {
   const displayImage = imageUrl || movie?.posterUrl;
   const displayTitle = overrideTitle || movie?.title || '';
@@ -50,6 +52,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({
       meta={displayMeta || undefined}
       alt={displayTitle}
       statusNode={!hideStatus && movie ? <StatusBadge domain="movie" status={movie.status} /> : undefined}
+      compact={compact}
       fallback={(
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>
           <span style={{ fontSize: 48 }}>🎬</span>

@@ -15,6 +15,7 @@ interface PosterCardProps {
   alt?: string;
   compact?: boolean;
   extraContent?: React.ReactNode;
+  belowContent?: React.ReactNode;
 }
 
 export const PosterCard: React.FC<PosterCardProps> = ({
@@ -30,6 +31,7 @@ export const PosterCard: React.FC<PosterCardProps> = ({
   alt,
   compact = false,
   extraContent,
+  belowContent,
 }) => {
   const imageStyle: React.CSSProperties = {
     position: 'absolute',
@@ -44,15 +46,25 @@ export const PosterCard: React.FC<PosterCardProps> = ({
   return (
     <div onClick={onClick} style={{ cursor: 'pointer', position: 'relative', height: '100%' }}>
       <GlassCard
-        padding="0"
-        style={{
-          overflow: 'hidden',
-          borderRadius: compact ? 22 : 24,
-          height: '100%',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
-        }}
-      >
-        <div style={{ position: 'relative', paddingTop: compact ? '133%' : '140%', background: '#F3F4F6', overflow: 'hidden' }}>
+  padding="0"
+  style={{
+    overflow: 'hidden',
+    borderRadius: compact ? 22 : 24,
+    height: '100%',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+    border: 'none',
+    background: 'transparent',
+  }}
+>
+        <div
+  style={{
+    position: 'relative',
+    paddingTop: '140%',
+    background: '#F3F4F6',
+    overflow: 'hidden',
+    borderRadius: 'inherit',
+  }}
+>
           {imageUrl || imageId ? (
             <RemoteImage imageUrl={imageUrl} imageId={imageId} alt={alt || String(title || '')} style={imageStyle} fallback={fallback} />
           ) : (
@@ -89,6 +101,11 @@ export const PosterCard: React.FC<PosterCardProps> = ({
             {extraContent ? extraContent : null}
           </div>
         </div>
+        {belowContent ? (
+          <div onClick={(e) => e.stopPropagation()}>
+            {belowContent}
+          </div>
+        ) : null}
       </GlassCard>
     </div>
   );

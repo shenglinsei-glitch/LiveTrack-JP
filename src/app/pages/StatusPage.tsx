@@ -522,7 +522,7 @@ export const StatusPage: React.FC<Props> = ({
 
       {exhibitionAction && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setExhibitionAction(null)}>
-          <GlassCard style={{ width: '100%', maxWidth: 420 }} onClick={(e: any) => e.stopPropagation()}>
+          <GlassCard style={{ width: '100%', maxWidth: 420, minWidth: 0, boxSizing: 'border-box', overflow: 'hidden' }} onClick={(e: any) => e.stopPropagation()}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <div style={{ fontSize: 18, fontWeight: 900, color: theme.colors.text }}>{exhibitionAction.mode === 'reserve' ? '予約日時を入力' : '訪問日時を入力'}</div>
@@ -554,7 +554,7 @@ export const StatusPage: React.FC<Props> = ({
 
       {movieWatchedAction && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 210, background: 'rgba(0,0,0,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setMovieWatchedAction(null)}>
-          <GlassCard style={{ width: '100%', maxWidth: 420 }} onClick={(e: any) => e.stopPropagation()}>
+          <GlassCard style={{ width: '100%', maxWidth: 420, minWidth: 0, boxSizing: 'border-box', overflow: 'hidden' }} onClick={(e: any) => e.stopPropagation()}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <div style={{ fontSize: 18, fontWeight: 900, color: theme.colors.text }}>鑑賞情報を入力</div>
@@ -562,11 +562,11 @@ export const StatusPage: React.FC<Props> = ({
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>鑑賞日</label>
-                <input type="date" value={movieWatchedAction.watchDate} onChange={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, watchDate: e.target.value } : prev)} style={{ width: '100%', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
+                <input type="date" value={movieWatchedAction.watchDate} onChange={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, watchDate: e.target.value } : prev)} style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
                 <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>開演</label>
-                <input type="time" value={movieWatchedAction.startTime} onChange={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, startTime: e.target.value } : prev)} style={{ width: '100%', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
+                <input type="time" value={movieWatchedAction.startTime} onChange={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, startTime: e.target.value } : prev)} style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
                 <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>終演</label>
-                <input type="time" value={movieWatchedAction.endTime} onChange={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, endTime: e.target.value } : prev)} style={{ width: '100%', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
+                <input type="time" value={movieWatchedAction.endTime} onChange={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, endTime: e.target.value } : prev)} style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => setMovieWatchedAction(null)} style={actionGhostBtn}>キャンセル</button>
@@ -579,7 +579,7 @@ export const StatusPage: React.FC<Props> = ({
 
       {movieLotteryAction && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 210, background: 'rgba(0,0,0,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setMovieLotteryAction(null)}>
-          <GlassCard style={{ width: '100%', maxWidth: 460 }} onClick={(e: any) => e.stopPropagation()}>
+          <GlassCard style={{ width: '100%', maxWidth: 460, minWidth: 0, boxSizing: 'border-box', overflow: 'hidden' }} onClick={(e: any) => e.stopPropagation()}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <div style={{ fontSize: 18, fontWeight: 900, color: theme.colors.text }}>当選内容を入力</div>
@@ -591,16 +591,16 @@ export const StatusPage: React.FC<Props> = ({
                   type="datetime-local"
                   value={movieLotteryAction.value}
                   onChange={(e) => setMovieLotteryAction((prev) => prev ? { ...prev, value: e.target.value } : prev)}
-                  style={{ width: '100%', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }}
+                  style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }}
                 />
                 <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>劇場名</label>
-                <input value={movieLotteryAction.theaterName} onChange={(e) => setMovieLotteryAction((prev) => prev ? { ...prev, theaterName: e.target.value } : prev)} style={{ width: '100%', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
+                <input value={movieLotteryAction.theaterName} onChange={(e) => setMovieLotteryAction((prev) => prev ? { ...prev, theaterName: e.target.value } : prev)} style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
                 <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>スクリーン</label>
-                <input value={movieLotteryAction.screenName} onChange={(e) => setMovieLotteryAction((prev) => prev ? { ...prev, screenName: e.target.value } : prev)} style={{ width: '100%', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
+                <input value={movieLotteryAction.screenName} onChange={(e) => setMovieLotteryAction((prev) => prev ? { ...prev, screenName: e.target.value } : prev)} style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
                 <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>座席</label>
-                <input value={movieLotteryAction.seat} onChange={(e) => setMovieLotteryAction((prev) => prev ? { ...prev, seat: e.target.value } : prev)} style={{ width: '100%', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
+                <input value={movieLotteryAction.seat} onChange={(e) => setMovieLotteryAction((prev) => prev ? { ...prev, seat: e.target.value } : prev)} style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
                 <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>料金</label>
-                <input value={movieLotteryAction.price} onChange={(e) => setMovieLotteryAction((prev) => prev ? { ...prev, price: e.target.value } : prev)} style={{ width: '100%', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
+                <input value={movieLotteryAction.price} onChange={(e) => setMovieLotteryAction((prev) => prev ? { ...prev, price: e.target.value } : prev)} style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => setMovieLotteryAction(null)} style={actionGhostBtn}>キャンセル</button>

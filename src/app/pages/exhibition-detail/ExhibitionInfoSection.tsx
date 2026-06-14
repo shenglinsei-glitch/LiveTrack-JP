@@ -1,10 +1,9 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { theme } from '@/components/common/theme';
-import { GlassCard } from '@/components/common/GlassCard';
+import { DetailSection } from '@/components/detail/DetailSection';
 import { Label, Value, SubValue, SectionTitle } from '@/components/detail/DetailText';
 import { Exhibition, ExhibitionStatus, ExhibitionTicketSalesStatus } from '@/domain/types';
-import { Icons } from '@/components/common/IconButton';
 import { TagSelectInput } from '@/components/common/TagSelectInput';
 import {
   Select,
@@ -21,6 +20,9 @@ const fromNativeDateTimeValue = (value: string) => value ? value.replace('T', ' 
 
 const nativeDateInputStyle: React.CSSProperties = {
   width: '100%',
+  maxWidth: '100%',
+  minWidth: 0,
+  boxSizing: 'border-box',
   minHeight: 44,
   borderRadius: 14,
   border: '1px solid rgba(15,23,42,0.08)',
@@ -30,7 +32,6 @@ const nativeDateInputStyle: React.CSSProperties = {
   fontWeight: 700,
   color: theme.colors.text,
   outline: 'none',
-  boxSizing: 'border-box',
   colorScheme: 'light',
   WebkitAppearance: 'none',
   appearance: 'none',
@@ -78,8 +79,6 @@ interface Props {
 }
 
 export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibitions, isEditMode, onChange, exhibitionVenues = [], onAddExhibitionVenue }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
-
   const areaOptions = useMemo(() => {
     const areas = new Set<string>();
     for (const e of allExhibitions) {
@@ -112,32 +111,7 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
   };
 
   return (
-    <GlassCard padding="20px">
-      <div 
-        onClick={() => !isEditMode && setIsExpanded(!isExpanded)}
-        style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
-          cursor: isEditMode ? 'default' : 'pointer',
-          marginBottom: (isExpanded || isEditMode) ? '20px' : '0'
-        }}
-      >
-        <h3 style={{ fontSize: '16px', fontWeight: '900', margin: 0, color: theme.colors.primary }}>基本情報</h3>
-        {!isEditMode && (
-          <Icons.ChevronLeft 
-            style={{ 
-              width: 20, 
-              height: 20, 
-              transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)', 
-              transform: isExpanded ? 'rotate(270deg)' : 'rotate(180deg)',
-              color: theme.colors.textSecondary
-            }} 
-          />
-        )}
-      </div>
-
-      {(isExpanded || isEditMode) && (
+    <DetailSection title="基本情報" defaultOpen>
         <>
           {isEditMode ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -440,7 +414,6 @@ export const ExhibitionInfoSection: React.FC<Props> = ({ exhibition, allExhibiti
             </>
           )}
         </>
-      )}
-    </GlassCard>
+    </DetailSection>
   );
 };

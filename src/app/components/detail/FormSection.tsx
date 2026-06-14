@@ -1,23 +1,19 @@
 import React from 'react';
-import { GlassCard } from '@/components/common/GlassCard';
 import { theme } from '@/components/common/theme';
+import { DetailSection } from '@/components/detail/DetailSection';
 
 interface FormSectionProps {
   title?: string;
   children: React.ReactNode;
   style?: React.CSSProperties;
+  defaultOpen?: boolean;
 }
 
-export const FormSection: React.FC<FormSectionProps> = ({ title, children, style }) => {
+export const FormSection: React.FC<FormSectionProps> = ({ title, children, style, defaultOpen = true }) => {
   return (
-    <GlassCard style={{ marginBottom: 16, minWidth: 0, maxWidth: '100%', overflow: 'hidden', boxSizing: 'border-box', ...style }}>
-      {title && (
-        <h3 style={{ fontSize: 16, fontWeight: 900, color: theme.colors.text, marginBottom: 16 }}>
-          {title}
-        </h3>
-      )}
+    <DetailSection title={title} defaultOpen={defaultOpen} style={style}>
       {children}
-    </GlassCard>
+    </DetailSection>
   );
 };
 

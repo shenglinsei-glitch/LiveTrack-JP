@@ -14,6 +14,7 @@ interface ConcertCardProps {
   imageUrl?: string;
   imageId?: string;
   hideStatus?: boolean;
+  compact?: boolean;
 }
 
 export const ConcertCard: React.FC<ConcertCardProps> = ({
@@ -26,6 +27,7 @@ export const ConcertCard: React.FC<ConcertCardProps> = ({
   imageUrl,
   imageId,
   hideStatus = false,
+  compact = true,
 }) => {
   const displayImage = imageUrl || tour?.imageUrl || artist?.imageUrl;
   const displayTitle = overrideTitle || tour?.name || artist?.name || '';
@@ -41,6 +43,7 @@ export const ConcertCard: React.FC<ConcertCardProps> = ({
       subtitle={displaySubtitle}
       alt={displayTitle}
       statusNode={!hideStatus && status ? <StatusBadge domain="concert" status={status} /> : undefined}
+      compact={compact}
       fallback={(
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.12 }}>
           <Icons.Exhibitions style={{ width: 64, height: 64 }} />

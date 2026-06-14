@@ -6,6 +6,8 @@ import { theme } from '@/components/common/theme';
 import { TEXT } from '@/components/common/constants';
 import { Artist, Concert, Status } from '@/domain/types';
 import { ConcertMenu, ConcertListSortKey } from '@/components/ConcertMenu';
+import { PosterCard } from '@/components/common/PosterCard';
+import { StatusBadge } from '@/components/common/StatusBadge';
 
 interface Props {
   artists: Artist[];
@@ -26,7 +28,6 @@ interface Props {
   onImportData?: (data: any) => void;
 }
 
-import { useRemoteImage, RemoteImage } from '@/components/RemoteImage';
 
 interface ConcertWithMetadata extends Concert {
   artistName: string;
@@ -173,210 +174,130 @@ const TourGroupCard: React.FC<{
   onOpenConcert: (aid: string, tid: string, cid: string) => void;
 }> = ({ artistId, tourName, artistName, imageUrl, imageId, status, concerts, onOpenArtist, onOpenConcert }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const { resolvedUrl } = useRemoteImage(imageUrl, imageId);
-  const statusColor = theme.colors.status[status] || theme.colors.primary;
   const visibleConcerts = isExpanded ? concerts : concerts.slice(0, 2);
   const hasMore = concerts.length > 2;
+  const firstDetailTarget = concerts.find((x) => x.status === '参戦予定' || x.status === '参戦済み') || concerts[0];
+  const firstDate = formatCompactDateTime(firstDetailTarget?.concertAt || firstDetailTarget?.date, true);
+  const venueText = firstDetailTarget?.venue || '会場未定';
+  const canOpenTourDetail = (status === '参戦予定' || status === '参戦済み') && firstDetailTarget;
 
-  return (
+  const openPrimary = () => {
+    if (canOpenTourDetail && firstDetailTarget) {
+      onOpenConcert(firstDetailTarget.artistId, firstDetailTarget.tourId, firstDetailTarget.id);
+      return;
+    }
+    onOpenArtist(artistId);
+  };
+
+  const expandedContent = isExpanded ? (
     <div
       style={{
-        background: 'white',
-        borderRadius: '28px',
-        border: '1px solid rgba(0, 0, 0, 0.04)',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
-        overflow: 'hidden',
-        transition: 'all 0.3s ease-in-out',
-        position: 'relative',
-        height: 'auto',
+        padding: '10px 10px 12px',
+        background: 'rgba(255,255,255,0.88)',
+        borderTop: '1px solid rgba(0,0,0,0.04)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
       }}
     >
-      <div
-        onClick={() => {
-          const firstDetailTarget = concerts.find((x) => x.status === '参戦予定' || x.status === '参戦済み') || concerts[0];
-          if ((status === '参戦予定' || status === '参戦済み') && firstDetailTarget) onOpenConcert(firstDetailTarget.artistId, firstDetailTarget.tourId, firstDetailTarget.id);
-          else onOpenArtist(artistId);
-        }}
-        style={{
-          position: 'relative',
-          width: '100%',
-          paddingTop: '140%',
-          backgroundColor: '#F3F4F6',
-          cursor: 'pointer',
-          backgroundImage: resolvedUrl ? `url(${resolvedUrl})` : undefined,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-        }}
-      >
-        <div style={{ position: 'absolute', inset: 0 }}>
-          {!resolvedUrl && (
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: 0.12,
-              }}
-            >
-              <Icons.Exhibitions style={{ width: 64, height: 64 }} />
-            </div>
-          )}
-        </div>
-
-        <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 10 }}>
-          <div
+      {visibleConcerts.map((c) => {
+        const canOpenDetail = c.status === '参戦予定' || c.status === '参戦済み';
+        return (
+          <button
+            key={c.id}
+            type="button"
+            onClick={
+              canOpenDetail
+                ? (e) => {
+                    e.stopPropagation();
+                    onOpenConcert(c.artistId, c.tourId, c.id);
+                  }
+                : undefined
+            }
             style={{
-              background: statusColor,
-              color: 'white',
-              padding: '3px 9px',
-              borderRadius: 10,
-              fontSize: 10,
-              fontWeight: 900,
-              lineHeight: 1,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-              whiteSpace: 'nowrap',
+              width: '100%',
+              border: 'none',
+              background: 'rgba(243,244,246,0.82)',
+              borderRadius: 12,
+              padding: '7px 8px',
+              display: 'grid',
+              gridTemplateColumns: '54px minmax(0, 1fr) 16px',
+              alignItems: 'center',
+              gap: 6,
+              cursor: canOpenDetail ? 'pointer' : 'default',
+              textAlign: 'left',
             }}
           >
-            {TEXT.STATUS[status]}
-          </div>
-        </div>
-
-        <div
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 5,
-            padding: '48px 10px 10px',
-            background:
-              'linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.62) 28%, rgba(0,0,0,0.28) 55%, transparent 78%)',
-            color: 'white',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          <div style={{ marginBottom: 4 }}>
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 800,
-                opacity: 0.85,
-                marginBottom: 2,
-                textShadow: '0 2px 4px rgba(0,0,0,0.3)',
-              }}
-            >
-              {artistName}
-            </div>
-            <div
-              style={{
-                fontSize: 13,
-                fontWeight: 900,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                lineHeight: '1.2',
-                textShadow: '0 2px 8px rgba(0,0,0,0.4)',
-              }}
-            >
-              {tourName}
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '-2px' }}>
-            {visibleConcerts.map((c) => {
-              const canOpenDetail = c.status === '参戦予定' || c.status === '参戦済み';
-              return (
-                <div
-                  key={c.id}
-                  onClick={
-                    canOpenDetail
-                      ? (e) => {
-                          e.stopPropagation();
-                          onOpenConcert(c.artistId, c.tourId, c.id);
-                        }
-                      : undefined
-                  }
-                  style={{
-                    display: 'flex',
-                    alignItems: 'baseline',
-                    justifyContent: 'space-between',
-                    padding: '2px 0',
-                    cursor: canOpenDetail ? 'pointer' : 'default',
-                    opacity: canOpenDetail ? 1 : 0.75,
-                    transition: 'opacity 0.2s',
-                    lineHeight: 1.2,
-                  }}
-                >
-                  <div style={{ fontSize: 10, fontWeight: 900, minWidth: 54, color: 'white' }}>
-                    {formatCompactDateTime(c.concertAt || c.date, true)}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      color: 'white',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      flex: 1,
-                      textAlign: 'center',
-                      padding: '0 4px',
-                      fontWeight: '600',
-                    }}
-                  >
-                    {c.venue || '会場未定'}
-                  </div>
-                  {canOpenDetail ? (
-                    <Icons.ChevronLeft
-                      style={{
-                        transform: 'rotate(180deg)',
-                        width: 14,
-                        color: 'rgba(255,255,255,0.6)',
-                        alignSelf: 'center',
-                      }}
-                    />
-                  ) : (
-                    <div style={{ width: 14 }} />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {hasMore && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsExpanded(!isExpanded);
-              }}
-              style={{
-                width: '100%',
-                border: 'none',
-                background: 'none',
-                padding: '6px 0 0',
-                marginTop: 2,
-                color: 'rgba(255,255,255,0.9)',
-                fontSize: 10,
-                fontWeight: 900,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 4,
-                textShadow: '0 1px 4px rgba(0,0,0,0.3)',
-              }}
-            >
-              {isExpanded ? '折りたたむ' : `＋ ${concerts.length - 2} 件の他公演を表示`}
-            </button>
-          )}
-        </div>
-      </div>
+            <span style={{ fontSize: 10, fontWeight: 900, color: theme.colors.textSecondary, whiteSpace: 'nowrap' }}>
+              {formatCompactDateTime(c.concertAt || c.date, true) || '日付未定'}
+            </span>
+            <span style={{ fontSize: 10, fontWeight: 800, color: theme.colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {c.venue || '会場未定'}
+            </span>
+            {canOpenDetail ? (
+              <Icons.ChevronLeft style={{ transform: 'rotate(180deg)', width: 14, color: theme.colors.textWeak }} />
+            ) : (
+              <span />
+            )}
+          </button>
+        );
+      })}
     </div>
+  ) : null;
+
+  const rightTopNode = hasMore ? (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        setIsExpanded((prev) => !prev);
+      }}
+      style={{
+        width: 28,
+        height: 28,
+        border: 'none',
+        borderRadius: 999,
+        background: 'rgba(255,255,255,0.86)',
+        color: theme.colors.text,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.14)',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        fontSize: 15,
+        fontWeight: 900,
+        lineHeight: 1,
+      }}
+      aria-label={isExpanded ? '公演を折りたたむ' : '他の公演を表示'}
+      title={isExpanded ? '折りたたむ' : '他の公演を表示'}
+    >
+      {isExpanded ? '−' : '+'}
+    </button>
+  ) : undefined;
+
+  return (
+    <PosterCard
+      onClick={openPrimary}
+      imageUrl={imageUrl}
+      imageId={imageId}
+      title={tourName}
+      subtitle={artistName}
+      meta={(
+        <span>
+          {firstDate || '日付未定'} · {venueText}{hasMore ? ` · 全${concerts.length}公演` : ''}
+        </span>
+      )}
+      alt={tourName}
+      statusNode={<StatusBadge domain="concert" status={status} label={TEXT.STATUS[status]} />}
+      rightTopNode={rightTopNode}
+      compact={false}
+      belowContent={expandedContent}
+      fallback={(
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.12 }}>
+          <Icons.Exhibitions style={{ width: 64, height: 64 }} />
+        </div>
+      )}
+    />
   );
 };
 
