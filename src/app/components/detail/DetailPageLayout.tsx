@@ -18,7 +18,13 @@ export const DetailPageLayout: React.FC<DetailPageLayoutProps> = ({
         minHeight: '100vh',
         position: 'relative',
         overflowX: 'hidden',
-        background: theme.colors.background,
+        background: backgroundUrl ? '#0f172a' : theme.colors.background,
+        backgroundImage: backgroundUrl ? `url(${backgroundUrl})` : undefined,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed',
+        isolation: 'isolate',
       }}
     >
       {backgroundUrl ? (
@@ -26,18 +32,31 @@ export const DetailPageLayout: React.FC<DetailPageLayoutProps> = ({
           <div
             style={{
               position: 'fixed',
-              inset: 0,
+              top: 0,
+              left: 0,
+              width: '100vw',
+              height: '100dvh',
+              minHeight: '-webkit-fill-available',
+              zIndex: 0,
               backgroundImage: `url(${backgroundUrl})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
-              transform: 'scale(1.02)',
+              backgroundRepeat: 'no-repeat',
+              transform: 'translateZ(0) scale(1.02)',
+              willChange: 'transform',
               opacity: 0.94,
+              pointerEvents: 'none',
             }}
           />
           <div
             style={{
               position: 'fixed',
-              inset: 0,
+              top: 0,
+              left: 0,
+              width: '100vw',
+              height: '100dvh',
+              minHeight: '-webkit-fill-available',
+              zIndex: 0,
               backdropFilter: 'blur(8px)',
               WebkitBackdropFilter: 'blur(8px)',
               background: 'rgba(0,0,0,0.06)',
@@ -51,7 +70,12 @@ export const DetailPageLayout: React.FC<DetailPageLayoutProps> = ({
           <div
             style={{
               position: 'fixed',
-              inset: 0,
+              top: 0,
+              left: 0,
+              width: '100vw',
+              height: '100dvh',
+              minHeight: '-webkit-fill-available',
+              zIndex: 0,
               background:
                 'linear-gradient(to bottom, rgba(0,0,0,0.60) 0%, rgba(0,0,0,0.42) 18%, rgba(0,0,0,0.28) 38%, rgba(0,0,0,0.16) 58%, rgba(0,0,0,0.10) 78%, rgba(0,0,0,0.04) 100%)',
               pointerEvents: 'none',

@@ -1,0 +1,32 @@
+
+/* FaveArchive mobile native date/time input containment fixes */
+* {
+  box-sizing: border-box;
+}
+
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  display: block !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  overflow: hidden !important;
+}
+
+input[type="date"]::-webkit-date-and-time-value,
+input[type="time"]::-webkit-date-and-time-value,
+input[type="datetime-local"]::-webkit-date-and-time-value {
+  min-width: 0 !important;
+  text-align: center;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  margin: 0 !important;
+  padding: 0 !important;
+}
