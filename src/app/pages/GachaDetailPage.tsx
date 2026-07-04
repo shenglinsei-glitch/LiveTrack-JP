@@ -8,7 +8,7 @@ import { Icons, IconButton } from '@/components/common/IconButton';
 import { theme } from '@/components/common/theme';
 import { NativeDateTimeInput, centeredNativeDateTimeInputStyle } from '@/components/common/nativeDateInput';
 import { deriveGachaStatus, formatCurrency, formatDate, formatDateTime, GACHA_STATUSES, getGachaStats, getGachaStatusTone, getPrizeSoldAmount } from '@/utils/gacha';
-import { compressImageFileToAvatarDataUrl, getDataUrlByteSize } from '@/utils/imageCompression';
+import { compressImageFileToAvatarDataUrl, getDataUrlByteSize, type AvatarCropOptions } from '@/utils/imageCompression';
 
 interface GachaDetailPageProps {
   gacha: Gacha;
@@ -153,22 +153,54 @@ const PrizeThumb: React.FC<{ prize: GachaPrize; size?: number }> = ({ prize, siz
   );
 };
 
+const cropSliderStyle: React.CSSProperties = { width: '100%', accentColor: theme.colors.primary };
+
 const PrizeImageEditor: React.FC<{ prize: GachaPrize; onUpdate: (updates: Partial<GachaPrize>) => void }> = ({ prize, onUpdate }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [crop, setCrop] = useState<Required<AvatarCropOptions>>({ zoom: 1, offsetX: 0, offsetY: 0 });
   const inputId = `gacha-prize-image-${prize.id}`;
   const localSize = getDataUrlByteSize(prize.imageData);
 
-  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
+  const updateCrop = (updates: Partial<Required<AvatarCropOptions>>) => setCrop(prev => ({ ...prev, ...updates }));
+
+  const resetCropPreview = () => {
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setCrop({ zoom: 1, offsetX: 0, offsetY: 0 });
+  };
+
+  const handleUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = '';
     if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      const text = '画像ファイルを選択してください。';
+      setMessage(text);
+      window.alert(text);
+      return;
+    }
+    setSelectedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+    setCrop({ zoom: 1, offsetX: 0, offsetY: 0 });
+    setMessage('切り抜き範囲を調整してから保存してください。');
+  };
+
+  const saveCroppedImage = async () => {
+    if (!selectedFile) return;
     setIsProcessing(true);
     setMessage(null);
     try {
-      const result = await compressImageFileToAvatarDataUrl(file, { maxSizePx: 160, initialQuality: 0.72, maxBytes: 30 * 1024 });
+      const result = await compressImageFileToAvatarDataUrl(selectedFile, { maxSizePx: 160, initialQuality: 0.72, maxBytes: 30 * 1024, ...crop });
       onUpdate({ imageData: result.dataUrl });
       setMessage(`保存済み：${result.width}×${result.height} / ${formatFileSize(result.sizeBytes)}`);
+      resetCropPreview();
     } catch (error) {
       const text = error instanceof Error ? error.message : '画像の処理に失敗しました。';
       setMessage(text);
@@ -179,7 +211,7 @@ const PrizeImageEditor: React.FC<{ prize: GachaPrize; onUpdate: (updates: Partia
   };
 
   return (
-    <div style={{ display: 'grid', gap: 10 }}>
+    <div style={{ display: 'grid', gap: 12 }}>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0 }}>
         <PrizeThumb prize={prize} size={72} />
         <div style={{ flex: 1, minWidth: 0, display: 'grid', gap: 8 }}>
@@ -188,7 +220,7 @@ const PrizeImageEditor: React.FC<{ prize: GachaPrize; onUpdate: (updates: Partia
               htmlFor={inputId}
               style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 38, padding: '0 13px', borderRadius: 13, background: theme.colors.primary, color: '#fff', fontSize: 13, fontWeight: 900, cursor: isProcessing ? 'wait' : 'pointer', opacity: isProcessing ? 0.65 : 1 }}
             >
-              {isProcessing ? '圧縮中...' : '画像をアップロード'}
+              {isProcessing ? '保存中...' : '画像を選択'}
             </label>
             {prize.imageData ? (
               <button type="button" onClick={() => { onUpdate({ imageData: undefined }); setMessage(null); }} style={{ minHeight: 38, padding: '0 13px', borderRadius: 13, border: '1px solid rgba(0,0,0,0.1)', background: 'white', color: theme.colors.textSecondary, fontSize: 13, fontWeight: 900, cursor: 'pointer' }}>
@@ -197,12 +229,49 @@ const PrizeImageEditor: React.FC<{ prize: GachaPrize; onUpdate: (updates: Partia
             ) : null}
           </div>
           <div style={{ fontSize: 11, fontWeight: 700, color: theme.colors.textWeak, lineHeight: 1.45 }}>
-            160×160 JPEG / 白背景で保存。透明部分には白背景を追加し、画像全体が収まるように縮小します。30KBを超える場合は自動で追加圧縮します。原画像は保存しません。
+            選択後にサイズ・位置を調整して、160×160 JPEG / 白背景で保存します。黒背景の自動変換は行いません。30KBを超える場合は自動で追加圧縮します。原画像は保存しません。
             {localSize > 0 ? <span> 現在：{formatFileSize(localSize)}</span> : null}
           </div>
           {message ? <div style={{ fontSize: 11, fontWeight: 800, color: message.includes('失敗') ? theme.colors.error : theme.colors.primary }}>{message}</div> : null}
         </div>
       </div>
+
+      {previewUrl ? (
+        <div style={{ display: 'grid', gap: 12, borderRadius: 18, background: 'rgba(255,255,255,0.72)', border: '1px solid rgba(15,23,42,0.06)', padding: 12 }}>
+          <div style={{ display: 'grid', placeItems: 'center' }}>
+            <div style={{ width: 180, height: 180, maxWidth: '100%', borderRadius: 24, overflow: 'hidden', background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.6)' }}>
+              <img
+                src={previewUrl}
+                alt="切り抜きプレビュー"
+                style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#ffffff', display: 'block', transform: `translate(${crop.offsetX * 0.9}px, ${crop.offsetY * 0.9}px) scale(${crop.zoom})`, transformOrigin: 'center', transition: isProcessing ? 'none' : 'transform 0.08s ease-out' }}
+              />
+            </div>
+          </div>
+          <div style={{ display: 'grid', gap: 10 }}>
+            <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 900, color: theme.colors.textSecondary }}>
+              サイズ {crop.zoom.toFixed(2)}x
+              <input type="range" min="0.5" max="4" step="0.05" value={crop.zoom} onChange={(e) => updateCrop({ zoom: Number(e.target.value) })} style={cropSliderStyle} />
+            </label>
+            <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 900, color: theme.colors.textSecondary }}>
+              左右 {crop.offsetX}
+              <input type="range" min="-100" max="100" step="1" value={crop.offsetX} onChange={(e) => updateCrop({ offsetX: Number(e.target.value) })} style={cropSliderStyle} />
+            </label>
+            <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 900, color: theme.colors.textSecondary }}>
+              上下 {crop.offsetY}
+              <input type="range" min="-100" max="100" step="1" value={crop.offsetY} onChange={(e) => updateCrop({ offsetY: Number(e.target.value) })} style={cropSliderStyle} />
+            </label>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" onClick={saveCroppedImage} disabled={isProcessing} style={{ flex: 1, minWidth: 130, minHeight: 40, padding: '0 14px', borderRadius: 14, border: 'none', background: theme.colors.primary, color: '#fff', fontSize: 13, fontWeight: 900, cursor: isProcessing ? 'wait' : 'pointer', opacity: isProcessing ? 0.65 : 1 }}>
+              {isProcessing ? '保存中...' : 'この範囲で保存'}
+            </button>
+            <button type="button" onClick={() => { resetCropPreview(); setMessage(null); }} disabled={isProcessing} style={{ minHeight: 40, padding: '0 14px', borderRadius: 14, border: '1px solid rgba(0,0,0,0.1)', background: 'white', color: theme.colors.textSecondary, fontSize: 13, fontWeight: 900, cursor: isProcessing ? 'wait' : 'pointer' }}>
+              キャンセル
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <input id={inputId} type="file" accept="image/*" onChange={handleUpload} disabled={isProcessing} style={{ display: 'none' }} />
     </div>
   );

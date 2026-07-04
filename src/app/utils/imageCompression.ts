@@ -6,7 +6,13 @@ export interface AvatarCompressionResult {
   mimeType: string;
 }
 
-export interface AvatarCompressionOptions {
+export interface AvatarCropOptions {
+  zoom?: number;
+  offsetX?: number;
+  offsetY?: number;
+}
+
+export interface AvatarCompressionOptions extends AvatarCropOptions {
   maxSizePx?: number;
   maxBytes?: number;
   initialQuality?: number;
@@ -15,6 +21,8 @@ export interface AvatarCompressionOptions {
 const DEFAULT_MAX_SIZE = 160;
 const DEFAULT_MAX_BYTES = 30 * 1024;
 const DEFAULT_QUALITY = 0.72;
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 const loadImage = (file: File): Promise<HTMLImageElement> => new Promise((resolve, reject) => {
   const url = URL.createObjectURL(file);
@@ -47,20 +55,36 @@ const canvasToBlob = (canvas: HTMLCanvasElement, quality: number): Promise<Blob>
   }, 'image/jpeg', quality);
 });
 
-const drawSquareAvatar = (img: HTMLImageElement, size: number): HTMLCanvasElement => {
+const getAvatarDrawRect = (img: HTMLImageElement, size: number, crop: AvatarCropOptions = {}) => {
+  const sourceWidth = img.naturalWidth || img.width;
+  const sourceHeight = img.naturalHeight || img.height;
+  const fitScale = Math.min(size / sourceWidth, size / sourceHeight);
+  const zoom = clamp(crop.zoom ?? 1, 0.5, 4);
+  const targetWidth = Math.max(1, sourceWidth * fitScale * zoom);
+  const targetHeight = Math.max(1, sourceHeight * fitScale * zoom);
+  const offsetX = clamp(crop.offsetX ?? 0, -100, 100);
+  const offsetY = clamp(crop.offsetY ?? 0, -100, 100);
+  const targetX = (size - targetWidth) / 2 + (offsetX / 100) * size * 0.5;
+  const targetY = (size - targetHeight) / 2 + (offsetY / 100) * size * 0.5;
+
+  return {
+    sourceWidth,
+    sourceHeight,
+    targetWidth,
+    targetHeight,
+    targetX,
+    targetY,
+  };
+};
+
+const drawSquareAvatar = (img: HTMLImageElement, size: number, crop: AvatarCropOptions = {}): HTMLCanvasElement => {
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d', { alpha: false });
   if (!ctx) throw new Error('画像処理を開始できませんでした。');
 
-  const sourceWidth = img.naturalWidth || img.width;
-  const sourceHeight = img.naturalHeight || img.height;
-  const scale = Math.min(size / sourceWidth, size / sourceHeight);
-  const targetWidth = Math.max(1, Math.round(sourceWidth * scale));
-  const targetHeight = Math.max(1, Math.round(sourceHeight * scale));
-  const targetX = Math.round((size - targetWidth) / 2);
-  const targetY = Math.round((size - targetHeight) / 2);
+  const { sourceWidth, sourceHeight, targetWidth, targetHeight, targetX, targetY } = getAvatarDrawRect(img, size, crop);
 
   ctx.save();
   ctx.globalCompositeOperation = 'source-over';
@@ -92,6 +116,11 @@ export const compressImageFileToAvatarDataUrl = async (
   const maxSizePx = options.maxSizePx ?? DEFAULT_MAX_SIZE;
   const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
   const initialQuality = options.initialQuality ?? DEFAULT_QUALITY;
+  const crop = {
+    zoom: options.zoom ?? 1,
+    offsetX: options.offsetX ?? 0,
+    offsetY: options.offsetY ?? 0,
+  };
   const img = await loadImage(file);
 
   const attempts = [
@@ -109,7 +138,7 @@ export const compressImageFileToAvatarDataUrl = async (
   let best: AvatarCompressionResult | null = null;
 
   for (const attempt of attempts) {
-    const canvas = drawSquareAvatar(img, attempt.size);
+    const canvas = drawSquareAvatar(img, attempt.size, crop);
     // eslint-disable-next-line no-await-in-loop
     const blob = await canvasToBlob(canvas, attempt.quality);
     // eslint-disable-next-line no-await-in-loop
