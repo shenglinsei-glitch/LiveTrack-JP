@@ -51,19 +51,25 @@ const drawSquareAvatar = (img: HTMLImageElement, size: number): HTMLCanvasElemen
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { alpha: false });
   if (!ctx) throw new Error('画像処理を開始できませんでした。');
 
-  const sourceSize = Math.min(img.naturalWidth || img.width, img.naturalHeight || img.height);
-  const sourceX = ((img.naturalWidth || img.width) - sourceSize) / 2;
-  const sourceY = ((img.naturalHeight || img.height) - sourceSize) / 2;
+  const sourceWidth = img.naturalWidth || img.width;
+  const sourceHeight = img.naturalHeight || img.height;
+  const scale = Math.min(size / sourceWidth, size / sourceHeight);
+  const targetWidth = Math.max(1, Math.round(sourceWidth * scale));
+  const targetHeight = Math.max(1, Math.round(sourceHeight * scale));
+  const targetX = Math.round((size - targetWidth) / 2);
+  const targetY = Math.round((size - targetHeight) / 2);
 
-  ctx.clearRect(0, 0, size, size);
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, size, size);
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(img, sourceX, sourceY, sourceSize, sourceSize, 0, 0, size, size);
+  ctx.drawImage(img, 0, 0, sourceWidth, sourceHeight, targetX, targetY, targetWidth, targetHeight);
+  ctx.restore();
   return canvas;
 };
 

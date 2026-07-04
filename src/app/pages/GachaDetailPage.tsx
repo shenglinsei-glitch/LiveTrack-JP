@@ -147,8 +147,8 @@ const StatTile: React.FC<{ label: string; value: React.ReactNode; strong?: boole
 const PrizeThumb: React.FC<{ prize: GachaPrize; size?: number }> = ({ prize, size = 58 }) => {
   const src = getPrizeImageSrc(prize);
   return (
-    <div style={{ width: size, height: size, borderRadius: Math.max(14, Math.round(size * 0.28)), overflow: 'hidden', background: '#F3F4F6', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      {src ? <img src={src} alt={prize.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: Math.round(size * 0.43), opacity: 0.28 }}>🎁</span>}
+    <div style={{ width: size, height: size, borderRadius: Math.max(14, Math.round(size * 0.28)), overflow: 'hidden', background: '#ffffff', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(15,23,42,0.04)' }}>
+      {src ? <img src={src} alt={prize.name} style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#ffffff', display: 'block' }} /> : <span style={{ fontSize: Math.round(size * 0.43), opacity: 0.28 }}>🎁</span>}
     </div>
   );
 };
@@ -197,7 +197,7 @@ const PrizeImageEditor: React.FC<{ prize: GachaPrize; onUpdate: (updates: Partia
             ) : null}
           </div>
           <div style={{ fontSize: 11, fontWeight: 700, color: theme.colors.textWeak, lineHeight: 1.45 }}>
-            160×160 WebP / 品質0.6で保存。30KBを超える場合は自動で追加圧縮します。原画像は保存しません。
+            160×160 WebP / 品質0.6で保存。透明部分には白背景を追加し、画像全体が収まるように縮小します。30KBを超える場合は自動で追加圧縮します。原画像は保存しません。
             {localSize > 0 ? <span> 現在：{formatFileSize(localSize)}</span> : null}
           </div>
           {message ? <div style={{ fontSize: 11, fontWeight: 800, color: message.includes('失敗') ? theme.colors.error : theme.colors.primary }}>{message}</div> : null}
