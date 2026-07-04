@@ -8,6 +8,7 @@ import { Icons, IconButton } from '@/components/common/IconButton';
 import { theme } from '@/components/common/theme';
 import { NativeDateTimeInput, centeredNativeDateTimeInputStyle } from '@/components/common/nativeDateInput';
 import { deriveGachaStatus, formatCurrency, formatDate, formatDateTime, GACHA_STATUSES, getGachaStats, getGachaStatusTone, getPrizeSoldAmount } from '@/utils/gacha';
+import { compressImageFileToAvatarDataUrl, getDataUrlByteSize } from '@/utils/imageCompression';
 
 interface GachaDetailPageProps {
   gacha: Gacha;
@@ -48,6 +49,12 @@ const infoGridStyle: React.CSSProperties = { display: 'grid', gridTemplateColumn
 const infoItemStyle: React.CSSProperties = { minWidth: 0, wordBreak: 'break-word' };
 
 const createId = (prefix = 'gacha-prize') => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const getPrizeImageSrc = (prize: GachaPrize) => prize.imageData || prize.imageUrl || '';
+const formatFileSize = (bytes: number) => {
+  if (!bytes) return '0KB';
+  if (bytes < 1024) return `${bytes}B`;
+  return `${Math.max(1, Math.round(bytes / 1024))}KB`;
+};
 
 const Input: React.FC<{ value: string; onChange: (v: string) => void; placeholder?: string; type?: string; suffix?: string }> = ({ value, onChange, placeholder, type = 'text', suffix }) => (
   <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%', minWidth: 0 }}>
@@ -137,11 +144,69 @@ const StatTile: React.FC<{ label: string; value: React.ReactNode; strong?: boole
   </div>
 );
 
-const PrizeThumb: React.FC<{ prize: GachaPrize }> = ({ prize }) => (
-  <div style={{ width: 58, height: 58, borderRadius: 16, overflow: 'hidden', background: '#F3F4F6', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-    {prize.imageUrl ? <img src={prize.imageUrl} alt={prize.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 25, opacity: 0.28 }}>🎁</span>}
-  </div>
-);
+const PrizeThumb: React.FC<{ prize: GachaPrize; size?: number }> = ({ prize, size = 58 }) => {
+  const src = getPrizeImageSrc(prize);
+  return (
+    <div style={{ width: size, height: size, borderRadius: Math.max(14, Math.round(size * 0.28)), overflow: 'hidden', background: '#F3F4F6', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {src ? <img src={src} alt={prize.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: Math.round(size * 0.43), opacity: 0.28 }}>🎁</span>}
+    </div>
+  );
+};
+
+const PrizeImageEditor: React.FC<{ prize: GachaPrize; onUpdate: (updates: Partial<GachaPrize>) => void }> = ({ prize, onUpdate }) => {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const inputId = `gacha-prize-image-${prize.id}`;
+  const localSize = getDataUrlByteSize(prize.imageData);
+
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    if (!file) return;
+    setIsProcessing(true);
+    setMessage(null);
+    try {
+      const result = await compressImageFileToAvatarDataUrl(file, { maxSizePx: 160, initialQuality: 0.6, maxBytes: 30 * 1024 });
+      onUpdate({ imageData: result.dataUrl });
+      setMessage(`保存済み：${result.width}×${result.height} / ${formatFileSize(result.sizeBytes)}`);
+    } catch (error) {
+      const text = error instanceof Error ? error.message : '画像の処理に失敗しました。';
+      setMessage(text);
+      window.alert(text);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <div style={{ display: 'grid', gap: 10 }}>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0 }}>
+        <PrizeThumb prize={prize} size={72} />
+        <div style={{ flex: 1, minWidth: 0, display: 'grid', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <label
+              htmlFor={inputId}
+              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 38, padding: '0 13px', borderRadius: 13, background: theme.colors.primary, color: '#fff', fontSize: 13, fontWeight: 900, cursor: isProcessing ? 'wait' : 'pointer', opacity: isProcessing ? 0.65 : 1 }}
+            >
+              {isProcessing ? '圧縮中...' : '画像をアップロード'}
+            </label>
+            {prize.imageData ? (
+              <button type="button" onClick={() => { onUpdate({ imageData: undefined }); setMessage(null); }} style={{ minHeight: 38, padding: '0 13px', borderRadius: 13, border: '1px solid rgba(0,0,0,0.1)', background: 'white', color: theme.colors.textSecondary, fontSize: 13, fontWeight: 900, cursor: 'pointer' }}>
+                ローカル画像を削除
+              </button>
+            ) : null}
+          </div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: theme.colors.textWeak, lineHeight: 1.45 }}>
+            160×160 WebP / 品質0.6で保存。30KBを超える場合は自動で追加圧縮します。原画像は保存しません。
+            {localSize > 0 ? <span> 現在：{formatFileSize(localSize)}</span> : null}
+          </div>
+          {message ? <div style={{ fontSize: 11, fontWeight: 800, color: message.includes('失敗') ? theme.colors.error : theme.colors.primary }}>{message}</div> : null}
+        </div>
+      </div>
+      <input id={inputId} type="file" accept="image/*" onChange={handleUpload} disabled={isProcessing} style={{ display: 'none' }} />
+    </div>
+  );
+};
 
 export const GachaDetailPage: React.FC<GachaDetailPageProps> = ({ gacha, onUpdateGacha, onDeleteGacha, onBack, initialEditMode = false }) => {
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
@@ -155,7 +220,7 @@ export const GachaDetailPage: React.FC<GachaDetailPageProps> = ({ gacha, onUpdat
 
   const updateField = (field: keyof Gacha, value: any) => setFormData(prev => ({ ...prev, [field]: value }));
   const updatePrize = (id: string, updates: Partial<GachaPrize>) => setFormData(prev => ({ ...prev, prizes: (prev.prizes || []).map(prize => prize.id === id ? { ...prize, ...updates } : prize) }));
-  const addPrize = () => setFormData(prev => ({ ...prev, prizes: [...(prev.prizes || []), { id: createId(), name: '', imageUrl: '', rank: '', wanted: false, wonCount: 0, keepCount: 0, soldCount: 0, salePrice: undefined, soldTotal: undefined, memo: '' }] }));
+  const addPrize = () => setFormData(prev => ({ ...prev, prizes: [...(prev.prizes || []), { id: createId(), name: '', imageUrl: '', imageData: '', rank: '', wanted: false, wonCount: 0, keepCount: 0, soldCount: 0, salePrice: undefined, soldTotal: undefined, memo: '' }] }));
   const removePrize = (id: string) => setFormData(prev => ({ ...prev, prizes: (prev.prizes || []).filter(prize => prize.id !== id) }));
 
   const save = () => {
@@ -223,6 +288,7 @@ export const GachaDetailPage: React.FC<GachaDetailPageProps> = ({ gacha, onUpdat
                 </div>
                 <div style={{ display: 'grid', gap: 10 }}>
                   <Field label="画像URL"><Input value={prize.imageUrl || ''} onChange={(v) => updatePrize(prize.id, { imageUrl: v })} placeholder="https://..." /></Field>
+                  <Field label="ローカル画像"><PrizeImageEditor prize={prize} onUpdate={(updates) => updatePrize(prize.id, updates)} /></Field>
                   <Field label="名前"><Input value={prize.name || ''} onChange={(v) => updatePrize(prize.id, { name: v })} placeholder="賞品名 / キャラ名" /></Field>
                   <Field label="賞 / レア度"><Input value={prize.rank || ''} onChange={(v) => updatePrize(prize.id, { rank: v })} placeholder="A賞 / レア / ノーマル" /></Field>
                   <Field label="欲しい"><SelectRow options={['欲しい', '不要']} value={prize.wanted ? '欲しい' : '不要'} onChange={(v) => updatePrize(prize.id, { wanted: v === '欲しい' })} /></Field>

@@ -370,6 +370,7 @@ export interface GachaPrize {
   id: string;
   name: string;
   imageUrl?: string;
+  imageData?: string;
   rank?: string;
   wanted: boolean;
   wonCount?: number;

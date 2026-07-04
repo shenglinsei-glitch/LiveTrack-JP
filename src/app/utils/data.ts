@@ -312,6 +312,7 @@ const normalizeGachaPrize = (raw: any, index: number): GachaPrize => ({
   id: asString(raw?.id, makeId(`gacha-prize-${index}`)),
   name: asString(raw?.name, '名称未設定'),
   imageUrl: asString(raw?.imageUrl),
+  imageData: asString(raw?.imageData),
   rank: asString(raw?.rank),
   wanted: asBoolean(raw?.wanted, false),
   wonCount: typeof raw?.wonCount === 'number' ? raw.wonCount : 0,
