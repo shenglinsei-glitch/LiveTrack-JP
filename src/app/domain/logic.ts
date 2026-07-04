@@ -1,5 +1,5 @@
 
-import { Artist, Concert, Status, TICKET_TRACK_STATUSES, TOUR_ACTIVE_STATUSES, GlobalSettings, DueAction, CalendarEvent, CalendarEventType, Exhibition, LotteryHistoryItem, Movie, Anime, AnimeStatus } from '@/domain/types';
+import { Artist, Concert, Status, TICKET_TRACK_STATUSES, TOUR_ACTIVE_STATUSES, DueAction, CalendarEvent, CalendarEventType, Exhibition, LotteryHistoryItem, Movie, Anime, AnimeStatus } from '@/domain/types';
 import { TEXT } from '@/components/common/constants';
 import { bulkPutImageUrls, bulkGetImageUrls, putImageUrl } from '@/domain/imageStore';
 
@@ -111,6 +111,7 @@ export const EVENT_PRIORITY: Record<CalendarEventType, number> = {
   ['展覧']: 5,
   ['映画']: 6,
   ['アニメ']: 7,
+  ['ガチャ']: 8,
 };
 
 const normalizeCalendarDateKey = (raw: string | null | undefined): string | null => {
@@ -587,40 +588,16 @@ const pickArtistSubStatus = (concerts: Concert[]): Status | null => {
   return candidates[0] ?? null;
 };
 
-const getTrackSuffix = (artist: Artist): string => {
-  const activeLinks = (artist.links || []).filter(l => l.autoTrack);
-  if (activeLinks.length === 0) return "";
-  
-  const hasSupported = activeLinks.some(l => l.trackCapability === 'supported');
-  if (hasSupported) return "（可）";
-  
-  const hasUnsupported = activeLinks.some(l => l.trackCapability === 'unsupported');
-  if (hasUnsupported) return "（不可）";
-  
-  return "";
-};
-
 export const calcArtistStatus = (artist: Artist): {
   main: string;
   sub: Status | null;
-  trackSuffix: string;
 } => {
   const allConcerts = (artist.tours || []).flatMap(t => t.concerts || []);
   const hasActiveTour = allConcerts.some(c => TOUR_ACTIVE_STATUSES.includes(c.status));
-  let main: string = TEXT.ARTIST_STATUS.MAIN_NONE;
-
-  if (hasActiveTour) {
-    main = TEXT.ARTIST_STATUS.MAIN_TOURING;
-  } else if (artist.autoTrackConcerts || artist.autoTrackTickets || (artist.links || []).some(l => l.autoTrack)) {
-    main = TEXT.ARTIST_STATUS.MAIN_TRACKING;
-  }
-  
+  const main: string = hasActiveTour ? TEXT.ARTIST_STATUS.MAIN_TOURING : TEXT.ARTIST_STATUS.MAIN_NONE;
   const sub = main === TEXT.ARTIST_STATUS.MAIN_TOURING ? pickArtistSubStatus(allConcerts) : null;
-  const trackSuffix = (main === TEXT.ARTIST_STATUS.MAIN_TRACKING || main === TEXT.ARTIST_STATUS.MAIN_TOURING) 
-    ? getTrackSuffix(artist) 
-    : "";
 
-  return { main, sub, trackSuffix };
+  return { main, sub };
 };
 
 export const sortArtistsForDisplay = (artists: Artist[], sortMode: 'manual' | 'status'): Artist[] => {
@@ -637,8 +614,7 @@ export const sortArtistsForDisplay = (artists: Artist[], sortMode: 'manual' | 's
 const getArtistPriority = (artist: Artist) => {
   const status = calcArtistStatus(artist);
   if (status.main === TEXT.ARTIST_STATUS.MAIN_TOURING) return { main: 1, sub: status.sub ? ARTIST_SUB_STATUS_PRIORITY[status.sub] : 99 };
-  if (status.main === TEXT.ARTIST_STATUS.MAIN_TRACKING) return { main: 2, sub: 0 };
-  return { main: 3, sub: 0 };
+  return { main: 2, sub: 0 };
 };
 
 const getConcertStatusPriority = (status: Status): number => {
@@ -723,26 +699,6 @@ export const checkGlobalDateConflicts = (allArtists: Artist[], currentTourId: st
     currentDatesInForm.add(dateOnly);
   });
   return Array.from(conflicts);
-};
-
-export const getTrackTargetConcerts = (artist: Artist, settings: GlobalSettings, now: Date = new Date()): Concert[] => {
-  const n = settings.autoTrackIntervalDays;
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const limitStart = new Date(todayStart.getTime() - n * 24 * 60 * 60 * 1000);
-  return (artist.tours || []).flatMap(tour => tour.concerts || []).filter(concert => {
-    if (!TICKET_TRACK_STATUSES.includes(concert.status)) return false;
-    const d = concert.concertAt || concert.date;
-    if (d === TEXT.GLOBAL.TBD || !d) return false;
-    const standardized = d.replace(/-/g, '/');
-    const concertDate = new Date(standardized);
-    return concertDate >= limitStart && concertDate <= todayStart;
-  });
-};
-
-export const shouldTriggerAutoTrack = (lastCheckedAt: string | undefined, settings: GlobalSettings, now: Date = new Date()): boolean => {
-  if (!lastCheckedAt) return true;
-  const diffDays = (now.getTime() - new Date(lastCheckedAt.replace(/-/g, '/')).getTime()) / (1000 * 60 * 60 * 24);
-  return diffDays >= settings.autoTrackIntervalDays;
 };
 
 export const migrateAlbumImagesToIndexedDB = async (artists: Artist[]): Promise<Artist[]> => {

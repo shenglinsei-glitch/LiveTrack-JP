@@ -23,6 +23,7 @@ export const typeColorMap: Record<CalendarEventType, string> = {
   展覧: theme.colors.primary,
   映画: '#8B5CF6',
   アニメ: theme.colors.primary,
+  ガチャ: theme.colors.status['抽選中'],
 };
 
 const CONCERT_DOT_COLOR_UNDECIDED = '#377D99';

@@ -4,7 +4,7 @@
 export const TEXT = {
   GLOBAL: {
     APP_TITLE: 'LiveTrack JP',
-    APP_SUBTITLE: 'ライブ情報を効率的に追跡',
+    APP_SUBTITLE: 'お気に入りをまとめて記録',
     COMMON_UNDEFINED: '未定',
     COMMON_UNKNOWN: '不明',
     COMMON_NOT_REGISTERED: '未登録',
@@ -21,7 +21,6 @@ export const TEXT = {
   },
   ARTIST_STATUS: {
     MAIN_TOURING: 'ツアー中',
-    MAIN_TRACKING: '自動追跡中',
     MAIN_NONE: '未フォロー',
   },
   CALENDAR: {
@@ -72,7 +71,6 @@ export const TEXT = {
     SORT_MANUAL: '手動',
     SORT_STATUS: 'ステータス順（優先）',
     SORT_LOTTERY: '抽選結果日時順',
-    AUTO_TRACK_INTERVAL: '自動追跡の間隔',
     SHOW_ATTENDED: '参戦済みを表示',
     SHOW_SKIPPED: '見送りを表示',
   },

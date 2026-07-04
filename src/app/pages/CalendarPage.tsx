@@ -1,5 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useEffect, useMemo, useState } from 'react';
 import { PageShell } from '@/components/common/PageShell';
 import { theme } from '@/components/common/theme';
 import { TEXT } from '@/components/common/constants';
@@ -30,269 +29,6 @@ interface Props {
   onMenuClose?: () => void;
 }
 
-// ====== Wheel Picker Popover ======
-const WheelPickerPopover = ({
-  isOpen,
-  onClose,
-  onConfirm,
-  initialYear,
-  initialMonth,
-  anchorRect,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  onConfirm: (y: number, m: number) => void;
-  initialYear: number;
-  initialMonth: number;
-  anchorRect: DOMRect | null;
-}) => {
-  const [selectedY, setSelectedY] = useState(initialYear);
-  const [selectedM, setSelectedM] = useState(initialMonth);
-  const yearListRef = useRef<HTMLDivElement>(null);
-  const monthListRef = useRef<HTMLDivElement>(null);
-  const scrollDebounceRef = useRef<number | null>(null);
-
-  const years = useMemo(() => {
-    const cur = new Date().getFullYear();
-    return Array.from({ length: 21 }, (_, i) => cur - 10 + i);
-  }, []);
-  const months = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
-
-  const ITEM_HEIGHT = 44;
-  const POPOVER_WIDTH = Math.min(340, window.innerWidth - 32);
-  const POPOVER_HEIGHT = 330;
-
-  const position = useMemo(() => {
-    if (!anchorRect) return { top: 0, left: 0 };
-    let left = anchorRect.left + anchorRect.width / 2 - POPOVER_WIDTH / 2;
-    left = Math.min(Math.max(left, 16), window.innerWidth - 16 - POPOVER_WIDTH);
-
-    let top = anchorRect.bottom + 10;
-    if (top + POPOVER_HEIGHT > window.innerHeight - 16) {
-      top = anchorRect.top - 10 - POPOVER_HEIGHT;
-    }
-    return { top, left };
-  }, [anchorRect, POPOVER_WIDTH, POPOVER_HEIGHT]);
-
-  const syncScroll = (ref: React.RefObject<HTMLDivElement>, value: number, options: number[]) => {
-    if (!ref.current) return;
-    const idx = options.indexOf(value);
-    if (idx !== -1) {
-      const target = ref.current.children[idx] as HTMLElement;
-      if (target) target.scrollIntoView({ block: 'center', behavior: 'auto' });
-    }
-  };
-
-  useLayoutEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          syncScroll(yearListRef, initialYear, years);
-          syncScroll(monthListRef, initialMonth, months);
-          setSelectedY(initialYear);
-          setSelectedM(initialMonth);
-        });
-      });
-    } else {
-      document.body.style.overflow = '';
-    }
-  }, [isOpen, initialYear, initialMonth, years, months]);
-
-  const handleScroll = (ref: React.RefObject<HTMLDivElement>, type: 'y' | 'm') => {
-    if (!ref.current) return;
-    if (scrollDebounceRef.current) window.clearTimeout(scrollDebounceRef.current);
-
-    scrollDebounceRef.current = window.setTimeout(() => {
-      const el = ref.current;
-      if (!el) return;
-
-      const children = Array.from(el.children) as HTMLElement[];
-      const containerRect = el.getBoundingClientRect();
-      const containerCenter = containerRect.top + el.clientHeight / 2;
-
-      let closestIdx = 0;
-      let minDiff = Number.MAX_VALUE;
-
-      children.forEach((child, idx) => {
-        const rect = child.getBoundingClientRect();
-        const childCenter = rect.top + rect.height / 2;
-        const diff = Math.abs(containerCenter - childCenter);
-        if (diff < minDiff) {
-          minDiff = diff;
-          closestIdx = idx;
-        }
-      });
-
-      const targetItem = children[closestIdx];
-      if (targetItem) {
-        targetItem.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        const options = type === 'y' ? years : months;
-        const val = options[closestIdx];
-        if (val !== undefined) {
-          if (type === 'y') setSelectedY(val);
-          else setSelectedM(val);
-        }
-      }
-    }, 100);
-  };
-
-  const handleItemClick = (ref: React.RefObject<HTMLDivElement>, idx: number) => {
-    if (!ref.current) return;
-    const target = ref.current.children[idx] as HTMLElement;
-    if (target) target.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  };
-
-  if (!isOpen) return null;
-
-  return createPortal(
-    <div style={{ position: 'fixed', inset: 0, zIndex: 5000 }}>
-      <style>{`
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
-
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.25)' }} onClick={onClose} />
-
-      <div
-        className="fade-in"
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          position: 'fixed',
-          top: position.top,
-          left: position.left,
-          width: POPOVER_WIDTH,
-          maxWidth: 'calc(100vw - 32px)',
-          height: POPOVER_HEIGHT,
-          background: '#FFFFFF',
-          borderRadius: '24px',
-          padding: '16px',
-          boxSizing: 'border-box',
-          boxShadow: '0 18px 50px rgba(0,0,0,0.12)',
-          border: '1px solid rgba(15, 23, 42, 0.06)',
-          display: 'flex',
-          flexDirection: 'column',
-          pointerEvents: 'auto',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', alignItems: 'center', padding: '0 4px' }}>
-          <button onClick={onClose} style={{ border: 'none', background: 'none', fontSize: '14px', fontWeight: 'bold', color: theme.colors.textSecondary, cursor: 'pointer' }}>
-            キャンセル
-          </button>
-          <span style={{ fontWeight: '900', fontSize: '15px', color: theme.colors.text }}>年月を選択</span>
-          <button onClick={() => onConfirm(selectedY, selectedM)} style={{ border: 'none', background: 'none', fontSize: '14px', fontWeight: '900', color: theme.colors.primary, cursor: 'pointer' }}>
-            確定
-          </button>
-        </div>
-
-        <div style={{ position: 'relative', flex: 1, display: 'flex', overflow: 'hidden', background: 'rgba(0,0,0,0.02)', borderRadius: '16px' }}>
-          <div
-            style={{
-              position: 'absolute',
-              top: '50%',
-              left: 12,
-              right: 12,
-              height: ITEM_HEIGHT,
-              transform: 'translateY(-50%)',
-              background: 'rgba(83, 190, 232, 0.08)',
-              borderRadius: '10px',
-              zIndex: 0,
-              pointerEvents: 'none',
-              borderTop: '0.5px solid rgba(83, 190, 232, 0.12)',
-              borderBottom: '0.5px solid rgba(83, 190, 232, 0.12)',
-            }}
-          />
-
-          <div
-            ref={yearListRef}
-            onScroll={() => handleScroll(yearListRef, 'y')}
-            style={{
-              flex: 1,
-              height: '100%',
-              overflowY: 'auto',
-              scrollSnapType: 'y mandatory',
-              textAlign: 'center',
-              zIndex: 1,
-              WebkitOverflowScrolling: 'touch',
-              touchAction: 'pan-y',
-              pointerEvents: 'auto',
-              overscrollBehavior: 'contain',
-              paddingTop: ITEM_HEIGHT * 3,
-              paddingBottom: ITEM_HEIGHT * 3,
-            }}
-            className="hide-scrollbar"
-          >
-            {years.map((y, idx) => (
-              <div
-                key={y}
-                onClick={() => handleItemClick(yearListRef, idx)}
-                style={{
-                  height: ITEM_HEIGHT,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  scrollSnapAlign: 'center',
-                  fontSize: y === selectedY ? '18px' : '16px',
-                  fontWeight: y === selectedY ? '900' : '500',
-                  color: y === selectedY ? theme.colors.text : theme.colors.textWeak,
-                  transition: 'all 0.2s ease',
-                  cursor: 'pointer',
-                  userSelect: 'none',
-                }}
-              >
-                {y}年
-              </div>
-            ))}
-          </div>
-
-          <div
-            ref={monthListRef}
-            onScroll={() => handleScroll(monthListRef, 'm')}
-            style={{
-              flex: 1,
-              height: '100%',
-              overflowY: 'auto',
-              scrollSnapType: 'y mandatory',
-              textAlign: 'center',
-              zIndex: 1,
-              WebkitOverflowScrolling: 'touch',
-              touchAction: 'pan-y',
-              pointerEvents: 'auto',
-              overscrollBehavior: 'contain',
-              paddingTop: ITEM_HEIGHT * 3,
-              paddingBottom: ITEM_HEIGHT * 3,
-            }}
-            className="hide-scrollbar"
-          >
-            {months.map((m, idx) => (
-              <div
-                key={m}
-                onClick={() => handleItemClick(monthListRef, idx)}
-                style={{
-                  height: ITEM_HEIGHT,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  scrollSnapAlign: 'center',
-                  fontSize: m === selectedM ? '18px' : '16px',
-                  fontWeight: m === selectedM ? '900' : '500',
-                  color: m === selectedM ? theme.colors.text : theme.colors.textWeak,
-                  transition: 'all 0.2s ease',
-                  cursor: 'pointer',
-                  userSelect: 'none',
-                }}
-              >
-                {m}月
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
-};
-
 export const CalendarPage: React.FC<Props> = ({
   artists,
   exhibitions,
@@ -317,10 +53,7 @@ export const CalendarPage: React.FC<Props> = ({
   const [mode, setMode] = useState<CalendarMode>('concert');
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
 
-  const monthAnchorRef = useRef<HTMLDivElement | null>(null);
-  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const [isToolsOpen, setIsToolsOpen] = useState(false);
-  const [isWheelPickerOpen, setIsWheelPickerOpen] = useState(false);
 
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchCurrentX, setTouchCurrentX] = useState<number | null>(null);
@@ -348,7 +81,6 @@ export const CalendarPage: React.FC<Props> = ({
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (isWheelPickerOpen) return;
     setTouchStartX(e.touches[0].clientX);
     setTouchCurrentX(e.touches[0].clientX);
   };
@@ -376,11 +108,15 @@ export const CalendarPage: React.FC<Props> = ({
 
   const selectedDayEvents = useMemo(() => getSelectedDayEvents(selectedDateKey, mode, musicEventMap, exhibitions), [selectedDateKey, mode, musicEventMap, exhibitions]);
 
-  const handleOpenPicker = () => {
-    if (monthAnchorRef.current) {
-      setAnchorRect(monthAnchorRef.current.getBoundingClientRect());
-      setIsWheelPickerOpen(true);
-    }
+  const monthInputValue = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+
+  const handleNativeMonthChange = (value: string) => {
+    const match = value.match(/^(\d{4})-(\d{2})$/);
+    if (!match) return;
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) return;
+    setCurrentDate(new Date(year, month - 1, 1));
   };
 
   return (
@@ -423,12 +159,7 @@ export const CalendarPage: React.FC<Props> = ({
             )}
           </div>
 
-          <div ref={monthAnchorRef} onClick={handleOpenPicker} style={{ justifySelf: 'center', fontSize: '17px', fontWeight: '900', color: theme.colors.text, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: '12px', maxWidth: '100%' }}>
-            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {currentDate.getFullYear()}年{currentDate.getMonth() + 1}月
-            </span>
-            <span style={{ flexShrink: 0, marginLeft: '6px', fontSize: '10px', opacity: 0.35, lineHeight: 1 }}>▼</span>
-          </div>
+          <div />
 
           <div style={{ position: 'relative' }}>
             <button onClick={() => setIsToolsOpen(v => !v)} style={{ border: '1px solid rgba(0,0,0,0.06)', background: 'rgba(255,255,255,0.72)', color: '#9CA3AF', fontSize: '12px', fontWeight: 800, padding: '10px', borderRadius: '999px', cursor: 'pointer', whiteSpace: 'nowrap', lineHeight: 0, backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', boxShadow: '0 6px 18px rgba(15, 23, 42, 0.06)' }} aria-label="calendar tools">
@@ -495,6 +226,11 @@ export const CalendarPage: React.FC<Props> = ({
             todayKey={todayKey}
             musicEventMap={musicEventMap}
             exhibitions={exhibitions}
+            currentDate={currentDate}
+            monthInputValue={monthInputValue}
+            onMonthChange={handleNativeMonthChange}
+            onPreviousMonth={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}
+            onNextMonth={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}
             onDayClick={handleDayClick}
           />
         </div>
@@ -509,18 +245,6 @@ export const CalendarPage: React.FC<Props> = ({
           onOpenArtistEvent={handleEventClick}
         />
       </div>
-
-      <WheelPickerPopover
-        isOpen={isWheelPickerOpen}
-        onClose={() => setIsWheelPickerOpen(false)}
-        onConfirm={(y, m) => {
-          setCurrentDate(new Date(y, m - 1, 1));
-          setIsWheelPickerOpen(false);
-        }}
-        initialYear={currentDate.getFullYear()}
-        initialMonth={currentDate.getMonth() + 1}
-        anchorRect={anchorRect}
-      />
     </PageShell>
   );
 };

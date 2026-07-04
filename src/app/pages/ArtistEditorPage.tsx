@@ -18,27 +18,10 @@ interface Props {
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
-/**
- * 确保规格化函数包含所有判定相关的字段
- */
-const normalizeLink = (link: Partial<SiteLink> | undefined | null): SiteLink => {
-  return {
-    name: typeof link?.name === 'string' ? link!.name : '',
-    url: typeof link?.url === 'string' ? link!.url : '',
-    autoTrack: typeof link?.autoTrack === 'boolean' ? link!.autoTrack : false,
-    trackCapability: link?.trackCapability || 'unjudged', 
-    trackCapabilityCheckedAt: link?.trackCapabilityCheckedAt,
-    lastCheckedAt: link?.lastCheckedAt,
-    lastSuccessAt: link?.lastSuccessAt,
-    trackingStatus: link?.trackingStatus,
-    errorMessage: link?.errorMessage,
-    matchedKeywords: link?.matchedKeywords,
-    lastHitAt: link?.lastHitAt,
-    acknowledgedAt: link?.acknowledgedAt,
-  };
-};
-
-type LinkJudgeResult = NonNullable<SiteLink['trackCapability']>;
+const normalizeLink = (link: Partial<SiteLink> | undefined | null): SiteLink => ({
+  name: typeof link?.name === 'string' ? link!.name : '',
+  url: typeof link?.url === 'string' ? link!.url : '',
+});
 
 export const ArtistEditorPage: React.FC<Props> = ({
   artistId,
@@ -52,8 +35,6 @@ export const ArtistEditorPage: React.FC<Props> = ({
     name: '',
     imageUrl: '',
     links: [],
-    autoTrackConcerts: true,
-    autoTrackTickets: true,
     tours: [],
     order: 0,
   });
@@ -95,54 +76,6 @@ export const ArtistEditorPage: React.FC<Props> = ({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  /**
-   * 增强型 URL 判定规则
-   */
-  const judgeTrackability = (url: string): LinkJudgeResult => {
-    const u = (url || '').trim();
-    if (!u) return 'unjudged';
-
-    const lower = u.toLowerCase();
-
-    // 1. 社交媒体：直接判定为不可
-    if (lower.includes('twitter.com') || lower.includes('x.com') || lower.includes('instagram.com') || lower.includes('facebook.com')) {
-      return 'unsupported';
-    }
-
-    // 2. 详情页特征：判定为可 (高优先级)
-    const hasDetailHint =
-      lower.includes('in.html') ||
-      lower.includes('id=') ||
-      lower.includes('detail') ||
-      lower.includes('article') ||
-      lower.includes('post/') ||
-      lower.includes('view/');
-    
-    if (hasDetailHint) return 'supported';
-
-    // 3. 判定列表页/分页页：判定为不可
-    // 匹配包含 /news/、/list/、/page/、/p/ 后面紧跟数字或特定结构的 URL
-    const isNumberedList = /\/(news|list|page|p|archive)\/\d+/.test(lower);
-    const isNewsRoot = /\/(news|list|p)\/?(\?.*)?$/.test(lower); // 处理以 /news 或 /news/ 结尾的路径
-
-    if (isNumberedList || isNewsRoot) {
-      return 'unsupported';
-    }
-
-    // 4. 特定的日程/巡演页面：判定为可
-    if (lower.includes('/live') || lower.includes('/tour') || lower.includes('/schedule') || lower.includes('/concert')) {
-      return 'supported';
-    }
-
-    return 'unjudged';
-  };
-
-  const getJudgeLabel = (r: LinkJudgeResult | undefined): string => {
-    if (r === 'unsupported') return '不可';
-    if (r === 'supported') return '可';
-    return '未判定';
-  };
-
   const handleLoadImage = () => {
     if (imageUrlDraft.trim()) {
       handleUpdateField('imageUrl', imageUrlDraft.trim());
@@ -165,7 +98,7 @@ export const ArtistEditorPage: React.FC<Props> = ({
   };
 
   const addLink = () => {
-    setLinks((prev) => [...prev, normalizeLink({ name: '', url: '', autoTrack: false, trackCapability: 'unjudged' })]);
+    setLinks((prev) => [...prev, normalizeLink({ name: '', url: '' })]);
   };
 
   const updateLink = (index: number, patch: Partial<SiteLink>) => {
@@ -176,25 +109,7 @@ export const ArtistEditorPage: React.FC<Props> = ({
     setLinks((prev) => prev.filter((_, i) => i !== index));
   };
 
-  /**
-   * 判定按钮：确保从当前状态读取 URL 并写回结果
-   */
-  const runJudgeForLink = (index: number) => {
-    setLinks((prev) => {
-      const current = prev.map((l) => normalizeLink(l));
-      const target = current[index];
-      if (!target) return current;
-      
-      const result = judgeTrackability(target.url);
-      const next = [...current];
-      next[index] = {
-        ...target,
-        trackCapability: result,
-        trackCapabilityCheckedAt: new Date().toISOString(),
-      };
-      return next;
-    });
-  };
+
 
   return (
     <PageShell
@@ -288,26 +203,6 @@ export const ArtistEditorPage: React.FC<Props> = ({
         </section>
 
         <section style={{ marginBottom: theme.spacing.xl }}>
-          <h3 style={sectionTitleStyle}>追跡設定</h3>
-          <GlassCard padding={theme.spacing.md}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
-              <ToggleRow
-                label="公演自動追跡"
-                subLabel="新規ツアー・公演情報を自動取得します"
-                active={formData.autoTrackConcerts}
-                onToggle={() => handleUpdateField('autoTrackConcerts', !formData.autoTrackConcerts)}
-              />
-              <ToggleRow
-                label="チケット自動追跡"
-                subLabel="販売・抽選情報を自動更新します"
-                active={formData.autoTrackTickets}
-                onToggle={() => handleUpdateField('autoTrackTickets', !formData.autoTrackTickets)}
-              />
-            </div>
-          </GlassCard>
-        </section>
-
-        <section style={{ marginBottom: theme.spacing.xl }}>
           <h3 style={sectionTitleStyle}>公式サイト・リンク</h3>
           <GlassCard padding={theme.spacing.md}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -319,12 +214,9 @@ export const ArtistEditorPage: React.FC<Props> = ({
                       <span style={{ fontSize: '12px', color: theme.colors.textSecondary, fontWeight: 800 }}>
                         サイト {idx + 1}
                       </span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <Toggle active={safe.autoTrack} onToggle={() => updateLink(idx, { autoTrack: !safe.autoTrack })} />
-                        <button onClick={() => removeLink(idx)} style={iconBtnStyle}>
-                          <Icons.Trash />
-                        </button>
-                      </div>
+                      <button onClick={() => removeLink(idx)} style={iconBtnStyle}>
+                        <Icons.Trash />
+                      </button>
                     </div>
                     <Field label="サイト名">
                       <input
@@ -340,42 +232,11 @@ export const ArtistEditorPage: React.FC<Props> = ({
                       <input
                         type="url"
                         value={safe.url}
-                        onChange={(e) => {
-                          updateLink(idx, {
-                            url: e.target.value,
-                            trackCapability: 'unjudged',
-                            trackCapabilityCheckedAt: undefined,
-                          });
-                        }}
+                        onChange={(e) => updateLink(idx, { url: e.target.value })}
                         placeholder="https://..."
                         style={inputStyle}
                       />
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px', minHeight: '18px' }}>
-                        <div style={{ 
-                          fontSize: '12px', 
-                          color: safe.trackCapability === 'unsupported' ? theme.colors.error : theme.colors.textSecondary,
-                          fontWeight: safe.trackCapability !== 'unjudged' ? 'bold' : 'normal'
-                        }}>
-                          {getJudgeLabel(safe.trackCapability)}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => runJudgeForLink(idx)}
-                          style={{
-                            padding: '4px 10px',
-                            borderRadius: '999px',
-                            border: '1px solid rgba(0,0,0,0.10)',
-                            background: 'rgba(255,255,255,0.55)',
-                            fontSize: '12px',
-                            color: theme.colors.textSecondary,
-                            cursor: 'pointer',
-                            flexShrink: 0,
-                          }}
-                        >
-                          判定
-                        </button>
-                      </div>
-                    </Field>
+              </Field>
                   </div>
                 );
               })}
@@ -496,42 +357,5 @@ const Field = ({ label, children }: any) => (
   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
     <label style={{ fontSize: '12px', color: theme.colors.textSecondary, marginLeft: '4px' }}>{label}</label>
     {children}
-  </div>
-);
-
-const ToggleRow = ({ label, subLabel, active, onToggle }: any) => (
-  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-    <div>
-      <div style={{ fontWeight: '600', fontSize: '15px' }}>{label}</div>
-      <div style={{ fontSize: '12px', color: theme.colors.textSecondary }}>{subLabel}</div>
-    </div>
-    <Toggle active={active} onToggle={onToggle} />
-  </div>
-);
-
-const Toggle = ({ active, onToggle }: any) => (
-  <div
-    onClick={onToggle}
-    style={{
-      width: '46px',
-      height: '26px',
-      borderRadius: '13px',
-      background: active ? theme.colors.primary : '#E9E9EB',
-      position: 'relative',
-      cursor: 'pointer',
-    }}
-  >
-    <div
-      style={{
-        position: 'absolute',
-        top: '2px',
-        left: active ? '22px' : '2px',
-        width: '22px',
-        height: '22px',
-        borderRadius: '11px',
-        background: 'white',
-        transition: 'left 0.2s',
-      }}
-    />
   </div>
 );

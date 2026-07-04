@@ -47,3 +47,42 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   margin: 0 !important;
   padding: 0 !important;
 }
+
+/* Calendar month picker: make the native input cover the whole year-month text area. */
+.calendar-month-native-input {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  display: block !important;
+  opacity: 0.001 !important;
+  border: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  color: transparent !important;
+  outline: none !important;
+  cursor: pointer !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  z-index: 2 !important;
+}
+
+.calendar-month-native-input::-webkit-calendar-picker-indicator {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  opacity: 0 !important;
+  cursor: pointer !important;
+}
+
+.calendar-month-native-input::-webkit-date-and-time-value,
+.calendar-month-native-input::-webkit-datetime-edit {
+  color: transparent !important;
+}

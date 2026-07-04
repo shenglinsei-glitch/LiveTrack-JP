@@ -30,13 +30,12 @@ export const ArtistGridCard: React.FC<ArtistGridCardProps> = ({
     if (status.main === TEXT.ARTIST_STATUS.MAIN_TOURING && status.sub) {
       return theme.colors.status[status.sub as Status] || theme.colors.primary;
     }
-    if (status.main === TEXT.ARTIST_STATUS.MAIN_TRACKING) return '#00E0FF';
     return theme.colors.textLabel;
   }, [status]);
 
   const displayImage = imageUrl || artist?.imageUrl;
   const displayTitle = overrideTitle || artist?.name || '';
-  const displaySubtitle = overrideSubtitle || (status ? `${status.main}${status.trackSuffix || ''}${status.sub ? ` / ${TEXT.STATUS[status.sub]}` : ''}` : '');
+  const displaySubtitle = overrideSubtitle || (status ? `${status.main}${status.sub ? ` / ${TEXT.STATUS[status.sub]}` : ''}` : '');
 
   const meta = !hideStatus && displaySubtitle ? (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>

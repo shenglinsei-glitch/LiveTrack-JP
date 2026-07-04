@@ -22,6 +22,11 @@ interface Props {
   todayKey: string;
   musicEventMap: Map<string, CalendarEvent[]>;
   exhibitions: Exhibition[];
+  currentDate: Date;
+  monthInputValue: string;
+  onMonthChange: (value: string) => void;
+  onPreviousMonth: () => void;
+  onNextMonth: () => void;
   onDayClick: (day: number) => void;
 }
 
@@ -33,8 +38,50 @@ export const CalendarGrid: React.FC<Props> = ({
   todayKey,
   musicEventMap,
   exhibitions,
+  currentDate,
+  monthInputValue,
+  onMonthChange,
+  onPreviousMonth,
+  onNextMonth,
   onDayClick,
 }) => {
+  const [supportsMonthInput, setSupportsMonthInput] = React.useState(true);
+
+  React.useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const testInput = document.createElement('input');
+    testInput.setAttribute('type', 'month');
+    setSupportsMonthInput(testInput.type === 'month');
+  }, []);
+
+  const handleNativeInputClick = (event: React.MouseEvent<HTMLInputElement>) => {
+    event.stopPropagation();
+
+    const inputWithPicker = event.currentTarget as HTMLInputElement & { showPicker?: () => void };
+    if (typeof inputWithPicker.showPicker !== 'function') return;
+
+    try {
+      inputWithPicker.showPicker();
+    } catch {
+      // iOS Safari does not support showPicker; direct tapping the input still opens the native picker.
+    }
+  };
+
+  const monthNativeInputStyle: React.CSSProperties = {
+    position: 'absolute',
+    inset: 0,
+    width: '100%',
+    height: '100%',
+    opacity: 0.001,
+    border: 'none',
+    padding: 0,
+    margin: 0,
+    cursor: 'pointer',
+    background: 'transparent',
+    color: 'transparent',
+    zIndex: 2,
+  };
+
   const renderExhibitionRowBars = (week: Array<{ day: number | null; dateKey: string | null }>) => {
     const weekStartDay = week.find((d) => d.dateKey)?.dateKey;
     const weekEndDay = [...week].reverse().find((d) => d.dateKey)?.dateKey;
@@ -113,6 +160,77 @@ export const CalendarGrid: React.FC<Props> = ({
 
   return (
     <div style={{ background: 'white', borderRadius: '28px', padding: '16px 10px', border: '1px solid rgba(0,0,0,0.04)', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', overflow: 'hidden', userSelect: 'none', touchAction: 'pan-y' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '44px 1fr 44px', alignItems: 'center', gap: '6px', marginBottom: '14px', padding: '0 6px 2px' }}>
+        <button
+          type="button"
+          onClick={(event) => { event.stopPropagation(); onPreviousMonth(); }}
+          onTouchStart={(event) => event.stopPropagation()}
+          aria-label="previous month"
+          style={{ border: 'none', background: 'transparent', color: theme.colors.textSecondary, fontSize: '28px', fontWeight: 600, lineHeight: 1, height: 40, borderRadius: 14, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+        >
+          ‹
+        </button>
+
+        <div
+          role="button"
+          aria-label="年月を選択"
+          style={{
+            position: 'relative',
+            justifySelf: 'center',
+            fontSize: '18px',
+            fontWeight: '900',
+            color: theme.colors.text,
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            minWidth: 0,
+            padding: '6px 10px',
+            borderRadius: '12px',
+            maxWidth: '100%',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+            {currentDate.getFullYear()}年{currentDate.getMonth() + 1}月
+          </span>
+          <span style={{ flexShrink: 0, marginLeft: '6px', fontSize: '10px', opacity: 0.35, lineHeight: 1, pointerEvents: 'none' }}>▼</span>
+
+          {supportsMonthInput ? (
+            <input
+              className="calendar-month-native-input"
+              aria-label="年月を選択"
+              type="month"
+              value={monthInputValue}
+              onClick={handleNativeInputClick}
+              onTouchStart={(event) => event.stopPropagation()}
+              onChange={(e) => onMonthChange(e.target.value)}
+              style={monthNativeInputStyle}
+            />
+          ) : (
+            <input
+              className="calendar-month-native-input"
+              aria-label="年月を選択"
+              type="date"
+              value={`${monthInputValue}-01`}
+              onClick={handleNativeInputClick}
+              onTouchStart={(event) => event.stopPropagation()}
+              onChange={(e) => onMonthChange(e.target.value.slice(0, 7))}
+              style={monthNativeInputStyle}
+            />
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={(event) => { event.stopPropagation(); onNextMonth(); }}
+          onTouchStart={(event) => event.stopPropagation()}
+          aria-label="next month"
+          style={{ border: 'none', background: 'transparent', color: theme.colors.textSecondary, fontSize: '28px', fontWeight: 600, lineHeight: 1, height: 40, borderRadius: 14, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+        >
+          ›
+        </button>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px', marginBottom: '8px' }}>
         {getWeekLabels(weekStart).map((l) => (
           <div key={l} style={{ textAlign: 'center', fontSize: '11px', fontWeight: '700', color: theme.colors.textSecondary }}>

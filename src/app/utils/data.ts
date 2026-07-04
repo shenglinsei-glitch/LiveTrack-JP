@@ -2,6 +2,10 @@ import {
   Actor,
   Anime,
   AnimeStatus,
+  Gacha,
+  GachaKind,
+  GachaPrize,
+  GachaStatus,
   Artist,
   Concert,
   Exhibition,
@@ -76,19 +80,7 @@ export const normalizeArtistData = (raw: any): Artist => ({
   links: asArray<any>(raw?.links).map((link) => ({
     name: asString(link?.name),
     url: asString(link?.url),
-    autoTrack: asBoolean(link?.autoTrack),
-    lastCheckedAt: link?.lastCheckedAt,
-    lastSuccessAt: link?.lastSuccessAt,
-    matchedKeywords: asArray<string>(link?.matchedKeywords),
-    lastHitAt: link?.lastHitAt,
-    acknowledgedAt: link?.acknowledgedAt,
-    trackingStatus: link?.trackingStatus,
-    errorMessage: link?.errorMessage,
-    trackCapability: link?.trackCapability,
-    trackCapabilityCheckedAt: link?.trackCapabilityCheckedAt,
   })),
-  autoTrackConcerts: asBoolean(raw?.autoTrackConcerts),
-  autoTrackTickets: asBoolean(raw?.autoTrackTickets),
   tours: asArray<any>(raw?.tours).map(normalizeTour),
   order: raw?.order,
 });
@@ -311,3 +303,45 @@ export const normalizeAnimeData = (raw: any): Anime => ({
   createdAt: asString(raw?.createdAt, new Date().toISOString()),
   updatedAt: asString(raw?.updatedAt, new Date().toISOString()),
 });
+
+
+const GACHA_KINDS: GachaKind[] = ['ガチャ', '一番くじ', 'ブラインド商品', 'ランダム特典', 'その他'];
+const GACHA_STATUSES: GachaStatus[] = ['発売前', '抽選予定', '抽選済み', '一部売却済み', '完了', '見送り'];
+
+const normalizeGachaPrize = (raw: any, index: number): GachaPrize => ({
+  id: asString(raw?.id, makeId(`gacha-prize-${index}`)),
+  name: asString(raw?.name, '名称未設定'),
+  imageUrl: asString(raw?.imageUrl),
+  rank: asString(raw?.rank),
+  wanted: asBoolean(raw?.wanted, false),
+  wonCount: typeof raw?.wonCount === 'number' ? raw.wonCount : 0,
+  keepCount: typeof raw?.keepCount === 'number' ? raw.keepCount : 0,
+  soldCount: typeof raw?.soldCount === 'number' ? raw.soldCount : 0,
+  salePrice: typeof raw?.salePrice === 'number' ? raw.salePrice : undefined,
+  soldTotal: typeof raw?.soldTotal === 'number' ? raw.soldTotal : undefined,
+  soldAt: asString(raw?.soldAt),
+  memo: asString(raw?.memo),
+});
+
+export const normalizeGachaData = (raw: any): Gacha => {
+  const nowIso = new Date().toISOString();
+  const kind = GACHA_KINDS.includes(raw?.kind) ? raw.kind : 'ガチャ';
+  const status = GACHA_STATUSES.includes(raw?.status) ? raw.status : '抽選予定';
+  return {
+    id: asString(raw?.id, makeId('gacha')),
+    name: asString(raw?.name ?? raw?.title, '新規ガチャ'),
+    posterUrl: asString(raw?.posterUrl ?? raw?.imageUrl),
+    kind,
+    releaseDate: asString(raw?.releaseDate),
+    drawDateTime: asString(raw?.drawDateTime ?? raw?.drawAt),
+    drawCount: typeof raw?.drawCount === 'number' ? raw.drawCount : undefined,
+    drawPlace: asString(raw?.drawPlace ?? raw?.location),
+    pricePerDraw: typeof raw?.pricePerDraw === 'number' ? raw.pricePerDraw : undefined,
+    otherCosts: typeof raw?.otherCosts === 'number' ? raw.otherCosts : undefined,
+    status,
+    prizes: asArray<any>(raw?.prizes ?? raw?.items).map(normalizeGachaPrize),
+    memo: asString(raw?.memo),
+    createdAt: asString(raw?.createdAt, nowIso),
+    updatedAt: asString(raw?.updatedAt, nowIso),
+  };
+};

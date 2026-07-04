@@ -11,14 +11,6 @@ export type Status =
 export const TOUR_ACTIVE_STATUSES: Status[] = ['発売前', '検討中', '抽選中', '参戦予定', '見送'];
 export const TICKET_TRACK_STATUSES: Status[] = ['発売前', '検討中', '抽選中'];
 
-export type TrackingErrorType = 
-  | '接続できませんでした'
-  | 'ページ内容が変更されました'
-  | 'アクセスが制限されています'
-  | '情報を取得できませんでした';
-
-export type TrackingStatus = 'success' | 'failed' | 'hit';
-
 export type DueAction = 
   | 'ASK_BUY_AT_SALE'
   | 'ASK_BUY_AT_DEADLINE'
@@ -35,7 +27,8 @@ export type CalendarEventType =
   | '申込締切'
   | '展覧'
   | '映画'
-  | 'アニメ';
+  | 'アニメ'
+  | 'ガチャ';
 
 export interface CalendarEvent {
   dateKey: string;        // YYYY-MM-DD
@@ -49,21 +42,12 @@ export interface CalendarEvent {
   movieId?: string;
   animeId?: string;
   seasonId?: string;
+  gachaId?: string;
 }
 
 export interface SiteLink {
   name: string;
   url: string;
-  autoTrack: boolean;
-  lastCheckedAt?: string;
-  lastSuccessAt?: string;
-  matchedKeywords?: string[];
-  lastHitAt?: string;
-  acknowledgedAt?: string;
-  trackingStatus?: TrackingStatus;
-  errorMessage?: TrackingErrorType;
-  trackCapability?: 'supported' | 'unsupported' | 'unjudged';
-  trackCapabilityCheckedAt?: string;
 }
 
 export interface ConcertSetlistItem {
@@ -138,8 +122,6 @@ export interface Artist {
   name: string;
   imageUrl: string;
   links: SiteLink[];
-  autoTrackConcerts: boolean;
-  autoTrackTickets: boolean;
   tours: Tour[];
   order?: number;
 }
@@ -222,7 +204,7 @@ export interface Exhibition {
   reservationStartAt?: string;
   reservationEndAt?: string;
 
-  // Visit Tracking
+  // Visit record
   reservedAt?: string; // YYYY-MM-DD HH:mm 予約した訪問予定日時
   visitedAt?: string; // YYYY-MM-DD HH:mm 実際の訪問日時（legacy）
   visitedAtDate?: string; // NEW: YYYY-MM-DD（推奨）
@@ -380,9 +362,43 @@ export interface Anime {
   updatedAt: string;
 }
 
-export interface GlobalSettings {
-  autoTrackIntervalDays: 3 | 7 | 14 | 21 | 30;
+// --- Gacha / Kuji Types ---
+export type GachaKind = 'ガチャ' | '一番くじ' | 'ブラインド商品' | 'ランダム特典' | 'その他';
+export type GachaStatus = '発売前' | '抽選予定' | '抽選済み' | '一部売却済み' | '完了' | '見送り';
+
+export interface GachaPrize {
+  id: string;
+  name: string;
+  imageUrl?: string;
+  rank?: string;
+  wanted: boolean;
+  wonCount?: number;
+  keepCount?: number;
+  soldCount?: number;
+  salePrice?: number;
+  soldTotal?: number;
+  soldAt?: string;
+  memo?: string;
 }
+
+export interface Gacha {
+  id: string;
+  name: string;
+  posterUrl?: string;
+  kind: GachaKind;
+  releaseDate?: string;
+  drawDateTime?: string;
+  drawCount?: number;
+  drawPlace?: string;
+  pricePerDraw?: number;
+  otherCosts?: number;
+  status: GachaStatus;
+  prizes: GachaPrize[];
+  memo?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 
 export interface DisplaySettings {
   showAttended: boolean;
@@ -400,12 +416,12 @@ export interface ConcertListFilters {
 
 export type StatusItem = {
   id: string;
-  type: 'concert' | 'exhibition' | 'movie' | 'anime';
+  type: 'concert' | 'exhibition' | 'movie' | 'anime' | 'gacha';
   parentId: string;
   title: string;
   date: string;
   status: string;
-  actionType: 'lottery' | 'result' | 'ticket' | 'exhibition_start' | 'exhibition_end' | 'movie' | 'anime_update';
+  actionType: 'lottery' | 'result' | 'ticket' | 'exhibition_start' | 'exhibition_end' | 'movie' | 'anime_update' | 'gacha';
   displayStatus: string;
   raw: any;
 };
@@ -428,6 +444,7 @@ export type PageId =
   | 'ACTOR_DETAIL'
   | 'ANIME_DETAIL'
   | 'ANIME_EDITOR'
+  | 'GACHA_DETAIL'
   | 'TAG_MANAGEMENT';
 
 export interface TagMasters {

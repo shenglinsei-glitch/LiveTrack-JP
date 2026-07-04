@@ -7,12 +7,12 @@ import { Icons } from '@/components/common/IconButton';
 import { PageShell } from '@/components/common/PageShell';
 import { theme } from '@/components/common/theme';
 import { TEXT } from '@/components/common/constants';
-import { Artist, GlobalSettings, Status } from '@/domain/types';
+import { Artist, Status } from '@/domain/types';
 import { calcArtistStatus, parseConcertDate } from '@/domain/logic';
 import { ArtistGridCard } from '@/components/ArtistGridCard';
 
 type ArtistSortKey = 'manual' | 'status' | 'name' | 'dateNear' | 'dateFar';
-type ArtistFilterKey = Status | 'TRACKING' | 'NONE';
+type ArtistFilterKey = Status | 'NONE';
 
 const ARTIST_LIST_PREFS_KEY = 'ltjp_artist_list_prefs_v2';
 
@@ -21,7 +21,10 @@ type ArtistPrefs = { sortKey: ArtistSortKey; filters: ArtistFilterKey[] };
 const sanitizePrefs = (raw: any): ArtistPrefs => {
   const allowed: ArtistSortKey[] = ['manual', 'status', 'name', 'dateNear', 'dateFar'];
   const sortKey: ArtistSortKey = allowed.includes(raw?.sortKey) ? raw.sortKey : 'manual';
-  const filters: ArtistFilterKey[] = Array.isArray(raw?.filters) ? raw.filters : [];
+  const allowedFilters: ArtistFilterKey[] = ['発売前', '検討中', '抽選中', '参戦予定', '参戦済み', '見送', 'NONE'];
+  const filters: ArtistFilterKey[] = Array.isArray(raw?.filters)
+    ? raw.filters.filter((key: string) => allowedFilters.includes(key as ArtistFilterKey))
+    : [];
   return { sortKey, filters };
 };
 
@@ -33,13 +36,9 @@ interface Props {
   onOpenArtistEditor: () => void;
   onRefreshAll: () => void;
   onImportData: (data: any) => void;
-  globalSettings: GlobalSettings;
-  onUpdateGlobalSettings: (settings: GlobalSettings) => void;
   sortMode: 'manual' | 'status';
   onSetSort: (mode: 'manual' | 'status') => void;
   onUpdateOrder: (newArtists: Artist[]) => void;
-  onAcknowledgeArtistTracking: (artistId: string) => void;
-  onClearAllTrackingNotices: () => void;
   isMenuOpenExternally?: boolean;
   onMenuClose?: () => void;
   hideHeader?: boolean;
@@ -52,12 +51,8 @@ export const ArtistListPage: React.FC<Props> = ({
   onOpenArtistEditor,
   onRefreshAll,
   onImportData,
-  globalSettings,
-  onUpdateGlobalSettings,
   onSetSort,
   onUpdateOrder,
-  onAcknowledgeArtistTracking,
-  onClearAllTrackingNotices,
   isMenuOpenExternally,
   onMenuClose,
   hideHeader,
@@ -91,7 +86,6 @@ export const ArtistListPage: React.FC<Props> = ({
   const getArtistFilterKey = (artist: Artist): ArtistFilterKey => {
     const st = calcArtistStatus(artist);
     if (st.main === TEXT.ARTIST_STATUS.MAIN_TOURING && st.sub) return st.sub;
-    if (st.main === TEXT.ARTIST_STATUS.MAIN_TRACKING) return 'TRACKING';
     return 'NONE';
   };
 
@@ -138,9 +132,8 @@ export const ArtistListPage: React.FC<Props> = ({
             '抽選中': 2,
             '参戦予定': 3,
             '参戦済み': 4,
-            '見送り': 5,
-            'TRACKING': 6,
-            'NONE': 7,
+            '見送': 5,
+            'NONE': 6,
           };
           return map[key] ?? 99;
         };
@@ -283,9 +276,6 @@ export const ArtistListPage: React.FC<Props> = ({
         onImport={handleImportClick}
         currentSort={prefs.sortKey === 'status' ? 'status' : 'manual'}
         onSetSort={() => {}}
-        globalSettings={globalSettings}
-        onUpdateGlobalSettings={onUpdateGlobalSettings}
-        onClearTrackingNotices={onClearAllTrackingNotices}
       />
       <ConfirmDialog
         isOpen={isImportConfirmOpen}

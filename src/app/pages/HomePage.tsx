@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { PageShell } from '@/components/common/PageShell';
 import { GlassCard } from '@/components/common/GlassCard';
 import { theme } from '@/components/common/theme';
-import { Artist, Exhibition, Movie, Anime, Season, AnimeStatus } from '@/domain/types';
+import { Artist, Exhibition, Movie, Anime, Season, AnimeStatus, Gacha, GachaStatus } from '@/domain/types';
 import { Icons } from '@/components/common/IconButton';
 import { PosterCard } from '@/components/common/PosterCard';
 import { MenuButton, sectionTitleStyle } from '@/components/BottomMenu';
@@ -12,27 +12,31 @@ import { safeSave, safeGet } from '@/utils/storage';
 import { getAnimeDotColor, getMovieDotColor } from '@/domain/calendarHelpers';
 import { getEffectiveExhibitionStatus } from '@/domain/logic';
 import { getExhibitionStatusTone } from '@/domain/statusHelpers';
+import { deriveGachaStatus, getGachaStats, formatCurrency, getGachaStatusTone } from '@/utils/gacha';
 
 interface HomePageProps {
   artists: Artist[];
   exhibitions: Exhibition[];
   movies: Movie[];
   animes: Anime[];
+  gachas: Gacha[];
   onNavigateToMusic: () => void;
   onNavigateToExhibitions: () => void;
   onNavigateToMovies: () => void;
   onNavigateToAnime: () => void;
+  onNavigateToGacha: () => void;
   onOpenConcert?: (artistId: string, tourId: string, concertId: string) => void;
   onOpenExhibition?: (exhibitionId: string) => void;
   onOpenMovie?: (movieId: string) => void;
   onOpenAnime?: (animeId: string) => void;
+  onOpenGacha?: (gachaId: string) => void;
   onExport: () => void;
   onImport: (data: any) => void;
   onNavigateToTagManagement?: () => void;
 }
 
 type CountdownTarget = {
-  type: 'concert' | 'exhibition' | 'movie' | 'anime';
+  type: 'concert' | 'exhibition' | 'movie' | 'anime' | 'gacha';
   id: string;
   artistId?: string;
   tourId?: string;
@@ -40,6 +44,7 @@ type CountdownTarget = {
   exhibitionId?: string;
   movieId?: string;
   animeId?: string;
+  gachaId?: string;
   title: string;
   subtitle?: string;
   date: string;
@@ -94,6 +99,7 @@ const HomeEntryCard: React.FC<{
 const ACTIVE_ANIME_STATUSES: AnimeStatus[] = ['放送前', '視聴予定', '視聴中', '保留'];
 const ACTIVE_MOVIE_STATUSES = ['未上映', '発売前', '抽選中', '上映中', '鑑賞予定'];
 const ACTIVE_EXHIBITION_STATUSES = ['NONE', 'PLANNED', 'RESERVED'];
+const ACTIVE_GACHA_STATUSES: GachaStatus[] = ['発売前', '抽選予定', '抽選済み', '一部売却済み'];
 const WEEKDAY_TO_NUMBER: Record<string, number> = { 日: 0, 月: 1, 火: 2, 水: 3, 木: 4, 金: 5, 土: 6 };
 const toDateKey = (value?: string) => {
   if (!value) return '';
@@ -129,6 +135,7 @@ const getTodayEventDotColor = (event: TodayEvent): string => {
   if (event.type === 'anime') return getAnimeDotColor(String(event.status || '放送前'));
   if (event.type === 'movie') return getMovieDotColor(String(event.status || '未上映'));
   if (event.type === 'exhibition') return getExhibitionStatusTone(String(event.status || 'NONE')).color;
+  if (event.type === 'gacha') return getGachaStatusTone(String(event.status || '抽選予定')).color;
   return theme.colors.primary;
 };
 
@@ -215,19 +222,54 @@ const getFutureAnimeCountdownEvents = (animes: Anime[]): CountdownTarget[] => {
     .sort((a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf());
 };
 
+
+const getFutureGachaCountdownEvents = (gachas: Gacha[]): CountdownTarget[] => {
+  const events: CountdownTarget[] = [];
+  gachas.forEach((gacha) => {
+    const status = deriveGachaStatus(gacha);
+    if (!ACTIVE_GACHA_STATUSES.includes(status)) return;
+    if (isTodayOrFutureDate(gacha.releaseDate)) {
+      events.push({
+        type: 'gacha',
+        id: `gacha-release-${gacha.id}`,
+        gachaId: gacha.id,
+        title: gacha.name,
+        subtitle: '発売日',
+        date: gacha.releaseDate!,
+        imageUrl: gacha.posterUrl,
+      });
+    }
+    if (gacha.drawDateTime && isTodayOrFutureDate(gacha.drawDateTime)) {
+      events.push({
+        type: 'gacha',
+        id: `gacha-draw-${gacha.id}`,
+        gachaId: gacha.id,
+        title: gacha.name,
+        subtitle: gacha.drawPlace ? `${gacha.drawPlace} ・ 抽選予定` : '抽選予定',
+        date: gacha.drawDateTime,
+        imageUrl: gacha.posterUrl,
+      });
+    }
+  });
+  return events.sort((a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf());
+};
+
 export const HomePage: React.FC<HomePageProps> = ({
   artists,
   exhibitions,
   movies,
   animes,
+  gachas,
   onNavigateToMusic,
   onNavigateToExhibitions,
   onNavigateToMovies,
   onNavigateToAnime,
+  onNavigateToGacha,
   onOpenConcert,
   onOpenExhibition,
   onOpenMovie,
   onOpenAnime,
+  onOpenGacha,
   onExport,
   onImport,
   onNavigateToTagManagement,
@@ -235,7 +277,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isEditCountdownOpen, setIsEditCountdownOpen] = useState(false);
   const [countdownStep, setCountdownStep] = useState<'type' | 'select'>('type');
-  const [selectedType, setSelectedType] = useState<'concert' | 'exhibition' | 'movie' | 'anime' | null>(null);
+  const [selectedType, setSelectedType] = useState<'concert' | 'exhibition' | 'movie' | 'anime' | 'gacha' | null>(null);
   const [countdownTarget, setCountdownTarget] = useState<CountdownTarget | null>(() =>
     safeGet<CountdownTarget | null>(COUNTDOWN_KEY, null)
   );
@@ -328,9 +370,10 @@ export const HomePage: React.FC<HomePageProps> = ({
     });
 
     events.push(...getFutureAnimeCountdownEvents(animes));
+    events.push(...getFutureGachaCountdownEvents(gachas));
 
     return events.sort((a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf());
-  }, [artists, exhibitions, movies, animes]);
+  }, [artists, exhibitions, movies, animes, gachas]);
 
   // 自动设置最近的事件作为倒计时目标，并过滤掉已过期的事件
   useEffect(() => {
@@ -511,8 +554,19 @@ export const HomePage: React.FC<HomePageProps> = ({
     // アニメ：放送開始日、放送終了日、毎週更新日
     events.push(...buildAnimeScheduleEvents(animes, today));
 
+    // ガチャ：発売日、抽選予定日
+    gachas.forEach(gacha => {
+      const status = deriveGachaStatus(gacha);
+      if (isSameDateKey(gacha.releaseDate, today)) {
+        events.push({ type: 'gacha', id: `gacha-release-${gacha.id}`, gachaId: gacha.id, title: gacha.name, subtitle: gacha.kind, date: gacha.releaseDate!, eventLabel: '発売日', imageUrl: gacha.posterUrl, status });
+      }
+      if (gacha.drawDateTime && isSameDateKey(gacha.drawDateTime, today)) {
+        events.push({ type: 'gacha', id: `gacha-draw-${gacha.id}`, gachaId: gacha.id, title: gacha.name, subtitle: gacha.drawPlace, date: gacha.drawDateTime, eventLabel: '抽選予定', imageUrl: gacha.posterUrl, status });
+      }
+    });
+
     return events.sort((a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf()).slice(0, 3);
-  }, [artists, exhibitions, movies, animes]);
+  }, [artists, exhibitions, movies, animes, gachas]);
 
   const getDaysUntil = (date: string) => {
     return dayjs(toDateKey(date)).diff(dayjs().startOf('day'), 'day');
@@ -528,6 +582,8 @@ export const HomePage: React.FC<HomePageProps> = ({
       onOpenMovie(countdownTarget.movieId!);
     } else if (countdownTarget.type === 'anime' && onOpenAnime) {
       onOpenAnime(countdownTarget.animeId!);
+    } else if (countdownTarget.type === 'gacha' && onOpenGacha) {
+      onOpenGacha(countdownTarget.gachaId!);
     }
   };
 
@@ -540,6 +596,8 @@ export const HomePage: React.FC<HomePageProps> = ({
       onOpenMovie(event.movieId!);
     } else if (event.type === 'anime' && onOpenAnime) {
       onOpenAnime(event.animeId!);
+    } else if (event.type === 'gacha' && onOpenGacha) {
+      onOpenGacha(event.gachaId!);
     }
   };
 
@@ -631,8 +689,12 @@ export const HomePage: React.FC<HomePageProps> = ({
       events.push(...getFutureAnimeCountdownEvents(animes));
     }
 
+    if (selectedType === 'gacha' || !selectedType) {
+      events.push(...getFutureGachaCountdownEvents(gachas));
+    }
+
     return events.sort((a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf());
-  }, [artists, exhibitions, movies, animes, selectedType]);
+  }, [artists, exhibitions, movies, animes, gachas, selectedType]);
 
   // 获取最近未来公演用于入口卡片
   const latestConcert = useMemo(() => {
@@ -697,6 +759,18 @@ export const HomePage: React.FC<HomePageProps> = ({
     if (!latestAnime) return '';
     return latestAnime.posterUrl || latestAnime.seasons?.find(season => season.posterUrl)?.posterUrl || '';
   }, [latestAnime]);
+
+
+  const latestGacha = useMemo(() => {
+    const today = dayjs().startOf('day');
+    const scored = gachas.map(gacha => {
+      const date = dayjs(gacha.drawDateTime || gacha.releaseDate || gacha.updatedAt || gacha.createdAt || '2999-12-31');
+      const active = ACTIVE_GACHA_STATUSES.includes(deriveGachaStatus(gacha));
+      const future = date.isValid() && (date.isAfter(today) || date.isSame(today, 'day'));
+      return { item: gacha, group: active && future ? 0 : active ? 1 : 2, time: date.isValid() ? date.valueOf() : 0 };
+    });
+    return scored.sort((a, b) => a.group - b.group || (a.group === 0 ? a.time - b.time : b.time - a.time))[0]?.item || gachas[0];
+  }, [gachas]);
 
   return (
     <PageShell disablePadding horizontalPadding="16px">
@@ -966,6 +1040,14 @@ export const HomePage: React.FC<HomePageProps> = ({
             onClick={onNavigateToAnime}
             fallback={<HomeEntryFallback icon={<span style={{ fontSize: 46 }}>📺</span>} />}
           />
+
+          <HomeEntryCard
+            title="ガチャ"
+            subtitle={latestGacha ? `${gachas.length}件 ・ ${formatCurrency(getGachaStats(latestGacha).finalCost)}` : `${gachas.length}件`}
+            imageUrl={latestGacha?.posterUrl}
+            onClick={onNavigateToGacha}
+            fallback={<HomeEntryFallback icon={<span style={{ fontSize: 46 }}>🎁</span>} />}
+          />
         </div>
       </div>
 
@@ -1105,6 +1187,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                   <MenuButton label="展覧" onClick={() => { setSelectedType('exhibition'); setCountdownStep('select'); }} />
                   <MenuButton label="映画" onClick={() => { setSelectedType('movie'); setCountdownStep('select'); }} />
                   <MenuButton label="アニメ" onClick={() => { setSelectedType('anime'); setCountdownStep('select'); }} />
+                  <MenuButton label="ガチャ" onClick={() => { setSelectedType('gacha'); setCountdownStep('select'); }} />
                 </div>
               ) : (
                 <>

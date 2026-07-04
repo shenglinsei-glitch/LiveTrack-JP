@@ -206,9 +206,6 @@ export const ArtistDetailPage: React.FC<Props> = ({
     if (status.main === TEXT.ARTIST_STATUS.MAIN_TOURING && status.sub) {
       return theme.colors.status[status.sub as Status] || theme.colors.primary;
     }
-    if (status.main === TEXT.ARTIST_STATUS.MAIN_TRACKING) {
-      return '#00E0FF';
-    }
     return '#E2E8F0';
   }, [status]);
 
@@ -279,7 +276,7 @@ export const ArtistDetailPage: React.FC<Props> = ({
           }
           tags={
             <>
-              <DetailChip label={`${status.main}${status.trackSuffix}`} bg={dotColor} textColor={dotColor === '#E2E8F0' ? theme.colors.text : '#fff'} />
+              <DetailChip label={status.main} bg={dotColor} textColor={dotColor === '#E2E8F0' ? theme.colors.text : '#fff'} />
               <DetailChip label={`${concertCount || tourCount}公演`} subtle />
             </>
           }

@@ -1,8 +1,8 @@
 
-import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { normalizeArtistData, normalizeExhibitionData, normalizeMovieData, normalizeActorData, normalizeAnimeData } from '@/utils/data';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { normalizeArtistData, normalizeExhibitionData, normalizeMovieData, normalizeActorData, normalizeAnimeData, normalizeGachaData } from '@/utils/data';
 import { safeSave, safeGet } from '@/utils/storage';
-import { PageId, Artist, Tour, DisplaySettings, Status, GlobalSettings, SiteLink, TrackingStatus, TrackingErrorType, Concert, Exhibition, Movie, Actor, Anime, TagMasters } from '@/domain/types';
+import { PageId, Artist, Tour, DisplaySettings, Status, Concert, Exhibition, Movie, Actor, Anime, Gacha, TagMasters } from '@/domain/types';
 import { Layout } from '@/components/Layout';
 import { HomePage } from '@/pages/HomePage';
 import { ArtistListPage } from '@/pages/ArtistListPage';
@@ -18,13 +18,16 @@ import { ExhibitionDetailPage } from '@/pages/ExhibitionDetailPage';
 import { MovieDetailPage } from '@/pages/MovieDetailPage';
 import { ActorDetailPage } from '@/pages/ActorDetailPage';
 import { AnimesPage } from '@/pages/AnimesPage';
+import { GachasPage } from '@/pages/GachasPage';
+import { GachaDetailPage } from '@/pages/GachaDetailPage';
 import { AnimeDetailPage } from '@/pages/AnimeDetailPage';
 import { TagManagementPage } from '@/pages/TagManagementPage';
 import { GlassCard } from '@/components/common/GlassCard';
 import { MenuButton, sectionTitleStyle } from '@/components/BottomMenu';
 import { theme } from '@/components/common/theme';
-import { shouldTriggerAutoTrack, getTrackTargetConcerts, getDueAction, autoAdvanceConcertStatus, autoAdvanceMovieStatus, prepareFullDataForExport, migrateAlbumImagesToIndexedDB, migrateExhibitionImagesToIndexedDB } from '@/domain/logic';
+import { getDueAction, autoAdvanceConcertStatus, autoAdvanceMovieStatus, prepareFullDataForExport, migrateAlbumImagesToIndexedDB, migrateExhibitionImagesToIndexedDB } from '@/domain/logic';
 import dayjs from 'dayjs';
+import { deriveGachaStatus } from '@/utils/gacha';
 
 type NavContext = {
   path: PageId;
@@ -35,6 +38,7 @@ type NavContext = {
   movieId?: string;
   actorId?: string;
   animeId?: string;
+  gachaId?: string;
   fromActorId?: string;
   from?: PageId;
   edit?: boolean; // Navigation flag to start in edit mode
@@ -47,9 +51,9 @@ const STORAGE_KEYS = {
   MOVIES: 'livetrack_jp_movies',
   ACTORS: 'livetrack_jp_actors',
   ANIMES: 'livetrack_jp_animes',
+  GACHAS: 'livetrack_jp_gachas',
   TAG_MASTERS: 'livetrack_jp_tag_masters',
   FAVE_ARCHIVE_TAGS: 'fave-archive-tags',
-  GLOBAL_SETTINGS: 'livetrack_jp_global_settings',
   DISPLAY_SETTINGS: 'livetrack_jp_display_settings',
   ARTIST_SORT: 'livetrack_jp_artist_sort',
   CONCERT_SORT: 'livetrack_jp_concert_sort'
@@ -80,41 +84,16 @@ const normalizeTagMasters = (raw?: Partial<TagMasters> | null): TagMasters => ({
   general: Array.isArray(raw?.general) ? raw!.general : [],
 });
 
-const normalizeUrl = (raw: string): string => {
-  const v = (raw || '').trim();
-  if (!v) return '';
-  if (v.startsWith('http://') || v.startsWith('https://')) return v;
-  return `https://${v}`;
-};
-
-const fetchWithTimeout = async (url: string, timeoutMs: number) => {
-  const controller = new AbortController();
-  const t = window.setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    await fetch(url, { method: 'GET', mode: 'no-cors', cache: 'no-store', signal: controller.signal });
-    return true;
-  } finally {
-    window.clearTimeout(t);
-  }
-};
-
 export default function App() {
   const [nav, setNav] = useState<NavContext>({ path: 'HOME' });
   const [isArtistPickerOpen, setIsArtistPickerOpen] = useState(false);
   const [isHomeAddMenuOpen, setIsHomeAddMenuOpen] = useState(false);
-  const [isTracking, setIsTracking] = useState(false);
-  const trackingLockRef = useRef(false);
-
   const [isArtistMenuOpen, setIsArtistMenuOpen] = useState(false);
   const [isConcertMenuOpen, setIsConcertMenuOpen] = useState(false);
   const [isCalendarMenuOpen, setIsCalendarMenuOpen] = useState(false);
   const [isExhibitionMenuOpen, setIsExhibitionMenuOpen] = useState(false);
 
   const [contentActiveTab, setContentActiveTab] = useState('artists');
-
-  const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(() => {
-    return safeGet<GlobalSettings>(STORAGE_KEYS.GLOBAL_SETTINGS, { autoTrackIntervalDays: 7 });
-  });
 
   const [displaySettings, setDisplaySettings] = useState<DisplaySettings>(() => {
     return safeGet<DisplaySettings>(STORAGE_KEYS.DISPLAY_SETTINGS, { showAttended: true, showSkipped: true });
@@ -153,6 +132,11 @@ export default function App() {
     return (raw || []).map(normalizeAnimeData);
   });
 
+  const [gachas, setGachas] = useState<Gacha[]>(() => {
+    const raw = safeGet<any[]>(STORAGE_KEYS.GACHAS, []);
+    return (raw || []).map(normalizeGachaData);
+  });
+
   const [tagMasters, setTagMasters] = useState<TagMasters>(() => {
     const saved = safeGet<Partial<TagMasters> | null>(STORAGE_KEYS.TAG_MASTERS, null) || safeGet<Partial<TagMasters> | null>(STORAGE_KEYS.FAVE_ARCHIVE_TAGS, null);
     return normalizeTagMasters(saved || DEFAULT_TAG_MASTERS);
@@ -163,6 +147,7 @@ export default function App() {
   useEffect(() => { safeSave(STORAGE_KEYS.MOVIES, movies); }, [movies]);
   useEffect(() => { safeSave(STORAGE_KEYS.ACTORS, actors); }, [actors]);
   useEffect(() => { safeSave(STORAGE_KEYS.ANIMES, animes); }, [animes]);
+  useEffect(() => { safeSave(STORAGE_KEYS.GACHAS, gachas); }, [gachas]);
   useEffect(() => {
     safeSave(STORAGE_KEYS.TAG_MASTERS, tagMasters);
     safeSave(STORAGE_KEYS.FAVE_ARCHIVE_TAGS, tagMasters);
@@ -176,7 +161,6 @@ export default function App() {
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'ja'));
   }, [animes]);
-  useEffect(() => { safeSave(STORAGE_KEYS.GLOBAL_SETTINGS, globalSettings); }, [globalSettings]);
   useEffect(() => { safeSave(STORAGE_KEYS.DISPLAY_SETTINGS, displaySettings); }, [displaySettings]);
   useEffect(() => { safeSave(STORAGE_KEYS.ARTIST_SORT, artistSortMode); }, [artistSortMode]);
   useEffect(() => { safeSave(STORAGE_KEYS.CONCERT_SORT, concertSortMode); }, [concertSortMode]);
@@ -208,68 +192,6 @@ export default function App() {
     return (artists || []).some(a => (a.tours || []).some(t => (t.concerts || []).some(c => !!getDueAction(c, now))));
   }, [artists]);
 
-  const runTrackingAll = useCallback(async (reason: 'manual' | 'auto' = 'manual') => {
-    if (trackingLockRef.current) return;
-    trackingLockRef.current = true;
-    setIsTracking(true);
-    const now = new Date();
-    const nowIso = now.toISOString();
-
-    try {
-      const snapshot = artists;
-      const targets: Array<{ artistId: string; linkIndex: number; url: string }> = [];
-
-      snapshot.forEach((artist) => {
-        (artist.links || []).forEach((link, idx) => {
-          if (!link?.autoTrack) return;
-          if (reason === 'auto' && !shouldTriggerAutoTrack(link.lastCheckedAt, globalSettings, now)) return;
-          const url = normalizeUrl(link.url);
-          if (url) targets.push({ artistId: artist.id, linkIndex: idx, url });
-        });
-      });
-
-      if (targets.length === 0) return;
-
-      const results = new Map<string, { ok: boolean; error?: TrackingErrorType }>();
-      for (const t of targets) {
-        const key = `${t.artistId}::${t.linkIndex}`;
-        try {
-          const ok = await fetchWithTimeout(t.url, 12000);
-          results.set(key, { ok });
-        } catch (e) {
-          results.set(key, { ok: false, error: '接続できませんでした' });
-        }
-      }
-
-      setArtists((prev) =>
-        prev.map((artist) => {
-          const nextLinks = (artist.links || []).map((link, idx) => {
-            const key = `${artist.id}::${idx}`;
-            if (!results.has(key)) return link;
-            const r = results.get(key)!;
-            const next: SiteLink = {
-              ...link,
-              lastCheckedAt: nowIso,
-              trackingStatus: (r.ok ? 'success' : 'failed') as TrackingStatus,
-              errorMessage: r.ok ? undefined : (r.error || '情報を取得できませんでした'),
-            };
-            if (r.ok) next.lastSuccessAt = nowIso;
-            return next;
-          });
-          return { ...artist, links: nextLinks };
-        })
-      );
-    } finally {
-      setIsTracking(false);
-      trackingLockRef.current = false;
-    }
-  }, [artists, globalSettings]);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => runTrackingAll('auto'), 60 * 1000);
-    return () => window.clearInterval(timer);
-  }, [runTrackingAll]);
-
   const runAutoAdvance = useCallback(() => {
     const now = new Date();
     setArtists(prev => (prev || []).map(a => ({
@@ -284,8 +206,7 @@ export default function App() {
   const handleRefreshAll = useCallback(() => {
     runAutoAdvance();
     setMovies(prev => prev.map(movie => autoAdvanceMovieStatus(movie, new Date())));
-    runTrackingAll('manual');
-  }, [runAutoAdvance, runTrackingAll]);
+  }, [runAutoAdvance]);
 
   useEffect(() => { runAutoAdvance(); }, [nav.path, runAutoAdvance]);
   useEffect(() => {
@@ -295,7 +216,7 @@ export default function App() {
   // Unified Export Logic
   const handleExportAll = async () => {
     try {
-      const fullData = { ...(await prepareFullDataForExport(artists, exhibitions, movies)), actors, animes, tagMasters };
+      const fullData = { ...(await prepareFullDataForExport(artists, exhibitions, movies)), actors, animes, gachas, tagMasters };
       const dataStr = JSON.stringify(fullData, null, 2);
       const blob = new Blob([dataStr], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -334,12 +255,15 @@ export default function App() {
     const animesRaw: Anime[] | null = (!Array.isArray(importedData) && importedData?.animes)
       ? importedData.animes
       : null;
+    const gachasRaw: Gacha[] | null = (!Array.isArray(importedData) && importedData?.gachas)
+      ? importedData.gachas
+      : null;
     const tagMastersRaw: TagMasters | null = (!Array.isArray(importedData) && importedData?.tagMasters)
       ? importedData.tagMasters
       : null;
 
     // Guard: if payload shape is not recognized, do nothing but surface a clear message.
-    if (!artistsRaw && !exhibitionsRaw && !moviesRaw && !actorsRaw && !animesRaw && !tagMastersRaw) {
+    if (!artistsRaw && !exhibitionsRaw && !moviesRaw && !actorsRaw && !animesRaw && !gachasRaw && !tagMastersRaw) {
       window.alert('読み込みに失敗しました。データ形式が正しくありません。');
       return;
     }
@@ -350,7 +274,8 @@ export default function App() {
     const movieCount = Array.isArray(moviesRaw) ? moviesRaw.length : 0;
     const actorCount = Array.isArray(actorsRaw) ? actorsRaw.length : 0;
     const animeCount = Array.isArray(animesRaw) ? animesRaw.length : 0;
-    if (artistCount === 0 && exhibitionCount === 0 && movieCount === 0 && actorCount === 0 && animeCount === 0) {
+    const gachaCount = Array.isArray(gachasRaw) ? gachasRaw.length : 0;
+    if (artistCount === 0 && exhibitionCount === 0 && movieCount === 0 && actorCount === 0 && animeCount === 0 && gachaCount === 0) {
       const ok = window.confirm('このバックアップにはデータがありません。\nこのまま上書き読み込みしますか？');
       if (!ok) return;
     }
@@ -360,6 +285,7 @@ export default function App() {
     if (moviesRaw) setMovies((moviesRaw || []).map(normalizeMovieData));
     if (actorsRaw) setActors((actorsRaw || []).map(normalizeActorData));
     if (animesRaw) setAnimes((animesRaw || []).map(normalizeAnimeData));
+    if (gachasRaw) setGachas((gachasRaw || []).map(normalizeGachaData));
     if (tagMastersRaw) setTagMasters(normalizeTagMasters(tagMastersRaw));
 
     // Post-migrate in background (still on the main thread), then update state again.
@@ -402,6 +328,7 @@ export default function App() {
   const navigateToMovieDetail = (movieId: string, edit?: boolean) => setNav({ path: 'MOVIE_DETAIL', movieId, edit, from: 'CONTENT' });
   const navigateToActorDetail = (actorId: string) => setNav({ path: 'ACTOR_DETAIL', actorId, from: 'CONTENT' });
   const navigateToAnimeDetail = (animeId: string, edit?: boolean) => setNav({ path: 'ANIME_DETAIL', animeId: animeId, edit, from: 'CONTENT' });
+  const navigateToGachaDetail = (gachaId: string, edit?: boolean) => setNav({ path: 'GACHA_DETAIL', gachaId, edit, from: 'CONTENT' });
   const navigateToTagManagement = () => setNav({ path: 'TAG_MANAGEMENT' });
 
   const normalizeActorName = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase();
@@ -525,6 +452,30 @@ export default function App() {
     navigateToAnimeDetail(newAnime.id, true);
   };
 
+  const addNewGacha = () => {
+    const nowIso = new Date().toISOString();
+    const newGacha: Gacha = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: '新規ガチャ',
+      posterUrl: '',
+      kind: 'ガチャ',
+      releaseDate: dayjs().format('YYYY-MM-DD'),
+      drawDateTime: '',
+      drawCount: undefined,
+      drawPlace: '',
+      pricePerDraw: undefined,
+      otherCosts: undefined,
+      status: '抽選予定',
+      prizes: [],
+      memo: '',
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+    setGachas(prev => [...prev, newGacha]);
+    setContentActiveTab('gachas');
+    navigateToGachaDetail(newGacha.id, true);
+  };
+
   const addTagToMasters = (key: keyof TagMasters, value: string) => {
     const trimmed = value.trim();
     if (!trimmed) return;
@@ -568,31 +519,6 @@ export default function App() {
     navigateToArtistDetail(artistId, nav.from);
   };
 
-  const handleAcknowledgeArtistTracking = useCallback((artistId: string) => {
-    const nowIso = new Date().toISOString();
-    setArtists(prev => (prev || []).map(artist => {
-      if (artist.id !== artistId) return artist;
-      return {
-        ...artist,
-        links: (artist.links || []).map(link => ({
-          ...link,
-          acknowledgedAt: link.lastHitAt ? nowIso : link.acknowledgedAt
-        }))
-      };
-    }));
-  }, []);
-
-  const handleClearAllTrackingNotices = useCallback(() => {
-    const nowIso = new Date().toISOString();
-    setArtists(prev => (prev || []).map(artist => ({
-      ...artist,
-      links: (artist.links || []).map(link => ({
-        ...link,
-        acknowledgedAt: link.lastHitAt ? nowIso : link.acknowledgedAt
-      }))
-    })));
-  }, []);
-
   const handlePlusClick = useCallback(() => {
     if (nav.path === 'HOME') {
       // 在首页弹出选择器
@@ -610,6 +536,8 @@ export default function App() {
       addNewMovie();
     } else if (contentActiveTab === 'animes') {
       addNewAnime();
+    } else if (contentActiveTab === 'gachas') {
+      addNewGacha();
     }
   }, [nav.path, contentActiveTab]);
 
@@ -622,6 +550,7 @@ export default function App() {
             exhibitions={exhibitions}
             movies={movies}
             animes={animes}
+            gachas={gachas}
             onNavigateToMusic={() => {
               setNav({ path: 'CONTENT' });
               setContentActiveTab('artists');
@@ -637,6 +566,10 @@ export default function App() {
             onNavigateToAnime={() => {
               setNav({ path: 'CONTENT' });
               setContentActiveTab('animes');
+            }}
+            onNavigateToGacha={() => {
+              setNav({ path: 'CONTENT' });
+              setContentActiveTab('gachas');
             }}
             onOpenConcert={(aid, tid, cid) => navigateToConcertHome(aid, tid, cid, 'HOME')}
             onOpenExhibition={(id) => navigateToExhibitionDetail(id)}
@@ -657,13 +590,9 @@ export default function App() {
             onOpenArtistEditor={() => navigateToArtistEditor()}
             onRefreshAll={handleRefreshAll}
             onImportData={handleImportAll}
-            globalSettings={globalSettings}
-            onUpdateGlobalSettings={setGlobalSettings}
             artistSortMode={artistSortMode}
             onSetArtistSort={setArtistSortMode}
             onUpdateOrder={(newList) => setArtists(newList.map((a, i) => ({ ...a, order: i })))}
-            onAcknowledgeArtistTracking={handleAcknowledgeArtistTracking}
-            onClearAllTrackingNotices={handleClearAllTrackingNotices}
             onOpenConcert={(aid, tid, cid) => navigateToConcertHome(aid, tid, cid, 'CONTENT')}
             onCreateConcert={() => setIsArtistPickerOpen(true)}
             onUpdateConcert={updateConcert}
@@ -688,6 +617,9 @@ export default function App() {
             animes={animes}
             onOpenAnimeDetail={navigateToAnimeDetail}
             onAddNewAnime={addNewAnime}
+            gachas={gachas}
+            onOpenGachaDetail={navigateToGachaDetail}
+            onAddNewGacha={addNewGacha}
             onExport={handleExportAll}
             onImport={handleImportAll}
           />
@@ -810,6 +742,30 @@ export default function App() {
             initialEditMode={!!nav.edit}
             onAddAnimeGenre={(v) => addTagToMasters('animeGenres', v)}
             onAddAnimeStudio={(v) => addTagToMasters('animeStudios', v)}
+          />
+        );
+      }
+
+      case 'GACHA_DETAIL': {
+        const gacha = gachas.find(g => g.id === nav.gachaId);
+        if (!gacha) return null;
+        return (
+          <GachaDetailPage
+            gacha={gacha}
+            onUpdateGacha={(updated) => {
+              const normalized = normalizeGachaData({ ...updated, status: deriveGachaStatus(updated), updatedAt: new Date().toISOString() });
+              setGachas(prev => prev.map(g => g.id === normalized.id ? normalized : g));
+            }}
+            onDeleteGacha={(id) => {
+              setGachas(prev => prev.filter(g => g.id !== id));
+              setNav({ path: 'CONTENT' });
+              setContentActiveTab('gachas');
+            }}
+            onBack={() => {
+              setNav({ path: 'CONTENT' });
+              setContentActiveTab('gachas');
+            }}
+            initialEditMode={!!nav.edit}
           />
         );
       }
@@ -971,6 +927,10 @@ export default function App() {
               <MenuButton
                 label="アニメ"
                 onClick={() => { addNewAnime(); setIsHomeAddMenuOpen(false); }}
+              />
+              <MenuButton
+                label="ガチャ"
+                onClick={() => { addNewGacha(); setIsHomeAddMenuOpen(false); }}
               />
             </div>
             <MenuButton label="閉じる" onClick={() => setIsHomeAddMenuOpen(false)} style={{ marginTop: 16 }} />

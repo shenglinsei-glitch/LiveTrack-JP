@@ -2,13 +2,12 @@ import React from 'react';
 import { GlassCard } from '@/components/common/GlassCard';
 import { theme } from '@/components/common/theme';
 import { TEXT } from '@/components/common/constants';
-import { GlobalSettings } from '@/domain/types';
 import { Icons } from '@/components/common/IconButton';
 
 const ARTIST_LIST_PREFS_KEY = 'ltjp_artist_list_prefs_v2';
 
 type ArtistSortKey = 'manual' | 'status' | 'name' | 'dateNear' | 'dateFar';
-type ArtistFilterKey = string;
+type ArtistFilterKey = '発売前' | '検討中' | '抽選中' | '参戦予定' | '参戦済み' | '見送' | 'NONE';
 
 type ArtistPrefs = { sortKey: ArtistSortKey; filters: ArtistFilterKey[] };
 
@@ -18,9 +17,10 @@ const readArtistPrefs = (): ArtistPrefs => {
     if (!raw) return { sortKey: 'manual', filters: [] };
     const json = JSON.parse(raw);
     const allowed: ArtistSortKey[] = ['manual', 'status', 'name', 'dateNear', 'dateFar'];
+    const allowedFilters: ArtistFilterKey[] = ['発売前', '検討中', '抽選中', '参戦予定', '参戦済み', '見送', 'NONE'];
     return {
       sortKey: allowed.includes(json?.sortKey) ? json.sortKey : 'manual',
-      filters: Array.isArray(json?.filters) ? json.filters : [],
+      filters: Array.isArray(json?.filters) ? json.filters.filter((key: string) => allowedFilters.includes(key as ArtistFilterKey)) : [],
     };
   } catch {
     return { sortKey: 'manual', filters: [] };
@@ -42,11 +42,8 @@ interface BottomMenuProps {
   onExport: () => void;
   onImport: () => void;
   onAddArtist: () => void;
-  onClearTrackingNotices?: () => void;
   currentSort: 'manual' | 'status';
   onSetSort: (mode: 'manual' | 'status') => void;
-  globalSettings?: GlobalSettings;
-  onUpdateGlobalSettings?: (settings: GlobalSettings) => void;
 }
 
 export const BottomMenu: React.FC<BottomMenuProps> = ({
@@ -54,12 +51,9 @@ export const BottomMenu: React.FC<BottomMenuProps> = ({
   onClose,
   onExport,
   onImport,
-  globalSettings,
-  onUpdateGlobalSettings,
 }) => {
   if (!isOpen) return null;
 
-  const intervals: (3 | 7 | 14 | 21 | 30)[] = [3, 7, 14, 21, 30];
   const artistPrefs = readArtistPrefs();
 
   const setArtistSortKey = (key: ArtistSortKey) => writeArtistPrefs({ ...artistPrefs, sortKey: key });
@@ -77,8 +71,7 @@ export const BottomMenu: React.FC<BottomMenuProps> = ({
     { key: '抽選中', label: '抽選中' },
     { key: '参戦予定', label: '参戦予定' },
     { key: '参戦済み', label: '参戦済み' },
-    { key: '見送り', label: '見送り' },
-    { key: 'TRACKING', label: '追跡中' },
+    { key: '見送', label: '見送り' },
     { key: 'NONE', label: '未整理' },
   ];
 
@@ -115,33 +108,6 @@ export const BottomMenu: React.FC<BottomMenuProps> = ({
             paddingRight: '4px',
           }}
         >
-          <section>
-            <h4 style={sectionTitleStyle}>{TEXT.MENU.AUTO_TRACK_INTERVAL}</h4>
-            <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.05)', padding: '4px', borderRadius: '14px' }}>
-              {intervals.map(days => (
-                <button
-                  key={days}
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); onUpdateGlobalSettings?.({ autoTrackIntervalDays: days }); }}
-                  style={{
-                    flex: 1,
-                    border: 'none',
-                    background: globalSettings?.autoTrackIntervalDays === days ? 'white' : 'transparent',
-                    color: globalSettings?.autoTrackIntervalDays === days ? theme.colors.primary : theme.colors.textSecondary,
-                    fontSize: '11px',
-                    fontWeight: '800',
-                    padding: '10px 0',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                    boxShadow: globalSettings?.autoTrackIntervalDays === days ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
-                  }}
-                >
-                  {days}日
-                </button>
-              ))}
-            </div>
-          </section>
-
           <section style={{ borderTop: '0.5px solid rgba(0,0,0,0.1)', paddingTop: theme.spacing.md }}>
             <h4 style={sectionTitleStyle}>並び替え</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
