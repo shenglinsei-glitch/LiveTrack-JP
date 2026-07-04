@@ -59,6 +59,8 @@ const drawSquareAvatar = (img: HTMLImageElement, size: number): HTMLCanvasElemen
   const sourceY = ((img.naturalHeight || img.height) - sourceSize) / 2;
 
   ctx.clearRect(0, 0, size, size);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, size, size);
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(img, sourceX, sourceY, sourceSize, sourceSize, 0, 0, size, size);
