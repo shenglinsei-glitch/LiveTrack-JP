@@ -2,6 +2,7 @@ import React from 'react';
 import { theme } from '@/components/common/theme';
 import { Icons } from '@/components/common/IconButton';
 import { getAnimeStatusColor } from '@/utils/animeStatusHelpers';
+import { centeredNativeDateTimeInputStyle, createNativeDateTimeChangeHandler, getNativeDateTimeValue } from '@/components/common/nativeDateInput';
 
 export const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -28,6 +29,7 @@ export const selectStyle: React.CSSProperties = {
 
 export const nativeDateInputStyle: React.CSSProperties = {
   ...inputStyle,
+  ...centeredNativeDateTimeInputStyle,
   colorScheme: 'light',
   WebkitAppearance: 'none',
   appearance: 'none',
@@ -117,15 +119,20 @@ export const DateField: React.FC<{
   value?: string;
   onChange: (v: string) => void;
   placeholder?: string;
-}> = ({ value, onChange, placeholder = '未設定' }) => (
-  <input
-    type="date"
-    value={(value || '').slice(0, 10)}
-    onChange={(e) => onChange(e.target.value)}
-    placeholder={placeholder}
-    style={nativeDateInputStyle}
-  />
-);
+}> = ({ value, onChange, placeholder = '未設定' }) => {
+  const handleDateChange = createNativeDateTimeChangeHandler('date', onChange);
+
+  return (
+    <input
+      type="date"
+      value={getNativeDateTimeValue('date', value)}
+      onInput={handleDateChange}
+      onChange={handleDateChange}
+      placeholder={placeholder}
+      style={nativeDateInputStyle}
+    />
+  );
+};
 
 export const StatusPill: React.FC<{ status?: string }> = ({ status }) => {
   if (!status) return null;

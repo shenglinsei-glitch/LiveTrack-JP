@@ -9,6 +9,7 @@ import { PageShell } from '@/components/common/PageShell';
 import { TagSelectInput } from '@/components/common/TagSelectInput';
 import { DynamicListEditor } from '@/components/detail/DynamicListEditor';
 import { GoodsSection } from '@/components/detail/GoodsSection';
+import { centeredNativeDateTimeInputStyle, createNativeDateTimeChangeHandler, getNativeDateTimeValue, NativeDateTimeInputType } from '@/components/common/nativeDateInput';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -81,12 +82,6 @@ const StatusPicker = ({ value, onChange }: { value: Status; onChange: (s: Status
   );
 };
 
-const toNativeDateTimeValue = (value: string | null | undefined) => {
-  if (!value) return '';
-  return value.replace(' ', 'T').slice(0, 16);
-};
-
-const fromNativeDateTimeValue = (value: string) => value ? value.replace('T', ' ') : '';
 
 const nativeDateInputStyle: React.CSSProperties = {
   width: '100%',
@@ -105,15 +100,21 @@ const nativeDateInputStyle: React.CSSProperties = {
   appearance: 'none',
 };
 
-const CustomDatePicker = ({ value, onChange, showTime = false, placeholder }: { value: string | null | undefined; onChange: (val: string) => void; showTime?: boolean; placeholder?: string }) => (
-  <input
-    type={showTime ? 'datetime-local' : 'date'}
-    value={showTime ? toNativeDateTimeValue(value) : (value || '').slice(0, 10)}
-    onChange={(e) => onChange(showTime ? fromNativeDateTimeValue(e.target.value) : e.target.value)}
-    placeholder={placeholder || '未設定'}
-    style={nativeDateInputStyle}
-  />
-);
+const CustomDatePicker = ({ value, onChange, showTime = false, placeholder }: { value: string | null | undefined; onChange: (val: string) => void; showTime?: boolean; placeholder?: string }) => {
+  const inputType: NativeDateTimeInputType = showTime ? 'datetime-local' : 'date';
+  const handleDateTimeChange = createNativeDateTimeChangeHandler(inputType, onChange);
+
+  return (
+    <input
+      type={inputType}
+      value={getNativeDateTimeValue(inputType, value)}
+      onInput={handleDateTimeChange}
+      onChange={handleDateTimeChange}
+      placeholder={placeholder || '未設定'}
+      style={{ ...nativeDateInputStyle, ...centeredNativeDateTimeInputStyle }}
+    />
+  );
+};
 
 export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, allArtists, onSave, onCancel, onDeleteTour, venues = [], onAddVenue }) => {
   const getInitialData = (): Tour => {
@@ -295,8 +296,8 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
                       {/* 日時 */}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
                         <Field label="開演日"><CustomDatePicker value={c.concertAt || (c.date === 'TBD' ? '' : c.date)} onChange={v => handleUpdateConcert(c.id, { concertAt: v, date: v })} placeholder="開演日を設定" /></Field>
-                        {isAttending && <Field label="開場時刻"><input type="time" value={c.doorTime || ''} onChange={e => handleUpdateConcert(c.id, { doorTime: e.target.value })} style={inputStyle} /></Field>}
-                        {isAttending && <Field label="開演時刻"><input type="time" value={c.startTime || ''} onChange={e => handleUpdateConcert(c.id, { startTime: e.target.value })} style={inputStyle} /></Field>}
+                        {isAttending && <Field label="開場時刻"><input type="time" value={c.doorTime || ''} onInput={e => handleUpdateConcert(c.id, { doorTime: e.currentTarget.value })} onChange={e => handleUpdateConcert(c.id, { doorTime: e.target.value })} style={{ ...inputStyle, ...centeredNativeDateTimeInputStyle }} /></Field>}
+                        {isAttending && <Field label="開演時刻"><input type="time" value={c.startTime || ''} onInput={e => handleUpdateConcert(c.id, { startTime: e.currentTarget.value })} onChange={e => handleUpdateConcert(c.id, { startTime: e.target.value })} style={{ ...inputStyle, ...centeredNativeDateTimeInputStyle }} /></Field>}
                       </div>
 
                       {/* チケット情報 - 参戦予定/参戦済みの場合のみ */}

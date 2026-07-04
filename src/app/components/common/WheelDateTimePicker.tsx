@@ -1,5 +1,6 @@
 import React from 'react';
 import { theme } from '@/components/common/theme';
+import { centeredNativeDateTimeInputStyle, createNativeDateTimeChangeHandler, getNativeDateTimeValue, NativeDateTimeInputType } from '@/components/common/nativeDateInput';
 
 interface NativeDateTimePickerProps {
   value?: string;
@@ -31,8 +32,6 @@ const nativeInputStyle: React.CSSProperties = {
   appearance: 'none',
 };
 
-const toNativeDateTimeValue = (value?: string) => (value ? value.replace(' ', 'T').slice(0, 16) : '');
-const fromNativeDateTimeValue = (value: string) => (value ? value.replace('T', ' ') : '');
 
 export const WheelDateTimePicker: React.FC<NativeDateTimePickerProps> = ({
   value,
@@ -44,12 +43,9 @@ export const WheelDateTimePicker: React.FC<NativeDateTimePickerProps> = ({
   timeOnly = false,
   style,
 }) => {
-  const inputType = timeOnly || mode === 'time' ? 'time' : showTime || mode === 'datetime' ? 'datetime-local' : 'date';
-  const inputValue = inputType === 'datetime-local'
-    ? toNativeDateTimeValue(value)
-    : inputType === 'time'
-      ? (value || '').slice(0, 5)
-      : (value || '').slice(0, 10);
+  const inputType: NativeDateTimeInputType = timeOnly || mode === 'time' ? 'time' : showTime || mode === 'datetime' ? 'datetime-local' : 'date';
+  const inputValue = getNativeDateTimeValue(inputType, value);
+  const handleDateTimeChange = createNativeDateTimeChangeHandler(inputType, onChange);
 
   return (
     <input
@@ -57,8 +53,9 @@ export const WheelDateTimePicker: React.FC<NativeDateTimePickerProps> = ({
       value={inputValue}
       disabled={disabled}
       placeholder={placeholder}
-      onChange={(e) => onChange(inputType === 'datetime-local' ? fromNativeDateTimeValue(e.target.value) : e.target.value)}
-      style={{ ...nativeInputStyle, opacity: disabled ? 0.65 : 1, ...style }}
+      onInput={handleDateTimeChange}
+      onChange={handleDateTimeChange}
+      style={{ ...nativeInputStyle, ...centeredNativeDateTimeInputStyle, opacity: disabled ? 0.65 : 1, ...style }}
     />
   );
 };

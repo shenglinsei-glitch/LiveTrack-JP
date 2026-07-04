@@ -7,6 +7,7 @@ import { Concert, DueAction, Status } from '@/domain/types';
 import { applyDecision, getDueAction } from '@/domain/logic';
 
 import { RemoteImage } from '@/components/RemoteImage';
+import { centeredNativeDateTimeInputStyle } from '@/components/common/nativeDateInput';
 
 interface ConcertWithMetadata extends Concert {
   artistName: string;
@@ -146,7 +147,7 @@ const ActionPanel: React.FC<{
                 onChange={(e) => setLotteryName(e.target.value)}
                 style={smallInputStyle}
               />
-              <input type="date" value={resultAt} onChange={(e) => setResultAt(e.target.value)} style={smallInputStyle} />
+              <input type="date" value={resultAt} onInput={(e) => setResultAt(e.currentTarget.value)} onChange={(e) => setResultAt(e.target.value)} style={{ ...smallInputStyle, ...centeredNativeDateTimeInputStyle }} />
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={() => onAction('BUY', { lotteryName, resultAt })} style={primaryBtnStyle}>
@@ -174,8 +175,9 @@ const ActionPanel: React.FC<{
               <input
                 type="date"
                 value={concertAt}
+                onInput={(e) => setConcertAt(e.currentTarget.value)}
                 onChange={(e) => setConcertAt(e.target.value)}
-                style={smallInputStyle}
+                style={{ ...smallInputStyle, ...centeredNativeDateTimeInputStyle }}
                 placeholder="公演日時"
               />
             )}

@@ -9,6 +9,7 @@ import { ConcertStatusCard } from '@/components/ConcertStatusCard';
 import { ExhibitionStatusCard } from '@/components/ExhibitionStatusCard';
 import { MovieStatusCard, MovieLotteryActionState } from '@/components/MovieStatusCard';
 import { fromDateTimeLocal, getMovieLotteryResultAt, getMovieSaleStart, parseMovieFlexibleDate, toDateTimeLocal } from '@/domain/statusHelpers';
+import { centeredNativeDateTimeInputStyle } from '@/components/common/nativeDateInput';
 
 interface Props {
   artists: Artist[];
@@ -531,8 +532,10 @@ export const StatusPage: React.FC<Props> = ({
               <input
                 type="datetime-local"
                 value={exhibitionAction.value}
+                onInput={(e) => setExhibitionAction((prev) => prev ? { ...prev, value: e.currentTarget.value } : prev)}
                 onChange={(e) => setExhibitionAction((prev) => prev ? { ...prev, value: e.target.value } : prev)}
                 style={{
+                  ...centeredNativeDateTimeInputStyle,
                   width: '100%',
                   borderRadius: 12,
                   border: '1px solid rgba(0,0,0,0.08)',
@@ -562,11 +565,11 @@ export const StatusPage: React.FC<Props> = ({
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>鑑賞日</label>
-                <input type="date" value={movieWatchedAction.watchDate} onChange={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, watchDate: e.target.value } : prev)} style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
+                <input type="date" value={movieWatchedAction.watchDate} onInput={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, watchDate: e.currentTarget.value } : prev)} onChange={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, watchDate: e.target.value } : prev)} style={{ ...centeredNativeDateTimeInputStyle, width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
                 <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>開演</label>
-                <input type="time" value={movieWatchedAction.startTime} onChange={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, startTime: e.target.value } : prev)} style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
+                <input type="time" value={movieWatchedAction.startTime} onInput={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, startTime: e.currentTarget.value } : prev)} onChange={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, startTime: e.target.value } : prev)} style={{ ...centeredNativeDateTimeInputStyle, width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
                 <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>終演</label>
-                <input type="time" value={movieWatchedAction.endTime} onChange={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, endTime: e.target.value } : prev)} style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
+                <input type="time" value={movieWatchedAction.endTime} onInput={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, endTime: e.currentTarget.value } : prev)} onChange={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, endTime: e.target.value } : prev)} style={{ ...centeredNativeDateTimeInputStyle, width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => setMovieWatchedAction(null)} style={actionGhostBtn}>キャンセル</button>
@@ -590,8 +593,9 @@ export const StatusPage: React.FC<Props> = ({
                 <input
                   type="datetime-local"
                   value={movieLotteryAction.value}
+                  onInput={(e) => setMovieLotteryAction((prev) => prev ? { ...prev, value: e.currentTarget.value } : prev)}
                   onChange={(e) => setMovieLotteryAction((prev) => prev ? { ...prev, value: e.target.value } : prev)}
-                  style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }}
+                  style={{ ...centeredNativeDateTimeInputStyle, width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }}
                 />
                 <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>劇場名</label>
                 <input value={movieLotteryAction.theaterName} onChange={(e) => setMovieLotteryAction((prev) => prev ? { ...prev, theaterName: e.target.value } : prev)} style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />

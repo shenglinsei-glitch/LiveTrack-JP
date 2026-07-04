@@ -10,6 +10,7 @@ import { StatusBadge } from '@/components/common/StatusBadge';
 import { DetailPageLayout } from '@/components/detail/DetailPageLayout';
 import { TagSelectInput } from '@/components/common/TagSelectInput';
 import { TagMultiSelectInput } from '@/components/common/TagMultiSelectInput';
+import { centeredNativeDateTimeInputStyle, createNativeDateTimeChangeHandler, getNativeDateTimeValue } from '@/components/common/nativeDateInput';
 
 interface MovieDetailPageProps {
   movie: Movie;
@@ -97,6 +98,58 @@ const staticInputStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   color: theme.colors.textSecondary,
+};
+
+const nativeDateInputStyle: React.CSSProperties = {
+  ...inputStyle,
+  ...centeredNativeDateTimeInputStyle,
+  colorScheme: 'light',
+  WebkitAppearance: 'none',
+  appearance: 'none',
+};
+
+const MovieDatePicker: React.FC<{ value?: string; onChange: (v: string) => void }> = ({ value, onChange }) => {
+  const handleDateChange = createNativeDateTimeChangeHandler('date', onChange);
+
+  return (
+    <input
+      type="date"
+      value={getNativeDateTimeValue('date', value)}
+      onInput={handleDateChange}
+      onChange={handleDateChange}
+      style={nativeDateInputStyle}
+    />
+  );
+};
+
+const MovieDateTimePicker: React.FC<{ value?: string; onChange: (v: string) => void }> = ({ value, onChange }) => {
+  const handleDateTimeChange = createNativeDateTimeChangeHandler('datetime-local', onChange);
+
+  return (
+    <input
+      type="datetime-local"
+      value={getNativeDateTimeValue('datetime-local', value)}
+      onInput={handleDateTimeChange}
+      onChange={handleDateTimeChange}
+      style={nativeDateInputStyle}
+    />
+  );
+};
+
+const MovieTimePicker: React.FC<{ value?: string; onChange: (v: string) => void; readOnly?: boolean }> = ({ value, onChange, readOnly }) => {
+  const handleTimeChange = createNativeDateTimeChangeHandler('time', onChange);
+
+  return (
+    <input
+      type="time"
+      value={getNativeDateTimeValue('time', value)}
+      onInput={handleTimeChange}
+      onChange={handleTimeChange}
+      readOnly={readOnly}
+      disabled={readOnly}
+      style={{ ...nativeDateInputStyle, opacity: readOnly ? 0.75 : 1 }}
+    />
+  );
 };
 
 const sectionCardStyle: React.CSSProperties = {
@@ -230,28 +283,6 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, actors 
   );
 
   
-  const toNativeDateTimeValue = (value?: string) => value ? value.replace(' ', 'T').slice(0, 16) : '';
-  const fromNativeDateTimeValue = (value: string) => value ? value.replace('T', ' ') : '';
-
-  const nativeDateInputStyle: React.CSSProperties = {
-    ...inputStyle,
-    colorScheme: 'light',
-    WebkitAppearance: 'none',
-    appearance: 'none',
-  };
-
-  const CustomDatePicker: React.FC<{ value?: string; onChange: (v: string) => void }> = ({ value, onChange }) => (
-    <input type="date" value={(value || '').slice(0, 10)} onChange={(e) => onChange(e.target.value)} style={nativeDateInputStyle} />
-  );
-
-  const CustomDateTimePicker: React.FC<{ value?: string; onChange: (v: string) => void }> = ({ value, onChange }) => (
-    <input type="datetime-local" value={toNativeDateTimeValue(value)} onChange={(e) => onChange(fromNativeDateTimeValue(e.target.value))} style={nativeDateInputStyle} />
-  );
-
-  const TimePicker: React.FC<{ value?: string; onChange: (v: string) => void; readOnly?: boolean }> = ({ value, onChange, readOnly }) => (
-    <input type="time" value={(value || '').slice(0, 5)} onChange={(e) => onChange(e.target.value)} readOnly={readOnly} disabled={readOnly} style={{ ...nativeDateInputStyle, opacity: readOnly ? 0.75 : 1 }} />
-  );
-
   const AddButton: React.FC<{ onClick: () => void; children: React.ReactNode }> = ({ onClick, children }) => (
     <button type="button" onClick={onClick} style={{ padding: '12px', borderRadius: '14px', border: '1px dashed rgba(0,0,0,0.2)', background: 'transparent', color: theme.colors.textSecondary, fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>
       + {children}
@@ -336,8 +367,8 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, actors 
 
               {formData.ticketType === '舞台挨拶' && formData.status === '発売前' && (
                 <Section title="舞台挨拶販売">
-                  <Field label="発売日">{isEditMode ? <CustomDateTimePicker value={formData.saleAt} onChange={(v) => updateField('saleAt', v as any)} /> : <StaticText>{formatDateTimeWithWeek(formData.saleAt)}</StaticText>}</Field>
-                  <Field label="締切日">{isEditMode ? <CustomDateTimePicker value={formData.deadlineAt} onChange={(v) => updateField('deadlineAt', v as any)} /> : <StaticText>{formatDateTimeWithWeek(formData.deadlineAt)}</StaticText>}</Field>
+                  <Field label="発売日">{isEditMode ? <MovieDateTimePicker value={formData.saleAt} onChange={(v) => updateField('saleAt', v as any)} /> : <StaticText>{formatDateTimeWithWeek(formData.saleAt)}</StaticText>}</Field>
+                  <Field label="締切日">{isEditMode ? <MovieDateTimePicker value={formData.deadlineAt} onChange={(v) => updateField('deadlineAt', v as any)} /> : <StaticText>{formatDateTimeWithWeek(formData.deadlineAt)}</StaticText>}</Field>
                   <Field label="販売ページURL"><Input value={formData.saleLink || ''} onChange={(v) => updateField('saleLink', v as any)} placeholder="https://..." readOnly={!isEditMode} /></Field>
                 </Section>
               )}
@@ -345,16 +376,16 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, actors 
               {formData.ticketType === '舞台挨拶' && formData.status === '抽選中' && (
                 <Section title="舞台挨拶抽選">
                   <Field label="抽選名"><Input value={formData.lotteryName || ''} onChange={(v) => updateField('lotteryName', v as any)} placeholder="例：プレリザーブ" readOnly={!isEditMode} /></Field>
-                  <Field label="抽選結果日時">{isEditMode ? <CustomDateTimePicker value={formData.lotteryResultAt} onChange={(v) => updateField('lotteryResultAt', v as any)} /> : <StaticText>{formatDateTimeWithWeek(formData.lotteryResultAt)}</StaticText>}</Field>
+                  <Field label="抽選結果日時">{isEditMode ? <MovieDateTimePicker value={formData.lotteryResultAt} onChange={(v) => updateField('lotteryResultAt', v as any)} /> : <StaticText>{formatDateTimeWithWeek(formData.lotteryResultAt)}</StaticText>}</Field>
                   <Field label="抽選リンク"><Input value={formData.lotteryUrl || ''} onChange={(v) => updateField('lotteryUrl', v as any)} placeholder="https://..." readOnly={!isEditMode} /></Field>
                 </Section>
               )}
 
               <Section title="日時情報">
-                <Field label="公開日">{isEditMode ? <CustomDatePicker value={formData.releaseDate} onChange={(v) => updateField('releaseDate', v)} /> : <StaticText>{formatDateWithWeek(formData.releaseDate)}</StaticText>}</Field>
-                <Field label="鑑賞日">{isEditMode ? <CustomDatePicker value={formData.watchDate} onChange={(v) => updateField('watchDate', v)} /> : <StaticText>{formatDateWithWeek(formData.watchDate)}</StaticText>}</Field>
-                <Field label="開演"><TimePicker value={formData.startTime} onChange={(v) => updateField('startTime', v)} readOnly={!isEditMode} /></Field>
-                <Field label="終演"><TimePicker value={formData.endTime} onChange={(v) => updateField('endTime', v)} readOnly={!isEditMode} /></Field>
+                <Field label="公開日">{isEditMode ? <MovieDatePicker value={formData.releaseDate} onChange={(v) => updateField('releaseDate', v)} /> : <StaticText>{formatDateWithWeek(formData.releaseDate)}</StaticText>}</Field>
+                <Field label="鑑賞日">{isEditMode ? <MovieDatePicker value={formData.watchDate} onChange={(v) => updateField('watchDate', v)} /> : <StaticText>{formatDateWithWeek(formData.watchDate)}</StaticText>}</Field>
+                <Field label="開演"><MovieTimePicker value={formData.startTime} onChange={(v) => updateField('startTime', v)} readOnly={!isEditMode} /></Field>
+                <Field label="終演"><MovieTimePicker value={formData.endTime} onChange={(v) => updateField('endTime', v)} readOnly={!isEditMode} /></Field>
                 <Field label="上映時間"><StaticText>{durationLabel || ''}</StaticText></Field>
               </Section>
 

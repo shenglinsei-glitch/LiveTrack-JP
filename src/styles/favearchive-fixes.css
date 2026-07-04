@@ -1,4 +1,3 @@
-
 /* FaveArchive mobile native date/time input containment fixes */
 * {
   box-sizing: border-box;
@@ -11,17 +10,35 @@ input[type="datetime-local"] {
   max-width: 100% !important;
   min-width: 0 !important;
   box-sizing: border-box !important;
-  display: block !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   -webkit-appearance: none !important;
   appearance: none !important;
   overflow: hidden !important;
+  line-height: normal !important;
+  font-variant-numeric: tabular-nums !important;
 }
 
 input[type="date"]::-webkit-date-and-time-value,
 input[type="time"]::-webkit-date-and-time-value,
 input[type="datetime-local"]::-webkit-date-and-time-value {
   min-width: 0 !important;
+  min-height: 1.2em !important;
+  line-height: normal !important;
+  margin: auto 0 !important;
+  padding: 0 !important;
   text-align: center;
+}
+
+input[type="date"]::-webkit-datetime-edit,
+input[type="time"]::-webkit-datetime-edit,
+input[type="datetime-local"]::-webkit-datetime-edit {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: normal !important;
+  padding: 0 !important;
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator,

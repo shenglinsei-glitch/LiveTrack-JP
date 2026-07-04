@@ -14,9 +14,8 @@ import {
   Tag
 } from 'antd';
 import dayjs from 'dayjs';
+import { centeredNativeDateTimeInputStyle, createNativeDateTimeChangeHandler, getNativeDateTimeValue, NativeDateTimeInputType } from '@/components/common/nativeDateInput';
 
-const toNativeDateTimeValue = (value: string | null | undefined) => value ? value.replace(' ', 'T').slice(0, 16) : '';
-const fromNativeDateTimeValue = (value: string) => value ? value.replace('T', ' ') : '';
 
 const nativeDateInputStyle: React.CSSProperties = {
   width: '100%',
@@ -47,15 +46,21 @@ const CustomExhibitionDatePicker = ({
   onChange: (val: string) => void;
   showTime?: boolean;
   placeholder?: string;
-}) => (
-  <input
-    type={showTime ? 'datetime-local' : 'date'}
-    value={showTime ? toNativeDateTimeValue(value) : (value || '').slice(0, 10)}
-    onChange={(e) => onChange(showTime ? fromNativeDateTimeValue(e.target.value) : e.target.value)}
-    placeholder={placeholder || '未設定'}
-    style={nativeDateInputStyle}
-  />
-);
+}) => {
+  const inputType: NativeDateTimeInputType = showTime ? 'datetime-local' : 'date';
+  const handleDateTimeChange = createNativeDateTimeChangeHandler(inputType, onChange);
+
+  return (
+    <input
+      type={inputType}
+      value={getNativeDateTimeValue(inputType, value)}
+      onInput={handleDateTimeChange}
+      onChange={handleDateTimeChange}
+      placeholder={placeholder || '未設定'}
+      style={{ ...nativeDateInputStyle, ...centeredNativeDateTimeInputStyle }}
+    />
+  );
+};
 
 const CustomExhibitionTimePicker = ({
   value,
@@ -65,9 +70,20 @@ const CustomExhibitionTimePicker = ({
   value?: string;
   onChange: (val: string) => void;
   placeholder?: string;
-}) => (
-  <input type="time" value={(value || '').slice(0, 5)} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={nativeDateInputStyle} />
-);
+}) => {
+  const handleTimeChange = createNativeDateTimeChangeHandler('time', onChange);
+
+  return (
+    <input
+      type="time"
+      value={getNativeDateTimeValue('time', value)}
+      onInput={handleTimeChange}
+      onChange={handleTimeChange}
+      placeholder={placeholder}
+      style={{ ...nativeDateInputStyle, ...centeredNativeDateTimeInputStyle }}
+    />
+  );
+};
 
 interface Props {
   exhibition: Exhibition;
