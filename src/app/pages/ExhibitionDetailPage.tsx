@@ -16,7 +16,7 @@ import { Exhibition, ExhibitionSpecialHours, ExhibitionClosedDay, ExhibitionUrl,
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useRemoteImage } from '@/components/RemoteImage';
 import { getEffectiveExhibitionStatus } from '@/domain/logic';
-import { centeredNativeDateTimeInputStyle } from '@/components/common/nativeDateInput';
+import { NativeDateTimeInput } from '@/components/common/nativeDateInput';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -62,6 +62,27 @@ const textareaStyle: React.CSSProperties = {
   fontFamily: 'inherit',
 };
 
+
+const buildVisitedAtFromFields = (exhibition: Exhibition) => {
+  const date = exhibition.visitedAtDate || (exhibition.visitedAt ? exhibition.visitedAt.split(' ')[0] : '');
+  const time = exhibition.visitTime || (exhibition.visitedAt && exhibition.visitedAt.length >= 16 ? exhibition.visitedAt.slice(11, 16) : '');
+  if (!date) return undefined;
+  return `${date}${time ? ` ${time}` : ''}`;
+};
+
+const normalizeExhibitionVisitFields = (exhibition: Exhibition): Exhibition => {
+  const visitedAt = buildVisitedAtFromFields(exhibition);
+  if (!visitedAt) {
+    return { ...exhibition, visitedAt: undefined };
+  }
+  return {
+    ...exhibition,
+    visitedAt,
+    visitedAtDate: visitedAt.slice(0, 10),
+    visitTime: visitedAt.length >= 16 ? visitedAt.slice(11, 16) : exhibition.visitTime,
+  };
+};
+
 export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
   exhibition,
   allExhibitions,
@@ -103,7 +124,8 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
   };
 
   const saveAndLeave = () => {
-    const next = { ...formData, status: getEffectiveExhibitionStatus(formData) };
+    const prepared = normalizeExhibitionVisitFields(formData);
+    const next = { ...prepared, status: getEffectiveExhibitionStatus(prepared) };
     onUpdateExhibition(next);
     setFormData(next);
     setIsNewDraft(false);
@@ -127,7 +149,8 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
   const effectiveStatus = getEffectiveExhibitionStatus(formData);
 
   const handleSave = () => {
-    const next = { ...formData, status: getEffectiveExhibitionStatus(formData) };
+    const prepared = normalizeExhibitionVisitFields(formData);
+    const next = { ...prepared, status: getEffectiveExhibitionStatus(prepared) };
 
     // 保存会场标签
     if (formData.venueTags && formData.venueTags.length > 0 && onAddExhibitionVenue) {
@@ -253,18 +276,18 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
         <FormSection title="スケジュール">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
             <FormField label="開始日">
-              <input type="date" value={formData.startDate || ''} onInput={e => setFormData(p => ({ ...p, startDate: e.currentTarget.value }))} onChange={e => setFormData(p => ({ ...p, startDate: e.target.value }))} style={{ ...inputStyle, ...centeredNativeDateTimeInputStyle }} />
+              <NativeDateTimeInput type="date" value={formData.startDate || ''} onChange={value => setFormData(p => ({ ...p, startDate: value }))} style={inputStyle} />
             </FormField>
             <FormField label="終了日">
-              <input type="date" value={formData.endDate || ''} onInput={e => setFormData(p => ({ ...p, endDate: e.currentTarget.value }))} onChange={e => setFormData(p => ({ ...p, endDate: e.target.value }))} style={{ ...inputStyle, ...centeredNativeDateTimeInputStyle }} />
+              <NativeDateTimeInput type="date" value={formData.endDate || ''} onChange={value => setFormData(p => ({ ...p, endDate: value }))} style={inputStyle} />
             </FormField>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
             <FormField label="通常開館">
-              <input type="time" value={formData.regularOpenTime || formData.weekdayStartTime || ''} onInput={e => setFormData(p => ({ ...p, regularOpenTime: e.currentTarget.value }))} onChange={e => setFormData(p => ({ ...p, regularOpenTime: e.target.value }))} style={{ ...inputStyle, ...centeredNativeDateTimeInputStyle }} />
+              <NativeDateTimeInput type="time" value={formData.regularOpenTime || formData.weekdayStartTime || ''} onChange={value => setFormData(p => ({ ...p, regularOpenTime: value }))} style={inputStyle} />
             </FormField>
             <FormField label="通常閉館">
-              <input type="time" value={formData.regularCloseTime || formData.weekdayEndTime || ''} onInput={e => setFormData(p => ({ ...p, regularCloseTime: e.currentTarget.value }))} onChange={e => setFormData(p => ({ ...p, regularCloseTime: e.target.value }))} style={{ ...inputStyle, ...centeredNativeDateTimeInputStyle }} />
+              <NativeDateTimeInput type="time" value={formData.regularCloseTime || formData.weekdayEndTime || ''} onChange={value => setFormData(p => ({ ...p, regularCloseTime: value }))} style={inputStyle} />
             </FormField>
           </div>
 
@@ -281,7 +304,7 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
                     <option value="weekday">曜日指定</option>
                   </select>
                   {item.type === 'date' ? (
-                    <input type="date" value={item.dateOrWeekday} onInput={e => onUpdate({ ...item, dateOrWeekday: e.currentTarget.value })} onChange={e => onUpdate({ ...item, dateOrWeekday: e.target.value })} style={{ ...inputStyle, ...centeredNativeDateTimeInputStyle }} />
+                    <NativeDateTimeInput type="date" value={item.dateOrWeekday} onChange={value => onUpdate({ ...item, dateOrWeekday: value })} style={inputStyle} />
                   ) : (
                     <select value={item.dateOrWeekday} onChange={e => onUpdate({ ...item, dateOrWeekday: e.target.value })} style={inputStyle}>
                       <option value="">曜日を選択</option>
@@ -295,8 +318,8 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
                     </select>
                   )}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
-                    <input type="time" value={item.startTime} onInput={e => onUpdate({ ...item, startTime: e.currentTarget.value })} onChange={e => onUpdate({ ...item, startTime: e.target.value })} style={{ ...inputStyle, ...centeredNativeDateTimeInputStyle }} placeholder="開館" />
-                    <input type="time" value={item.endTime} onInput={e => onUpdate({ ...item, endTime: e.currentTarget.value })} onChange={e => onUpdate({ ...item, endTime: e.target.value })} style={{ ...inputStyle, ...centeredNativeDateTimeInputStyle }} placeholder="閉館" />
+                    <NativeDateTimeInput type="time" value={item.startTime} onChange={value => onUpdate({ ...item, startTime: value })} style={inputStyle} placeholder="開館" />
+                    <NativeDateTimeInput type="time" value={item.endTime} onChange={value => onUpdate({ ...item, endTime: value })} style={inputStyle} placeholder="閉館" />
                   </div>
                 </div>
               )}
@@ -328,7 +351,7 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
                       <option value="weekday">曜日指定</option>
                     </select>
                     {item.type === 'date' ? (
-                      <input type="date" value={item.dateOrWeekday} onInput={e => onUpdate({ ...item, dateOrWeekday: e.currentTarget.value })} onChange={e => onUpdate({ ...item, dateOrWeekday: e.target.value })} style={{ ...inputStyle, ...centeredNativeDateTimeInputStyle, flex: 2 }} />
+                      <NativeDateTimeInput type="date" value={item.dateOrWeekday} onChange={value => onUpdate({ ...item, dateOrWeekday: value })} style={inputStyle} containerStyle={{ flex: 2 }} />
                     ) : (
                       <select value={item.dateOrWeekday} onChange={e => onUpdate({ ...item, dateOrWeekday: e.target.value })} style={{ ...inputStyle, flex: 2 }}>
                         <option value="">曜日を選択</option>
@@ -459,6 +482,26 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
         </FormSection>
       )}
 
+      {/* 5. 予約済み */}
+      {!isEditMode ? (
+        formData.reservedAt && (
+          <DetailSection title="予約済み">
+            <InfoRow label="予約日時" value={formData.reservedAt.replace(/-/g, '/').replace('T', ' ')} />
+          </DetailSection>
+        )
+      ) : (
+        <FormSection title="予約済み">
+          <FormField label="予約日時">
+            <NativeDateTimeInput
+              type="datetime-local"
+              value={formData.reservedAt || ''}
+              onChange={value => setFormData(p => ({ ...p, reservedAt: value }))}
+              style={inputStyle}
+            />
+          </FormField>
+        </FormSection>
+      )}
+
       {/* 5. 観覧済み */}
       {!isEditMode ? (
         (visitedDate || formData.visitTime) && (
@@ -473,21 +516,19 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
         <FormSection title="観覧済み">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
             <FormField label="日付">
-              <input
+              <NativeDateTimeInput
                 type="date"
                 value={visitedDate}
-                onInput={e => setFormData(p => ({ ...p, visitedAtDate: e.currentTarget.value }))}
-                onChange={e => setFormData(p => ({ ...p, visitedAtDate: e.target.value }))}
-                style={{ ...inputStyle, ...centeredNativeDateTimeInputStyle }}
+                onChange={value => setFormData(p => ({ ...p, visitedAtDate: value }))}
+                style={inputStyle}
               />
             </FormField>
             <FormField label="時間">
-              <input
+              <NativeDateTimeInput
                 type="time"
                 value={formData.visitTime || ''}
-                onInput={e => setFormData(p => ({ ...p, visitTime: e.currentTarget.value }))}
-                onChange={e => setFormData(p => ({ ...p, visitTime: e.target.value }))}
-                style={{ ...inputStyle, ...centeredNativeDateTimeInputStyle }}
+                onChange={value => setFormData(p => ({ ...p, visitTime: value }))}
+                style={inputStyle}
               />
             </FormField>
           </div>

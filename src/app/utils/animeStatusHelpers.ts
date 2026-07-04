@@ -32,7 +32,7 @@ export const openExternalUrl = (url?: string) => {
   window.open(value.startsWith('http') ? value : `https://${value}`, '_blank', 'noopener,noreferrer');
 };
 
-const ANIME_STATUS_PRIORITY: AnimeStatus[] = ['視聴中', '視聴予定', '放送前', '保留', '視聴済み', '視聴中止', '見送り'];
+const ANIME_STATUS_PRIORITY: AnimeStatus[] = ['視聴中', '視聴予定', '保留', '放送前', '視聴済み', '視聴中止', '見送り'];
 
 export const deriveAnimeStatus = (anime: Pick<Anime, 'status' | 'seasons'>): AnimeStatus => {
   const statuses = asArray(anime.seasons).map((s) => s.status).filter(Boolean) as AnimeStatus[];

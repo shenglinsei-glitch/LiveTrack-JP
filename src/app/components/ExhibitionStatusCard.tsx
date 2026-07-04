@@ -37,6 +37,16 @@ const formatCompactDate = (dateStr: string) => {
   return normalized;
 };
 
+
+const formatLocalDateTimeForSave = (date = new Date()) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  return `${y}-${m}-${d} ${hh}:${mm}`;
+};
+
 const parseNormalDate = (dateStr?: string) => {
   if (!dateStr) return null;
   const normalized = dateStr.replace(/-/g, '/');
@@ -48,7 +58,7 @@ const getExhibitionMeta = (item: StatusItem) => {
   if (item.status === 'RESERVED') {
     return {
       type: '訪問予定',
-      value: item.raw.visitedAt || item.date || '',
+      value: item.raw.reservedAt || item.date || '',
     };
   }
 
@@ -81,19 +91,19 @@ export const ExhibitionStatusCard: React.FC<Props> = ({
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', padding: '0 4px' }}>
           <button onClick={(e) => { e.stopPropagation(); onOpenExhibitionDateModal(item, 'reserve'); }} style={actionPrimaryBtn}>予約済</button>
           <button onClick={(e) => { e.stopPropagation(); onOpenExhibitionDateModal(item, 'visit'); }} style={actionGhostBtn}>訪問済</button>
-          <button onClick={(e) => { e.stopPropagation(); onUpdateExhibitionStatus(item.parentId, { status: 'SKIPPED', visitedAt: undefined }); }} style={actionGhostBtn}>見送り</button>
+          <button onClick={(e) => { e.stopPropagation(); onUpdateExhibitionStatus(item.parentId, { status: 'SKIPPED', reservedAt: undefined, visitedAt: undefined }); }} style={actionGhostBtn}>見送り</button>
         </div>
       );
     }
 
     if (item.status === 'RESERVED') {
-      const reservedAt = item.raw.visitedAt ? parseNormalDate(item.raw.visitedAt) : null;
+      const reservedAt = item.raw.reservedAt ? parseNormalDate(item.raw.reservedAt) : null;
       const canActOnReserved = !reservedAt || new Date() >= reservedAt;
       if (!canActOnReserved) return null;
       return (
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', padding: '0 4px' }}>
-          <button onClick={(e) => { e.stopPropagation(); onUpdateExhibitionStatus(item.parentId, { status: 'VISITED' }); }} style={actionPrimaryBtn}>訪問済</button>
-          <button onClick={(e) => { e.stopPropagation(); onUpdateExhibitionStatus(item.parentId, { status: 'SKIPPED', visitedAt: undefined }); }} style={actionGhostBtn}>見送り</button>
+          <button onClick={(e) => { e.stopPropagation(); const visitedAt = formatLocalDateTimeForSave(); onUpdateExhibitionStatus(item.parentId, { status: 'VISITED', visitedAt, visitedAtDate: visitedAt.slice(0, 10), visitTime: visitedAt.slice(11, 16) }); }} style={actionPrimaryBtn}>訪問済</button>
+          <button onClick={(e) => { e.stopPropagation(); onUpdateExhibitionStatus(item.parentId, { status: 'SKIPPED', reservedAt: undefined, visitedAt: undefined }); }} style={actionGhostBtn}>見送り</button>
         </div>
       );
     }

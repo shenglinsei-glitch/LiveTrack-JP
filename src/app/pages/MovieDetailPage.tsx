@@ -10,7 +10,7 @@ import { StatusBadge } from '@/components/common/StatusBadge';
 import { DetailPageLayout } from '@/components/detail/DetailPageLayout';
 import { TagSelectInput } from '@/components/common/TagSelectInput';
 import { TagMultiSelectInput } from '@/components/common/TagMultiSelectInput';
-import { centeredNativeDateTimeInputStyle, createNativeDateTimeChangeHandler, getNativeDateTimeValue } from '@/components/common/nativeDateInput';
+import { NativeDateTimeInput, centeredNativeDateTimeInputStyle } from '@/components/common/nativeDateInput';
 
 interface MovieDetailPageProps {
   movie: Movie;
@@ -108,49 +108,34 @@ const nativeDateInputStyle: React.CSSProperties = {
   appearance: 'none',
 };
 
-const MovieDatePicker: React.FC<{ value?: string; onChange: (v: string) => void }> = ({ value, onChange }) => {
-  const handleDateChange = createNativeDateTimeChangeHandler('date', onChange);
+const MovieDatePicker: React.FC<{ value?: string; onChange: (v: string) => void }> = ({ value, onChange }) => (
+  <NativeDateTimeInput
+    type="date"
+    value={value}
+    onChange={onChange}
+    style={nativeDateInputStyle}
+  />
+);
 
-  return (
-    <input
-      type="date"
-      value={getNativeDateTimeValue('date', value)}
-      onInput={handleDateChange}
-      onChange={handleDateChange}
-      style={nativeDateInputStyle}
-    />
-  );
-};
+const MovieDateTimePicker: React.FC<{ value?: string; onChange: (v: string) => void }> = ({ value, onChange }) => (
+  <NativeDateTimeInput
+    type="datetime-local"
+    value={value}
+    onChange={onChange}
+    style={nativeDateInputStyle}
+  />
+);
 
-const MovieDateTimePicker: React.FC<{ value?: string; onChange: (v: string) => void }> = ({ value, onChange }) => {
-  const handleDateTimeChange = createNativeDateTimeChangeHandler('datetime-local', onChange);
-
-  return (
-    <input
-      type="datetime-local"
-      value={getNativeDateTimeValue('datetime-local', value)}
-      onInput={handleDateTimeChange}
-      onChange={handleDateTimeChange}
-      style={nativeDateInputStyle}
-    />
-  );
-};
-
-const MovieTimePicker: React.FC<{ value?: string; onChange: (v: string) => void; readOnly?: boolean }> = ({ value, onChange, readOnly }) => {
-  const handleTimeChange = createNativeDateTimeChangeHandler('time', onChange);
-
-  return (
-    <input
-      type="time"
-      value={getNativeDateTimeValue('time', value)}
-      onInput={handleTimeChange}
-      onChange={handleTimeChange}
-      readOnly={readOnly}
-      disabled={readOnly}
-      style={{ ...nativeDateInputStyle, opacity: readOnly ? 0.75 : 1 }}
-    />
-  );
-};
+const MovieTimePicker: React.FC<{ value?: string; onChange: (v: string) => void; readOnly?: boolean }> = ({ value, onChange, readOnly }) => (
+  <NativeDateTimeInput
+    type="time"
+    value={value}
+    onChange={onChange}
+    readOnly={readOnly}
+    disabled={readOnly}
+    style={{ ...nativeDateInputStyle, opacity: readOnly ? 0.75 : 1 }}
+  />
+);
 
 const sectionCardStyle: React.CSSProperties = {
   marginBottom: 14,

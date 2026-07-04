@@ -1,6 +1,6 @@
 import React from 'react';
 import { theme } from '@/components/common/theme';
-import { centeredNativeDateTimeInputStyle, createNativeDateTimeChangeHandler, getNativeDateTimeValue, NativeDateTimeInputType } from '@/components/common/nativeDateInput';
+import { NativeDateTimeInput, NativeDateTimeInputType } from '@/components/common/nativeDateInput';
 
 interface NativeDateTimePickerProps {
   value?: string;
@@ -44,18 +44,14 @@ export const WheelDateTimePicker: React.FC<NativeDateTimePickerProps> = ({
   style,
 }) => {
   const inputType: NativeDateTimeInputType = timeOnly || mode === 'time' ? 'time' : showTime || mode === 'datetime' ? 'datetime-local' : 'date';
-  const inputValue = getNativeDateTimeValue(inputType, value);
-  const handleDateTimeChange = createNativeDateTimeChangeHandler(inputType, onChange);
-
   return (
-    <input
+    <NativeDateTimeInput
       type={inputType}
-      value={inputValue}
+      value={value}
+      onChange={onChange}
       disabled={disabled}
       placeholder={placeholder}
-      onInput={handleDateTimeChange}
-      onChange={handleDateTimeChange}
-      style={{ ...nativeInputStyle, ...centeredNativeDateTimeInputStyle, opacity: disabled ? 0.65 : 1, ...style }}
+      style={{ ...nativeInputStyle, opacity: disabled ? 0.65 : 1, ...style }}
     />
   );
 };

@@ -86,7 +86,7 @@ const getAnimeSeasonsForSchedule = (anime: Anime): Season[] => {
 
 const getAnimeDisplayStatus = (anime: Anime, season?: Season): AnimeStatus => {
   if (season?.status) return season.status;
-  const order: AnimeStatus[] = ['視聴中', '視聴予定', '放送前', '保留', '視聴済み', '視聴中止', '見送り'];
+  const order: AnimeStatus[] = ['視聴中', '視聴予定', '保留', '放送前', '視聴済み', '視聴中止', '見送り'];
   const statuses = (anime.seasons || []).map((s) => s.status).filter(Boolean) as AnimeStatus[];
   return order.find((status) => statuses.includes(status)) || anime.status || '放送前';
 };

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Movie, StatusItem } from '@/domain/types';
+import { applyMovieLotteryDecision } from '@/domain/logic';
 import { theme } from '@/components/common/theme';
 import {
   fromDateTimeLocal,
@@ -15,11 +16,21 @@ import {
 export interface MovieLotteryActionState {
   id: string;
   title: string;
-  value: string;
+  watchDate: string;
+  startTime: string;
+  endTime: string;
   theaterName: string;
   screenName: string;
   seat: string;
   price: string;
+}
+
+export interface MovieLotteryApplyActionState {
+  id: string;
+  title: string;
+  lotteryName: string;
+  lotteryResultAt: string;
+  lotteryUrl: string;
 }
 
 interface Props {
@@ -27,6 +38,7 @@ interface Props {
   now: Date;
   onOpenMovieDetail: (id: string) => void;
   onUpdateMovieStatus: (id: string, updates: Partial<Movie>) => void;
+  onOpenMovieLotteryApplyModal: (item: StatusItem) => void;
   onOpenMovieLotteryWinModal: (item: StatusItem) => void;
   onOpenMovieWatchedModal: (item: StatusItem) => void;
 }
@@ -50,21 +62,7 @@ const actionGhostBtn: React.CSSProperties = {
 };
 
 const buildLostMovieUpdate = (movie: Movie, now: Date): Partial<Movie> => {
-  return {
-    status: '未上映',
-    ticketType: '通常',
-    lotteryResult: 'LOST',
-    lotteryHistory: [
-      ...(movie.lotteryHistory || []),
-      {
-        at: now.toISOString(),
-        result: 'LOST',
-        lotteryName: movie.lotteryName || '',
-        lotteryResultAt: movie.lotteryResultAt || '',
-      },
-    ],
-    updatedAt: now.toISOString(),
-  };
+  return applyMovieLotteryDecision(movie, 'LOST', { }) as Partial<Movie>;
 };
 
 export const MovieStatusCard: React.FC<Props> = ({
@@ -72,6 +70,7 @@ export const MovieStatusCard: React.FC<Props> = ({
   now,
   onOpenMovieDetail,
   onUpdateMovieStatus,
+  onOpenMovieLotteryApplyModal,
   onOpenMovieLotteryWinModal,
   onOpenMovieWatchedModal,
 }) => {
@@ -178,8 +177,11 @@ export const MovieStatusCard: React.FC<Props> = ({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              const nextStatus = movie.ticketType === '舞台挨拶' ? '抽選中' : '上映中';
-              onUpdateMovieStatus(item.parentId, { status: nextStatus, updatedAt: now.toISOString() });
+              if (movie.ticketType === '舞台挨拶') {
+                onOpenMovieLotteryApplyModal(item);
+                return;
+              }
+              onUpdateMovieStatus(item.parentId, { status: '上映中', updatedAt: now.toISOString() });
             }}
             style={actionPrimaryBtn}
           >

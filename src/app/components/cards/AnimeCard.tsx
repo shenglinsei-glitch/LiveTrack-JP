@@ -13,7 +13,7 @@ interface AnimeCardProps {
 const fmtDate = (date?: string) => (date ? dayjs(date).format('YYYY/MM/DD') : '未設定');
 
 const WEEK = ['日', '月', '火', '水', '木', '金', '土'];
-const ANIME_STATUS_PRIORITY: AnimeStatus[] = ['視聴中', '視聴予定', '放送前', '保留', '視聴済み', '視聴中止', '見送り'];
+const ANIME_STATUS_PRIORITY: AnimeStatus[] = ['視聴中', '視聴予定', '保留', '放送前', '視聴済み', '視聴中止', '見送り'];
 
 const deriveAnimeStatus = (anime: Anime): AnimeStatus => {
   const statuses = (anime.seasons || []).map((season) => season.status).filter(Boolean) as AnimeStatus[];

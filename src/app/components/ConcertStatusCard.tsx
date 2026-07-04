@@ -7,7 +7,7 @@ import { Concert, DueAction, Status } from '@/domain/types';
 import { applyDecision, getDueAction } from '@/domain/logic';
 
 import { RemoteImage } from '@/components/RemoteImage';
-import { centeredNativeDateTimeInputStyle } from '@/components/common/nativeDateInput';
+import { NativeDateTimeInput } from '@/components/common/nativeDateInput';
 
 interface ConcertWithMetadata extends Concert {
   artistName: string;
@@ -128,6 +128,8 @@ const ActionPanel: React.FC<{
 }> = ({ concert, dueAction, onAction, onOpenEditor }) => {
   const [lotteryName, setLotteryName] = useState(concert.lotteryName || '');
   const [resultAt, setResultAt] = useState(concert.resultAt || '');
+  const [ticketPrice, setTicketPrice] = useState(concert.price ? String(concert.price) : '');
+  const [saleLink, setSaleLink] = useState(concert.saleLink || '');
   const [concertAt, setConcertAt] = useState(concert.concertAt || '');
 
   const renderContent = () => {
@@ -147,10 +149,24 @@ const ActionPanel: React.FC<{
                 onChange={(e) => setLotteryName(e.target.value)}
                 style={smallInputStyle}
               />
-              <input type="date" value={resultAt} onInput={(e) => setResultAt(e.currentTarget.value)} onChange={(e) => setResultAt(e.target.value)} style={{ ...smallInputStyle, ...centeredNativeDateTimeInputStyle }} />
+              <NativeDateTimeInput type="datetime-local" value={resultAt} onChange={setResultAt} style={smallInputStyle} placeholder="結果発表日時" />
+              <input
+                type="number"
+                placeholder="チケット価格"
+                value={ticketPrice}
+                onChange={(e) => setTicketPrice(e.target.value)}
+                style={smallInputStyle}
+              />
+              <input
+                type="url"
+                placeholder="販売サイトURL"
+                value={saleLink}
+                onChange={(e) => setSaleLink(e.target.value)}
+                style={smallInputStyle}
+              />
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={() => onAction('BUY', { lotteryName, resultAt })} style={primaryBtnStyle}>
+              <button onClick={() => onAction('BUY', { lotteryName, resultAt, price: ticketPrice === '' ? undefined : Number(ticketPrice), saleLink })} style={primaryBtnStyle}>
                 購入・申込
               </button>
               {dueAction === 'ASK_BUY_AT_SALE' && (
@@ -172,12 +188,11 @@ const ActionPanel: React.FC<{
               {TEXT?.ALERTS?.RESULT_ANNOUNCED ?? '抽選結果が出ました'}
             </div>
             {!concert.concertAt && (
-              <input
-                type="date"
+              <NativeDateTimeInput
+                type="datetime-local"
                 value={concertAt}
-                onInput={(e) => setConcertAt(e.currentTarget.value)}
-                onChange={(e) => setConcertAt(e.target.value)}
-                style={{ ...smallInputStyle, ...centeredNativeDateTimeInputStyle }}
+                onChange={setConcertAt}
+                style={smallInputStyle}
                 placeholder="公演日時"
               />
             )}
@@ -245,6 +260,8 @@ export const ConcertStatusCard: React.FC<Props> = ({ concert, onClick, onUpdate,
         concertAt: updated.concertAt ?? null,
         lotteryName: updated.lotteryName ?? null,
         lotteryResult: updated.lotteryResult ?? null,
+        price: updated.price,
+        saleLink: updated.saleLink,
         lotteryHistory: updated.lotteryHistory,
         isParticipated: updated.isParticipated,
       });

@@ -223,7 +223,8 @@ export interface Exhibition {
   reservationEndAt?: string;
 
   // Visit Tracking
-  visitedAt?: string; // YYYY-MM-DD HH:mm (legacy)
+  reservedAt?: string; // YYYY-MM-DD HH:mm 予約した訪問予定日時
+  visitedAt?: string; // YYYY-MM-DD HH:mm 実際の訪問日時（legacy）
   visitedAtDate?: string; // NEW: YYYY-MM-DD（推奨）
   visitTime?: string; // HH:mm 観覧時間
 

@@ -138,6 +138,13 @@ export const normalizeExhibitionData = (raw: any): Exhibition => {
   const venueTags = asArray<string>(raw?.venueTags).filter(Boolean);
   if (venueName && venueTags.length === 0) venueTags.push(venueName);
 
+  const migratedReservedAt = raw?.reservedAt ?? (raw?.status === 'RESERVED' ? raw?.visitedAt : undefined);
+  const visitedDate = asString(raw?.visitedAtDate ?? (typeof raw?.visitedAt === 'string' && raw?.status !== 'RESERVED' ? raw.visitedAt.slice(0, 10) : ''));
+  const visitedTime = asString(raw?.visitTime ?? (typeof raw?.visitedAt === 'string' && raw?.status !== 'RESERVED' && raw.visitedAt.length >= 16 ? raw.visitedAt.slice(11, 16) : ''));
+  const migratedVisitedAt = raw?.status === 'RESERVED' && !raw?.reservedAt
+    ? undefined
+    : (raw?.visitedAt ?? (visitedDate ? `${visitedDate}${visitedTime ? ` ${visitedTime}` : ''}` : undefined));
+
   return {
     id: asString(raw?.id, makeId('exhibition')),
     title: asString(raw?.title, '名称未設定'),
@@ -174,9 +181,10 @@ export const normalizeExhibitionData = (raw: any): Exhibition => {
     reservationRequired: asBoolean(raw?.reservationRequired ?? raw?.needsReservation),
     reservationStartAt: raw?.reservationStartAt,
     reservationEndAt: raw?.reservationEndAt,
-    visitedAt: raw?.visitedAt,
-    visitedAtDate: asString(raw?.visitedAtDate ?? (typeof raw?.visitedAt === 'string' ? raw.visitedAt.slice(0, 10) : '')),
-    visitTime: asString(raw?.visitTime ?? (typeof raw?.visitedAt === 'string' && raw.visitedAt.length >= 16 ? raw.visitedAt.slice(11, 16) : '')),
+    reservedAt: migratedReservedAt,
+    visitedAt: migratedVisitedAt,
+    visitedAtDate: visitedDate,
+    visitTime: visitedTime,
     status: raw?.status || 'NONE',
     description: asString(raw?.description),
     artists: asArray<any>(raw?.artists).map(normalizeExhibitionArtist),

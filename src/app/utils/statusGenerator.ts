@@ -2,7 +2,7 @@ import { Artist, StatusItem, Exhibition, Movie, Anime, AnimeStatus, Season } fro
 import { parseConcertDate, getEffectiveExhibitionStatus } from '@/domain/logic';
 import dayjs from 'dayjs';
 
-const ANIME_STATUS_PRIORITY: AnimeStatus[] = ['視聴中', '視聴予定', '放送前', '保留', '視聴済み', '視聴中止', '見送り'];
+const ANIME_STATUS_PRIORITY: AnimeStatus[] = ['視聴中', '視聴予定', '保留', '放送前', '視聴済み', '視聴中止', '見送り'];
 const WEEKDAY_TO_NUMBER: Record<string, number> = { '日': 0, '月': 1, '火': 2, '水': 3, '木': 4, '金': 5, '土': 6 };
 const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
 
@@ -151,6 +151,7 @@ export function generateStatusItems(artists: Artist[], exhibitions: Exhibition[]
     const startDate = exhibition.startDate;
     const endDate = exhibition.endDate;
     const visitDate = exhibition.visitedAt || endDate || startDate;
+    const reservedDate = exhibition.reservedAt || startDate;
 
     if (effectiveStatus === 'NONE') return;
 
@@ -159,7 +160,7 @@ export function generateStatusItems(artists: Artist[], exhibitions: Exhibition[]
       return;
     }
     if (effectiveStatus === 'RESERVED') {
-      items.push({ id: `exh-reserved-${exhibition.id}`, type: 'exhibition', parentId: exhibition.id, title: exhibition.title, date: exhibition.visitedAt || startDate, status: 'RESERVED', actionType: 'exhibition_start', displayStatus: '予約済', raw: baseRaw });
+      items.push({ id: `exh-reserved-${exhibition.id}`, type: 'exhibition', parentId: exhibition.id, title: exhibition.title, date: reservedDate, status: 'RESERVED', actionType: 'exhibition_start', displayStatus: '予約済', raw: baseRaw });
       return;
     }
     if (effectiveStatus === 'VISITED') {

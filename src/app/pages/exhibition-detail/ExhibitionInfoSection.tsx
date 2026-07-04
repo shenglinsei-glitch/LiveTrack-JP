@@ -14,7 +14,7 @@ import {
   Tag
 } from 'antd';
 import dayjs from 'dayjs';
-import { centeredNativeDateTimeInputStyle, createNativeDateTimeChangeHandler, getNativeDateTimeValue, NativeDateTimeInputType } from '@/components/common/nativeDateInput';
+import { NativeDateTimeInput } from '@/components/common/nativeDateInput';
 
 
 const nativeDateInputStyle: React.CSSProperties = {
@@ -46,21 +46,15 @@ const CustomExhibitionDatePicker = ({
   onChange: (val: string) => void;
   showTime?: boolean;
   placeholder?: string;
-}) => {
-  const inputType: NativeDateTimeInputType = showTime ? 'datetime-local' : 'date';
-  const handleDateTimeChange = createNativeDateTimeChangeHandler(inputType, onChange);
-
-  return (
-    <input
-      type={inputType}
-      value={getNativeDateTimeValue(inputType, value)}
-      onInput={handleDateTimeChange}
-      onChange={handleDateTimeChange}
-      placeholder={placeholder || '未設定'}
-      style={{ ...nativeDateInputStyle, ...centeredNativeDateTimeInputStyle }}
-    />
-  );
-};
+}) => (
+  <NativeDateTimeInput
+    type={showTime ? 'datetime-local' : 'date'}
+    value={value}
+    onChange={onChange}
+    placeholder={placeholder || '未設定'}
+    style={nativeDateInputStyle}
+  />
+);
 
 const CustomExhibitionTimePicker = ({
   value,
@@ -70,20 +64,15 @@ const CustomExhibitionTimePicker = ({
   value?: string;
   onChange: (val: string) => void;
   placeholder?: string;
-}) => {
-  const handleTimeChange = createNativeDateTimeChangeHandler('time', onChange);
-
-  return (
-    <input
-      type="time"
-      value={getNativeDateTimeValue('time', value)}
-      onInput={handleTimeChange}
-      onChange={handleTimeChange}
-      placeholder={placeholder}
-      style={{ ...nativeDateInputStyle, ...centeredNativeDateTimeInputStyle }}
-    />
-  );
-};
+}) => (
+  <NativeDateTimeInput
+    type="time"
+    value={value}
+    onChange={onChange}
+    placeholder={placeholder}
+    style={nativeDateInputStyle}
+  />
+);
 
 interface Props {
   exhibition: Exhibition;

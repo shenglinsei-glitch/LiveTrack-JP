@@ -7,9 +7,9 @@ import { TopCapsuleNav } from '@/components/TopCapsuleNav';
 import { applyMovieLotteryDecision, getDueAction, getAnimeDotColor, parseConcertDate } from '@/domain/logic';
 import { ConcertStatusCard } from '@/components/ConcertStatusCard';
 import { ExhibitionStatusCard } from '@/components/ExhibitionStatusCard';
-import { MovieStatusCard, MovieLotteryActionState } from '@/components/MovieStatusCard';
+import { MovieStatusCard, MovieLotteryActionState, MovieLotteryApplyActionState } from '@/components/MovieStatusCard';
 import { fromDateTimeLocal, getMovieLotteryResultAt, getMovieSaleStart, parseMovieFlexibleDate, toDateTimeLocal } from '@/domain/statusHelpers';
-import { centeredNativeDateTimeInputStyle } from '@/components/common/nativeDateInput';
+import { NativeDateTimeInput } from '@/components/common/nativeDateInput';
 
 interface Props {
   artists: Artist[];
@@ -35,8 +35,9 @@ type SectionKey = 'all' | 'pending' | 'decided' | 'upcoming' | 'history';
 type SortKey = 'date_asc' | 'date_desc' | 'type' | 'status';
 
 type ExhibitionActionMode = 'reserve' | 'visit';
+type MovieLotteryApplyAction = MovieLotteryApplyActionState;
 type MovieLotteryAction = MovieLotteryActionState;
-type MovieWatchedAction = { id: string; title: string; watchDate: string; startTime: string; endTime: string };
+type MovieWatchedAction = { id: string; title: string; watchDate: string; startTime: string; endTime: string; theaterName: string; screenName: string; seat: string; price: string };
 
 const getSectionLabel = (key: SectionKey) => {
   switch (key) {
@@ -54,6 +55,49 @@ const getSectionLabel = (key: SectionKey) => {
 };
 
 const MENU_WIDTH = 300;
+
+const modalDateTimeInputStyle: React.CSSProperties = {
+  width: '100%',
+  maxWidth: '100%',
+  minWidth: 0,
+  boxSizing: 'border-box',
+  borderRadius: 12,
+  border: '1px solid rgba(0,0,0,0.08)',
+  padding: '12px 14px',
+  fontSize: 14,
+  fontWeight: 700,
+  color: theme.colors.text,
+  background: 'rgba(255,255,255,0.9)',
+};
+
+
+const modalTextInputStyle: React.CSSProperties = {
+  width: '100%',
+  maxWidth: '100%',
+  minWidth: 0,
+  boxSizing: 'border-box',
+  borderRadius: 12,
+  border: '1px solid rgba(0,0,0,0.08)',
+  padding: '12px 14px',
+  fontSize: 14,
+  fontWeight: 700,
+  color: theme.colors.text,
+  background: 'rgba(255,255,255,0.9)',
+};
+
+const formatLocalDateTimeForSave = (date = new Date()) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  return `${y}-${m}-${d} ${hh}:${mm}`;
+};
+
+const splitDateTimeInput = (value: string) => {
+  const [date = '', time = ''] = value.replace(' ', 'T').split('T');
+  return { date, time: time.slice(0, 5) };
+};
 
 export const StatusPage: React.FC<Props> = ({
   artists,
@@ -78,6 +122,7 @@ export const StatusPage: React.FC<Props> = ({
   const [sectionFilter, setSectionFilter] = useState<SectionKey>('all');
   const [sortKey, setSortKey] = useState<SortKey>('date_asc');
   const [exhibitionAction, setExhibitionAction] = useState<{ id: string; mode: ExhibitionActionMode; value: string; title: string } | null>(null);
+  const [movieLotteryApplyAction, setMovieLotteryApplyAction] = useState<MovieLotteryApplyAction | null>(null);
   const [movieLotteryAction, setMovieLotteryAction] = useState<MovieLotteryAction | null>(null);
   const [movieWatchedAction, setMovieWatchedAction] = useState<MovieWatchedAction | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -209,7 +254,9 @@ export const StatusPage: React.FC<Props> = ({
   };
 
   const openExhibitionDateModal = (item: StatusItem, mode: ExhibitionActionMode) => {
-    const baseValue = item.raw.visitedAt ? toDateTimeLocal(item.raw.visitedAt) : '';
+    const baseRaw = item.raw as Exhibition;
+    const baseDate = mode === 'reserve' ? baseRaw.reservedAt : baseRaw.visitedAt;
+    const baseValue = baseDate ? toDateTimeLocal(baseDate) : '';
     setExhibitionAction({ id: item.parentId, mode, value: baseValue, title: item.title });
   };
 
@@ -218,39 +265,76 @@ export const StatusPage: React.FC<Props> = ({
       window.alert('日時を入力してください。');
       return;
     }
-    onUpdateExhibitionStatus(exhibitionAction.id, {
-      status: exhibitionAction.mode === 'reserve' ? 'RESERVED' : 'VISITED',
-      visitedAt: fromDateTimeLocal(exhibitionAction.value),
-    });
+    const savedDateTime = fromDateTimeLocal(exhibitionAction.value);
+    const { date, time } = splitDateTimeInput(exhibitionAction.value);
+    onUpdateExhibitionStatus(exhibitionAction.id, exhibitionAction.mode === 'reserve'
+      ? {
+          status: 'RESERVED',
+          reservedAt: savedDateTime,
+        }
+      : {
+          status: 'VISITED',
+          visitedAt: savedDateTime,
+          visitedAtDate: date,
+          visitTime: time,
+        }
+    );
     setExhibitionAction(null);
   };
 
+  const openMovieLotteryApplyModal = (item: StatusItem) => {
+    const movie = item.raw as Movie;
+    setMovieLotteryApplyAction({
+      id: item.parentId,
+      title: item.title,
+      lotteryName: movie.lotteryName || '',
+      lotteryResultAt: movie.lotteryResultAt || '',
+      lotteryUrl: movie.lotteryUrl || movie.saleLink || '',
+    });
+  };
+
+  const saveMovieLotteryApplyAction = () => {
+    if (!movieLotteryApplyAction?.lotteryResultAt) {
+      window.alert('抽選結果日時を入力してください。');
+      return;
+    }
+    onUpdateMovieStatus(movieLotteryApplyAction.id, {
+      status: '抽選中',
+      lotteryName: movieLotteryApplyAction.lotteryName,
+      lotteryResultAt: movieLotteryApplyAction.lotteryResultAt,
+      lotteryUrl: movieLotteryApplyAction.lotteryUrl,
+      updatedAt: new Date().toISOString(),
+    });
+    setMovieLotteryApplyAction(null);
+  };
+
   const openMovieLotteryWinModal = (item: StatusItem) => {
+    const movie = item.raw as Movie;
     setMovieLotteryAction({
       id: item.parentId,
       title: item.title,
-      value: item.raw.watchDate
-        ? `${item.raw.watchDate}${item.raw.startTime ? `T${item.raw.startTime}` : 'T18:00'}`.slice(0, 16)
-        : '',
-      theaterName: item.raw.theaterName || '',
-      screenName: item.raw.screenName || '',
-      seat: item.raw.seat || '',
-      price: item.raw.price != null ? String(item.raw.price) : (item.raw.lotteryPrice != null ? String(item.raw.lotteryPrice) : ''),
+      watchDate: movie.watchDate || new Date().toISOString().slice(0, 10),
+      startTime: movie.startTime || '',
+      endTime: movie.endTime || '',
+      theaterName: movie.theaterName || '',
+      screenName: movie.screenName || '',
+      seat: movie.seat || '',
+      price: movie.price != null ? String(movie.price) : (movie.lotteryPrice != null ? String(movie.lotteryPrice) : ''),
     });
   };
 
   const saveMovieLotteryWinAction = () => {
-    if (!movieLotteryAction || !movieLotteryAction.value) {
-      window.alert('鑑賞予定日時を入力してください。');
+    if (!movieLotteryAction || !movieLotteryAction.watchDate) {
+      window.alert('鑑賞予定日を入力してください。');
       return;
     }
     const movie = movies.find((m) => m.id === movieLotteryAction.id);
     if (!movie) return;
 
-    const [watchDate, startTimeRaw] = movieLotteryAction.value.split('T');
     const updated = applyMovieLotteryDecision(movie, 'WON', {
-      watchDate,
-      startTime: startTimeRaw?.slice(0, 5) || '',
+      watchDate: movieLotteryAction.watchDate,
+      startTime: movieLotteryAction.startTime,
+      endTime: movieLotteryAction.endTime,
       theaterName: movieLotteryAction.theaterName,
       screenName: movieLotteryAction.screenName,
       seat: movieLotteryAction.seat,
@@ -268,6 +352,10 @@ export const StatusPage: React.FC<Props> = ({
       watchDate: movie.watchDate || new Date().toISOString().slice(0, 10),
       startTime: movie.startTime || '',
       endTime: movie.endTime || '',
+      theaterName: movie.theaterName || '',
+      screenName: movie.screenName || '',
+      seat: movie.seat || '',
+      price: movie.price != null ? String(movie.price) : '',
     });
   };
 
@@ -281,13 +369,17 @@ export const StatusPage: React.FC<Props> = ({
       watchDate: movieWatchedAction.watchDate,
       startTime: movieWatchedAction.startTime,
       endTime: movieWatchedAction.endTime,
+      theaterName: movieWatchedAction.theaterName,
+      screenName: movieWatchedAction.screenName,
+      seat: movieWatchedAction.seat,
+      price: movieWatchedAction.price === '' ? undefined : Number(movieWatchedAction.price),
       updatedAt: new Date().toISOString(),
     });
     setMovieWatchedAction(null);
   };
 
   const deriveOverallAnimeStatus = (seasons: Season[] = [], fallback: AnimeStatus = '放送前'): AnimeStatus => {
-    const order: AnimeStatus[] = ['視聴中', '視聴予定', '放送前', '保留', '視聴済み', '視聴中止', '見送り'];
+    const order: AnimeStatus[] = ['視聴中', '視聴予定', '保留', '放送前', '視聴済み', '視聴中止', '見送り'];
     const statuses = seasons.map((season) => season.status).filter(Boolean) as AnimeStatus[];
     if (!statuses.length) return fallback;
     return order.find((status) => statuses.includes(status)) || fallback;
@@ -392,6 +484,7 @@ export const StatusPage: React.FC<Props> = ({
           now={new Date()}
           onOpenMovieDetail={onOpenMovieDetail}
           onUpdateMovieStatus={onUpdateMovieStatus}
+          onOpenMovieLotteryApplyModal={openMovieLotteryApplyModal}
           onOpenMovieLotteryWinModal={openMovieLotteryWinModal}
           onOpenMovieWatchedModal={openMovieWatchedModal}
         />
@@ -523,28 +616,17 @@ export const StatusPage: React.FC<Props> = ({
 
       {exhibitionAction && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setExhibitionAction(null)}>
-          <GlassCard style={{ width: '100%', maxWidth: 420, minWidth: 0, boxSizing: 'border-box', overflow: 'hidden' }} onClick={(e: any) => e.stopPropagation()}>
+          <GlassCard style={{ width: '100%', maxWidth: 420, minWidth: 0, boxSizing: 'border-box', maxHeight: 'calc(100vh - 32px)', overflowY: 'auto' }} onClick={(e: any) => e.stopPropagation()}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <div style={{ fontSize: 18, fontWeight: 900, color: theme.colors.text }}>{exhibitionAction.mode === 'reserve' ? '予約日時を入力' : '訪問日時を入力'}</div>
                 <div style={{ fontSize: 12, color: theme.colors.textSecondary, marginTop: 4 }}>{exhibitionAction.title}</div>
               </div>
-              <input
+              <NativeDateTimeInput
                 type="datetime-local"
                 value={exhibitionAction.value}
-                onInput={(e) => setExhibitionAction((prev) => prev ? { ...prev, value: e.currentTarget.value } : prev)}
-                onChange={(e) => setExhibitionAction((prev) => prev ? { ...prev, value: e.target.value } : prev)}
-                style={{
-                  ...centeredNativeDateTimeInputStyle,
-                  width: '100%',
-                  borderRadius: 12,
-                  border: '1px solid rgba(0,0,0,0.08)',
-                  padding: '12px 14px',
-                  fontSize: 14,
-                  fontWeight: 700,
-                  color: theme.colors.text,
-                  background: 'rgba(255,255,255,0.9)',
-                }}
+                onChange={(value) => setExhibitionAction((prev) => prev ? { ...prev, value: value.replace(' ', 'T') } : prev)}
+                style={modalDateTimeInputStyle}
               />
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => setExhibitionAction(null)} style={actionGhostBtn}>キャンセル</button>
@@ -555,9 +637,34 @@ export const StatusPage: React.FC<Props> = ({
         </div>
       )}
 
+      {movieLotteryApplyAction && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 210, background: 'rgba(0,0,0,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setMovieLotteryApplyAction(null)}>
+          <GlassCard style={{ width: '100%', maxWidth: 460, minWidth: 0, boxSizing: 'border-box', maxHeight: 'calc(100vh - 32px)', overflowY: 'auto' }} onClick={(e: any) => e.stopPropagation()}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: theme.colors.text }}>抽選情報を入力</div>
+                <div style={{ fontSize: 12, color: theme.colors.textSecondary, marginTop: 4 }}>{movieLotteryApplyAction.title}</div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>抽選名</label>
+                <input value={movieLotteryApplyAction.lotteryName} onChange={(e) => setMovieLotteryApplyAction((prev) => prev ? { ...prev, lotteryName: e.target.value } : prev)} style={modalTextInputStyle} />
+                <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>抽選結果日時</label>
+                <NativeDateTimeInput type="datetime-local" value={movieLotteryApplyAction.lotteryResultAt} onChange={(value) => setMovieLotteryApplyAction((prev) => prev ? { ...prev, lotteryResultAt: value } : prev)} style={modalDateTimeInputStyle} />
+                <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>抽選リンク</label>
+                <input type="url" value={movieLotteryApplyAction.lotteryUrl} onChange={(e) => setMovieLotteryApplyAction((prev) => prev ? { ...prev, lotteryUrl: e.target.value } : prev)} style={modalTextInputStyle} placeholder="https://..." />
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setMovieLotteryApplyAction(null)} style={actionGhostBtn}>キャンセル</button>
+                <button onClick={saveMovieLotteryApplyAction} style={actionPrimaryBtn}>保存</button>
+              </div>
+            </div>
+          </GlassCard>
+        </div>
+      )}
+
       {movieWatchedAction && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 210, background: 'rgba(0,0,0,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setMovieWatchedAction(null)}>
-          <GlassCard style={{ width: '100%', maxWidth: 420, minWidth: 0, boxSizing: 'border-box', overflow: 'hidden' }} onClick={(e: any) => e.stopPropagation()}>
+          <GlassCard style={{ width: '100%', maxWidth: 420, minWidth: 0, boxSizing: 'border-box', maxHeight: 'calc(100vh - 32px)', overflowY: 'auto' }} onClick={(e: any) => e.stopPropagation()}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <div style={{ fontSize: 18, fontWeight: 900, color: theme.colors.text }}>鑑賞情報を入力</div>
@@ -565,11 +672,19 @@ export const StatusPage: React.FC<Props> = ({
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>鑑賞日</label>
-                <input type="date" value={movieWatchedAction.watchDate} onInput={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, watchDate: e.currentTarget.value } : prev)} onChange={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, watchDate: e.target.value } : prev)} style={{ ...centeredNativeDateTimeInputStyle, width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
+                <NativeDateTimeInput type="date" value={movieWatchedAction.watchDate} onChange={(value) => setMovieWatchedAction((prev) => prev ? { ...prev, watchDate: value } : prev)} style={modalDateTimeInputStyle} />
                 <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>開演</label>
-                <input type="time" value={movieWatchedAction.startTime} onInput={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, startTime: e.currentTarget.value } : prev)} onChange={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, startTime: e.target.value } : prev)} style={{ ...centeredNativeDateTimeInputStyle, width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
+                <NativeDateTimeInput type="time" value={movieWatchedAction.startTime} onChange={(value) => setMovieWatchedAction((prev) => prev ? { ...prev, startTime: value } : prev)} style={modalDateTimeInputStyle} />
                 <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>終演</label>
-                <input type="time" value={movieWatchedAction.endTime} onInput={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, endTime: e.currentTarget.value } : prev)} onChange={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, endTime: e.target.value } : prev)} style={{ ...centeredNativeDateTimeInputStyle, width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
+                <NativeDateTimeInput type="time" value={movieWatchedAction.endTime} onChange={(value) => setMovieWatchedAction((prev) => prev ? { ...prev, endTime: value } : prev)} style={modalDateTimeInputStyle} />
+                <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>劇場名</label>
+                <input value={movieWatchedAction.theaterName} onChange={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, theaterName: e.target.value } : prev)} style={modalTextInputStyle} />
+                <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>スクリーン</label>
+                <input value={movieWatchedAction.screenName} onChange={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, screenName: e.target.value } : prev)} style={modalTextInputStyle} />
+                <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>座席</label>
+                <input value={movieWatchedAction.seat} onChange={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, seat: e.target.value } : prev)} style={modalTextInputStyle} />
+                <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>料金</label>
+                <input type="number" value={movieWatchedAction.price} onChange={(e) => setMovieWatchedAction((prev) => prev ? { ...prev, price: e.target.value } : prev)} style={modalTextInputStyle} />
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => setMovieWatchedAction(null)} style={actionGhostBtn}>キャンセル</button>
@@ -582,29 +697,27 @@ export const StatusPage: React.FC<Props> = ({
 
       {movieLotteryAction && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 210, background: 'rgba(0,0,0,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setMovieLotteryAction(null)}>
-          <GlassCard style={{ width: '100%', maxWidth: 460, minWidth: 0, boxSizing: 'border-box', overflow: 'hidden' }} onClick={(e: any) => e.stopPropagation()}>
+          <GlassCard style={{ width: '100%', maxWidth: 460, minWidth: 0, boxSizing: 'border-box', maxHeight: 'calc(100vh - 32px)', overflowY: 'auto' }} onClick={(e: any) => e.stopPropagation()}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <div style={{ fontSize: 18, fontWeight: 900, color: theme.colors.text }}>当選内容を入力</div>
                 <div style={{ fontSize: 12, color: theme.colors.textSecondary, marginTop: 4 }}>{movieLotteryAction.title}</div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>鑑賞予定日時</label>
-                <input
-                  type="datetime-local"
-                  value={movieLotteryAction.value}
-                  onInput={(e) => setMovieLotteryAction((prev) => prev ? { ...prev, value: e.currentTarget.value } : prev)}
-                  onChange={(e) => setMovieLotteryAction((prev) => prev ? { ...prev, value: e.target.value } : prev)}
-                  style={{ ...centeredNativeDateTimeInputStyle, width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }}
-                />
+                <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>鑑賞予定日</label>
+                <NativeDateTimeInput type="date" value={movieLotteryAction.watchDate} onChange={(value) => setMovieLotteryAction((prev) => prev ? { ...prev, watchDate: value } : prev)} style={modalDateTimeInputStyle} />
+                <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>開演</label>
+                <NativeDateTimeInput type="time" value={movieLotteryAction.startTime} onChange={(value) => setMovieLotteryAction((prev) => prev ? { ...prev, startTime: value } : prev)} style={modalDateTimeInputStyle} />
+                <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>終演</label>
+                <NativeDateTimeInput type="time" value={movieLotteryAction.endTime} onChange={(value) => setMovieLotteryAction((prev) => prev ? { ...prev, endTime: value } : prev)} style={modalDateTimeInputStyle} />
                 <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>劇場名</label>
-                <input value={movieLotteryAction.theaterName} onChange={(e) => setMovieLotteryAction((prev) => prev ? { ...prev, theaterName: e.target.value } : prev)} style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
+                <input value={movieLotteryAction.theaterName} onChange={(e) => setMovieLotteryAction((prev) => prev ? { ...prev, theaterName: e.target.value } : prev)} style={modalTextInputStyle} />
                 <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>スクリーン</label>
-                <input value={movieLotteryAction.screenName} onChange={(e) => setMovieLotteryAction((prev) => prev ? { ...prev, screenName: e.target.value } : prev)} style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
+                <input value={movieLotteryAction.screenName} onChange={(e) => setMovieLotteryAction((prev) => prev ? { ...prev, screenName: e.target.value } : prev)} style={modalTextInputStyle} />
                 <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>座席</label>
-                <input value={movieLotteryAction.seat} onChange={(e) => setMovieLotteryAction((prev) => prev ? { ...prev, seat: e.target.value } : prev)} style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
+                <input value={movieLotteryAction.seat} onChange={(e) => setMovieLotteryAction((prev) => prev ? { ...prev, seat: e.target.value } : prev)} style={modalTextInputStyle} />
                 <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>料金</label>
-                <input value={movieLotteryAction.price} onChange={(e) => setMovieLotteryAction((prev) => prev ? { ...prev, price: e.target.value } : prev)} style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 14px', fontSize: 14, fontWeight: 700, color: theme.colors.text, background: 'rgba(255,255,255,0.9)' }} />
+                <input type="number" value={movieLotteryAction.price} onChange={(e) => setMovieLotteryAction((prev) => prev ? { ...prev, price: e.target.value } : prev)} style={modalTextInputStyle} />
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => setMovieLotteryAction(null)} style={actionGhostBtn}>キャンセル</button>

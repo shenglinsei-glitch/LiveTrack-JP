@@ -50,6 +50,26 @@ export const parseConcertDate = (dateStr: string | null | undefined, type: 'CONC
   return d;
 };
 
+
+const combineDateAndTimeText = (dateValue: string | null | undefined, timeValue: string | null | undefined): string | null => {
+  if (!dateValue || dateValue === TEXT.GLOBAL.TBD) return null;
+  const normalized = String(dateValue).trim().replace('T', ' ');
+  if (/\d{1,2}:\d{2}/.test(normalized)) return normalized;
+  const datePart = normalized.split(' ')[0];
+  const time = (timeValue || '').trim();
+  return time ? `${datePart} ${time}` : datePart;
+};
+
+export const parseConcertEventDateTime = (concert: Pick<Concert, 'concertAt' | 'date' | 'startTime'>): Date | null => {
+  const combined = combineDateAndTimeText(concert.concertAt || concert.date, concert.startTime);
+  return parseConcertDate(combined, 'CONCERT');
+};
+
+export const parseMovieWatchDateTime = (movie: Pick<Movie, 'watchDate' | 'startTime'>): Date | null => {
+  const combined = combineDateAndTimeText(movie.watchDate, movie.startTime);
+  return parseConcertDate(combined, movie.startTime ? 'NORMAL' : 'CONCERT');
+};
+
 export const getEffectiveExhibitionStatus = (exhibition: Exhibition, now: Date = new Date()) => {
   const rawStatus = exhibition.status || 'NONE';
   const start = parseConcertDate(exhibition.startDate, 'EXHIBITION');
@@ -125,7 +145,7 @@ const weekdayToNumber: Record<string, number> = { '日': 0, '月': 1, '火': 2, 
 const deriveAnimeStatus = (anime: Anime): AnimeStatus => {
   const statuses = (anime.seasons || []).map((season: any) => season.status).filter(Boolean) as AnimeStatus[];
   if (!statuses.length) return anime.status || '放送前';
-  const order: AnimeStatus[] = ['視聴中', '視聴予定', '放送前', '保留', '視聴済み', '視聴中止', '見送り'];
+  const order: AnimeStatus[] = ['視聴中', '視聴予定', '保留', '放送前', '視聴済み', '視聴中止', '見送り'];
   return order.find((status) => statuses.includes(status)) || anime.status || '放送前';
 };
 
@@ -377,7 +397,7 @@ export const getDueAction = (concert: Concert, now: Date = new Date()): DueActio
   const saleTime = parseConcertDate(concert.saleAt, 'NORMAL');
   const deadlineTime = parseConcertDate(concert.deadlineAt, 'NORMAL');
   const resultTime = parseConcertDate(concert.resultAt, 'NORMAL');
-  const concertTime = parseConcertDate(concert.concertAt, 'CONCERT');
+  const concertTime = parseConcertEventDateTime(concert);
 
   switch (concert.status) {
     case '発売前':
@@ -401,7 +421,7 @@ export const getDueAction = (concert: Concert, now: Date = new Date()): DueActio
 
 export const autoAdvanceConcertStatus = (concert: Concert, now: Date = new Date()): Concert => {
   if (concert.status === '参戦予定') {
-    const concertTime = parseConcertDate(concert.concertAt, 'CONCERT');
+    const concertTime = parseConcertEventDateTime(concert);
     if (concertTime && now >= concertTime) {
       return { ...concert, status: '参戦済み' };
     }
@@ -426,12 +446,7 @@ export const getMovieDueAction = (movie: Movie, now: Date = new Date()): MovieDu
 export const autoAdvanceMovieStatus = (movie: Movie, now: Date = new Date()): Movie => {
   const nowIso = new Date().toISOString();
   const releaseTime = parseConcertDate(movie.releaseDate, 'NORMAL');
-  const watchTime = movie.watchDate
-    ? parseConcertDate(
-        `${movie.watchDate}${movie.startTime ? ` ${movie.startTime}` : ''}`.trim(),
-        movie.startTime ? 'NORMAL' : 'CONCERT'
-      )
-    : null;
+  const watchTime = parseMovieWatchDateTime(movie);
 
   if (watchTime && now >= watchTime && movie.status !== '見送り' && movie.status !== '上映終了') {
     return { ...movie, status: '鑑賞済み', updatedAt: nowIso };
@@ -466,6 +481,7 @@ export const applyMovieLotteryDecision = (
   payload?: {
     watchDate?: string;
     startTime?: string;
+    endTime?: string;
     theaterName?: string;
     seat?: string;
     screenName?: string;
@@ -486,6 +502,7 @@ export const applyMovieLotteryDecision = (
       lotteryResult: 'WON',
       watchDate: payload?.watchDate ?? movie.watchDate,
       startTime: payload?.startTime ?? movie.startTime,
+      endTime: payload?.endTime ?? movie.endTime,
       theaterName: payload?.theaterName ?? movie.theaterName,
       seat: payload?.seat ?? movie.seat,
       screenName: payload?.screenName ?? movie.screenName,
@@ -510,7 +527,7 @@ export const applyMovieLotteryDecision = (
 export const applyDecision = (
   concert: Concert, 
   decision: 'BUY' | 'CONSIDER' | 'SKIP' | 'WON' | 'LOST', 
-  payload?: { lotteryName?: string; resultAt?: string; concertAt?: string }
+  payload?: { lotteryName?: string; resultAt?: string; concertAt?: string; price?: number; saleLink?: string }
 ): Concert => {
   const withLotteryHistory = (result: 'WON' | 'LOST'): Concert => {
     const item: LotteryHistoryItem = {
@@ -530,7 +547,9 @@ export const applyDecision = (
         ...concert, 
         status: '抽選中', 
         lotteryName: payload?.lotteryName ?? concert.lotteryName,
-        resultAt: payload?.resultAt ?? concert.resultAt 
+        resultAt: payload?.resultAt ?? concert.resultAt,
+        price: payload?.price ?? concert.price,
+        saleLink: payload?.saleLink ?? concert.saleLink 
       };
     case 'CONSIDER':
       return { ...concert, status: '検討中' };
