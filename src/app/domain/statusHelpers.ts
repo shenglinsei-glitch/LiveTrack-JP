@@ -121,7 +121,7 @@ export const getMovieActionKind = (movie: Movie, now: Date = new Date()): MovieA
     return null;
   }
 
-  if (movie.status === '上映中' || movie.status === '鑑賞予定') {
+  if (movie.status === '上映中') {
     return 'screening';
   }
 

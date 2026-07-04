@@ -37,7 +37,8 @@ type SortKey = 'date_asc' | 'date_desc' | 'type' | 'status';
 type ExhibitionActionMode = 'reserve' | 'visit';
 type MovieLotteryApplyAction = MovieLotteryApplyActionState;
 type MovieLotteryAction = MovieLotteryActionState;
-type MovieWatchedAction = { id: string; title: string; watchDate: string; startTime: string; endTime: string; theaterName: string; screenName: string; seat: string; price: string };
+type MovieRecordMode = 'planned' | 'watched';
+type MovieWatchedAction = { id: string; title: string; mode: MovieRecordMode; watchDate: string; startTime: string; endTime: string; theaterName: string; screenName: string; seat: string; price: string };
 
 const getSectionLabel = (key: SectionKey) => {
   switch (key) {
@@ -344,11 +345,12 @@ export const StatusPage: React.FC<Props> = ({
     onUpdateMovieStatus(movie.id, updated);
     setMovieLotteryAction(null);
   };
-  const openMovieWatchedModal = (item: StatusItem) => {
+  const openMovieRecordModal = (item: StatusItem, mode: MovieRecordMode) => {
     const movie = item.raw as Movie;
     setMovieWatchedAction({
       id: item.parentId,
       title: item.title,
+      mode,
       watchDate: movie.watchDate || new Date().toISOString().slice(0, 10),
       startTime: movie.startTime || '',
       endTime: movie.endTime || '',
@@ -359,13 +361,16 @@ export const StatusPage: React.FC<Props> = ({
     });
   };
 
+  const openMoviePlannedModal = (item: StatusItem) => openMovieRecordModal(item, 'planned');
+  const openMovieWatchedModal = (item: StatusItem) => openMovieRecordModal(item, 'watched');
+
   const saveMovieWatchedAction = () => {
     if (!movieWatchedAction?.watchDate) {
-      window.alert('鑑賞日を入力してください。');
+      window.alert(movieWatchedAction?.mode === 'planned' ? '鑑賞予定日を入力してください。' : '鑑賞日を入力してください。');
       return;
     }
     onUpdateMovieStatus(movieWatchedAction.id, {
-      status: '鑑賞済み',
+      status: movieWatchedAction.mode === 'planned' ? '鑑賞予定' : '鑑賞済み',
       watchDate: movieWatchedAction.watchDate,
       startTime: movieWatchedAction.startTime,
       endTime: movieWatchedAction.endTime,
@@ -486,6 +491,7 @@ export const StatusPage: React.FC<Props> = ({
           onUpdateMovieStatus={onUpdateMovieStatus}
           onOpenMovieLotteryApplyModal={openMovieLotteryApplyModal}
           onOpenMovieLotteryWinModal={openMovieLotteryWinModal}
+          onOpenMoviePlannedModal={openMoviePlannedModal}
           onOpenMovieWatchedModal={openMovieWatchedModal}
         />
       );
@@ -667,11 +673,11 @@ export const StatusPage: React.FC<Props> = ({
           <GlassCard style={{ width: '100%', maxWidth: 420, minWidth: 0, boxSizing: 'border-box', maxHeight: 'calc(100vh - 32px)', overflowY: 'auto' }} onClick={(e: any) => e.stopPropagation()}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <div style={{ fontSize: 18, fontWeight: 900, color: theme.colors.text }}>鑑賞情報を入力</div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: theme.colors.text }}>{movieWatchedAction.mode === 'planned' ? '鑑賞予定を入力' : '鑑賞情報を入力'}</div>
                 <div style={{ fontSize: 12, color: theme.colors.textSecondary, marginTop: 4 }}>{movieWatchedAction.title}</div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>鑑賞日</label>
+                <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>{movieWatchedAction.mode === 'planned' ? '鑑賞予定日' : '鑑賞日'}</label>
                 <NativeDateTimeInput type="date" value={movieWatchedAction.watchDate} onChange={(value) => setMovieWatchedAction((prev) => prev ? { ...prev, watchDate: value } : prev)} style={modalDateTimeInputStyle} />
                 <label style={{ fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary }}>開演</label>
                 <NativeDateTimeInput type="time" value={movieWatchedAction.startTime} onChange={(value) => setMovieWatchedAction((prev) => prev ? { ...prev, startTime: value } : prev)} style={modalDateTimeInputStyle} />

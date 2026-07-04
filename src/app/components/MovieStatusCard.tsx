@@ -40,6 +40,7 @@ interface Props {
   onUpdateMovieStatus: (id: string, updates: Partial<Movie>) => void;
   onOpenMovieLotteryApplyModal: (item: StatusItem) => void;
   onOpenMovieLotteryWinModal: (item: StatusItem) => void;
+  onOpenMoviePlannedModal: (item: StatusItem) => void;
   onOpenMovieWatchedModal: (item: StatusItem) => void;
 }
 
@@ -72,6 +73,7 @@ export const MovieStatusCard: React.FC<Props> = ({
   onUpdateMovieStatus,
   onOpenMovieLotteryApplyModal,
   onOpenMovieLotteryWinModal,
+  onOpenMoviePlannedModal,
   onOpenMovieWatchedModal,
 }) => {
   const movie = item.raw as Movie;
@@ -228,9 +230,18 @@ export const MovieStatusCard: React.FC<Props> = ({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onOpenMovieWatchedModal(item);
+              onOpenMoviePlannedModal(item);
             }}
             style={actionPrimaryBtn}
+          >
+            鑑賞予定
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenMovieWatchedModal(item);
+            }}
+            style={actionGhostBtn}
           >
             鑑賞済み
           </button>

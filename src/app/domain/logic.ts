@@ -404,9 +404,8 @@ export const getDueAction = (concert: Concert, now: Date = new Date()): DueActio
       if (saleTime && now >= saleTime) return 'ASK_BUY_AT_SALE';
       return null;
     case '検討中':
-      if (deadlineTime && now >= deadlineTime) return 'ASK_BUY_AT_DEADLINE';
-      if (!deadlineTime) return 'NEED_SET_DEADLINE_AT';
-      return null;
+      // 検討中は締切日時に関係なく、ステータスページからいつでも申込操作できるようにする。
+      return 'ASK_BUY_AT_DEADLINE';
     case '抽選中':
       if (resultTime && now >= resultTime) return 'ASK_RESULT';
       if (!resultTime) return 'NEED_SET_RESULT_AT';
@@ -447,8 +446,9 @@ export const autoAdvanceMovieStatus = (movie: Movie, now: Date = new Date()): Mo
   const nowIso = new Date().toISOString();
   const releaseTime = parseConcertDate(movie.releaseDate, 'NORMAL');
   const watchTime = parseMovieWatchDateTime(movie);
+  const terminalStatuses = ['鑑賞済み', '見送り', '上映終了'];
 
-  if (watchTime && now >= watchTime && movie.status !== '見送り' && movie.status !== '上映終了') {
+  if (watchTime && now >= watchTime && !terminalStatuses.includes(movie.status)) {
     return { ...movie, status: '鑑賞済み', updatedAt: nowIso };
   }
 
@@ -466,6 +466,10 @@ export const autoAdvanceMovieStatus = (movie: Movie, now: Date = new Date()): Mo
 
   if (movie.ticketType === '舞台挨拶' && movie.status === '未上映' && (movie.saleAt || movie.deadlineAt || movie.saleLink)) {
     return { ...movie, status: '発売前', updatedAt: nowIso };
+  }
+
+  if (watchTime && now < watchTime && !['発売前', '抽選中', ...terminalStatuses].includes(movie.status)) {
+    return movie.status === '鑑賞予定' ? movie : { ...movie, status: '鑑賞予定', updatedAt: nowIso };
   }
 
   if ((movie.status === '未上映' || movie.status === '発売前') && releaseTime && now >= releaseTime) {

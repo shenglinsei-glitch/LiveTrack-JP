@@ -27,7 +27,7 @@ interface MovieDetailPageProps {
   onAddMovieGenre?: (genre: string) => void;
 }
 
-const NORMAL_STATUSES: MovieStatus[] = ['未上映', '上映中', '鑑賞済み', '見送り', '上映終了'];
+const NORMAL_STATUSES: MovieStatus[] = ['未上映', '上映中', '鑑賞予定', '鑑賞済み', '見送り', '上映終了'];
 const STAGE_GREETING_STATUSES: MovieStatus[] = ['未上映', '発売前', '抽選中', '上映中', '鑑賞予定', '鑑賞済み', '見送り', '上映終了'];
 const TICKET_TYPES: MovieTicketType[] = ['通常', '舞台挨拶'];
 
@@ -65,8 +65,9 @@ const getEffectiveMovieStatus = (movie: Movie): MovieStatus => {
   if (movie.status === '鑑賞済み' || movie.status === '見送り' || movie.status === '上映終了') return movie.status;
   if (movie.ticketType === '舞台挨拶' && movie.status === '発売前') return '発売前';
   if (movie.ticketType === '舞台挨拶' && movie.status === '抽選中') return '抽選中';
-  if (movie.ticketType === '舞台挨拶' && movie.status === '鑑賞予定') return '鑑賞予定';
-  if (releaseAt?.isValid() && (releaseAt.isBefore(now) || releaseAt.isSame(now))) return movie.watchDate ? '鑑賞済み' : '上映中';
+  if (watchAt?.isValid() && watchAt.isAfter(now)) return '鑑賞予定';
+  if (movie.status === '鑑賞予定') return '鑑賞予定';
+  if (releaseAt?.isValid() && (releaseAt.isBefore(now) || releaseAt.isSame(now))) return '上映中';
   return movie.status;
 };
 
