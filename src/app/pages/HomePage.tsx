@@ -699,8 +699,8 @@ export const HomePage: React.FC<HomePageProps> = ({
   }, [latestAnime]);
 
   return (
-    <PageShell disablePadding>
-      <div style={{ padding: '22px 0 140px', marginTop: 'calc(env(safe-area-inset-top) + 18px)' }}>
+    <PageShell disablePadding horizontalPadding="16px">
+      <div style={{ padding: 'calc(12px + env(safe-area-inset-top)) 0 140px' }}>
         {/* 顶部菜单按钮 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
           <h1 style={{ fontSize: '28px', fontWeight: '850', color: '#111827', margin: 0, letterSpacing: '-0.04em' }}>

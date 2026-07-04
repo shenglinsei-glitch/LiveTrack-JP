@@ -384,9 +384,9 @@ export const CalendarPage: React.FC<Props> = ({
   };
 
   return (
-    <PageShell disablePadding>
-      <div style={{ padding: 'calc(12px + env(safe-area-inset-top)) 16px 140px 16px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', gap: '10px', marginBottom: '24px', height: '44px', width: '100%' }}>
+    <PageShell disablePadding horizontalPadding="16px">
+      <div style={{ padding: 'calc(12px + env(safe-area-inset-top)) 0 140px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', gap: '10px', marginBottom: '16px', height: '44px', width: '100%' }}>
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => setIsModeMenuOpen(v => !v)}

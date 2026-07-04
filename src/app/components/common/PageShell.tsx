@@ -6,15 +6,16 @@ interface PageShellProps {
   children: React.ReactNode;
   header?: React.ReactNode;
   disablePadding?: boolean;
+  horizontalPadding?: React.CSSProperties['paddingLeft'];
 }
 
-export const PageShell: React.FC<PageShellProps> = ({ children, header, disablePadding }) => {
+export const PageShell: React.FC<PageShellProps> = ({ children, header, disablePadding, horizontalPadding = theme.spacing.lg }) => {
   return (
     <div style={{
       maxWidth: '1200px',
       margin: '0 auto',
-      paddingLeft: theme.spacing.lg,
-      paddingRight: theme.spacing.lg,
+      paddingLeft: horizontalPadding,
+      paddingRight: horizontalPadding,
       paddingTop: disablePadding ? 0 : theme.spacing.pageTop,
       display: 'flex',
       flexDirection: 'column',
