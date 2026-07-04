@@ -49,6 +49,7 @@ const nativeDateTimeContainerStyle: React.CSSProperties = {
   width: '100%',
   maxWidth: '100%',
   minWidth: 0,
+  overflow: 'hidden',
 };
 
 const clearButtonStyle: React.CSSProperties = {
@@ -87,6 +88,7 @@ export const NativeDateTimeInput: React.FC<NativeDateTimeInputProps> = ({
   onBlur,
   ...inputProps
 }) => {
+  const inputRef = React.useRef<HTMLInputElement>(null);
   const inputValue = getNativeDateTimeValue(type, value);
   const handleDateTimeChange = createNativeDateTimeChangeHandler(type, onChange);
   const canClear = Boolean(allowClear && inputValue && !disabled && !readOnly);
@@ -102,17 +104,37 @@ export const NativeDateTimeInput: React.FC<NativeDateTimeInputProps> = ({
     onChange('');
   };
 
+  const openNativePicker = () => {
+    if (disabled || readOnly) return;
+    const input = inputRef.current as (HTMLInputElement & { showPicker?: () => void }) | null;
+    if (!input) return;
+    input.focus({ preventScroll: true });
+    try {
+      input.showPicker?.();
+    } catch {
+      // Some mobile browsers only allow the picker to open from the native input focus.
+    }
+  };
+
   const mergedInputStyle: React.CSSProperties = {
     ...centeredNativeDateTimeInputStyle,
     ...style,
+    minWidth: 0,
+    maxWidth: '100%',
+    overflow: 'hidden',
+    textOverflow: 'clip',
     paddingRight: canClear ? 76 : style?.paddingRight,
   };
 
   return React.createElement(
     'div',
-    { style: { ...nativeDateTimeContainerStyle, ...containerStyle } },
+    {
+      style: { ...nativeDateTimeContainerStyle, ...containerStyle },
+      onClick: openNativePicker,
+    },
     React.createElement('input', {
       ...inputProps,
+      ref: inputRef,
       type,
       value: inputValue,
       disabled,

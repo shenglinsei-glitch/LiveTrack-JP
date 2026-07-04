@@ -77,46 +77,53 @@ const badgeBgFromColor = (color: string) => {
 };
 
 const smallInputStyle: React.CSSProperties = {
-  padding: '8px',
+  width: '100%',
+  maxWidth: '100%',
+  minWidth: 0,
+  boxSizing: 'border-box',
+  padding: '8px 10px',
   borderRadius: '8px',
   border: '1px solid rgba(0,0,0,0.1)',
-  fontSize: '13px',
+  fontSize: '12px',
   outline: 'none',
   background: 'white',
 };
 
 const primaryBtnStyle: React.CSSProperties = {
   flex: 1,
+  minWidth: 0,
   padding: '10px',
   borderRadius: '10px',
   background: theme.colors.primary,
   color: 'white',
   border: 'none',
   fontWeight: 'bold',
-  fontSize: '13px',
+  fontSize: '12px',
   cursor: 'pointer',
 };
 
 const secondaryBtnStyle: React.CSSProperties = {
   flex: 1,
+  minWidth: 0,
   padding: '10px',
   borderRadius: '10px',
   background: 'rgba(0,0,0,0.05)',
   border: 'none',
   fontWeight: 'bold',
-  fontSize: '13px',
+  fontSize: '12px',
   cursor: 'pointer',
 };
 
 const dangerBtnStyle: React.CSSProperties = {
   flex: 1,
+  minWidth: 0,
   padding: '10px',
   borderRadius: '10px',
   background: 'rgba(247, 137, 63, 0.1)',
   color: theme.colors.error,
   border: 'none',
   fontWeight: 'bold',
-  fontSize: '13px',
+  fontSize: '12px',
   cursor: 'pointer',
 };
 
@@ -138,10 +145,10 @@ const ActionPanel: React.FC<{
       case 'ASK_BUY_AT_DEADLINE':
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ fontSize: '13px', fontWeight: 'bold', color: theme.colors.error }}>
+            <div style={{ fontSize: '12px', fontWeight: 'bold', color: theme.colors.error }}>
               {TEXT?.ALERTS?.TICKET_SALE_PERIOD ?? 'チケット申込の時期です'}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <div className="status-action-input-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', minWidth: 0 }}>
               <input
                 type="text"
                 placeholder="抽選名 (FC先行等)"
@@ -149,7 +156,7 @@ const ActionPanel: React.FC<{
                 onChange={(e) => setLotteryName(e.target.value)}
                 style={smallInputStyle}
               />
-              <NativeDateTimeInput type="datetime-local" value={resultAt} onChange={setResultAt} style={smallInputStyle} placeholder="結果発表日時" />
+              <NativeDateTimeInput type="datetime-local" value={resultAt} onChange={setResultAt} style={smallInputStyle} placeholder="結果発表日時" allowClear={false} />
               <input
                 type="number"
                 placeholder="チケット価格"
@@ -165,7 +172,7 @@ const ActionPanel: React.FC<{
                 style={smallInputStyle}
               />
             </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px', minWidth: 0 }}>
               <button onClick={() => onAction('BUY', { lotteryName, resultAt, price: ticketPrice === '' ? undefined : Number(ticketPrice), saleLink })} style={primaryBtnStyle}>
                 購入・申込
               </button>
@@ -184,7 +191,7 @@ const ActionPanel: React.FC<{
       case 'ASK_RESULT':
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ fontSize: '13px', fontWeight: 'bold', color: theme.colors.error }}>
+            <div style={{ fontSize: '12px', fontWeight: 'bold', color: theme.colors.error }}>
               {TEXT?.ALERTS?.RESULT_ANNOUNCED ?? '抽選結果が出ました'}
             </div>
             {!concert.concertAt && (
@@ -194,6 +201,7 @@ const ActionPanel: React.FC<{
                 onChange={setConcertAt}
                 style={smallInputStyle}
                 placeholder="公演日時"
+                allowClear={false}
               />
             )}
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -216,7 +224,7 @@ const ActionPanel: React.FC<{
       case 'NEED_SET_SALE_AT':
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ fontSize: '13px', fontWeight: 'bold', color: theme.colors.textSecondary }}>
+            <div style={{ fontSize: '12px', fontWeight: 'bold', color: theme.colors.textSecondary }}>
               {TEXT?.ALERTS?.NEED_DATE_SETTING ?? '日付設定が必要です'}
             </div>
             <button onClick={onOpenEditor} style={secondaryBtnStyle}>
