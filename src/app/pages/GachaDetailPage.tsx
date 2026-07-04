@@ -166,7 +166,7 @@ const PrizeImageEditor: React.FC<{ prize: GachaPrize; onUpdate: (updates: Partia
     setIsProcessing(true);
     setMessage(null);
     try {
-      const result = await compressImageFileToAvatarDataUrl(file, { maxSizePx: 160, initialQuality: 0.6, maxBytes: 30 * 1024 });
+      const result = await compressImageFileToAvatarDataUrl(file, { maxSizePx: 160, initialQuality: 0.72, maxBytes: 30 * 1024 });
       onUpdate({ imageData: result.dataUrl });
       setMessage(`保存済み：${result.width}×${result.height} / ${formatFileSize(result.sizeBytes)}`);
     } catch (error) {
@@ -197,7 +197,7 @@ const PrizeImageEditor: React.FC<{ prize: GachaPrize; onUpdate: (updates: Partia
             ) : null}
           </div>
           <div style={{ fontSize: 11, fontWeight: 700, color: theme.colors.textWeak, lineHeight: 1.45 }}>
-            160×160 WebP / 品質0.6で保存。透明部分には白背景を追加し、画像全体が収まるように縮小します。30KBを超える場合は自動で追加圧縮します。原画像は保存しません。
+            160×160 JPEG / 白背景で保存。透明部分には白背景を追加し、画像全体が収まるように縮小します。30KBを超える場合は自動で追加圧縮します。原画像は保存しません。
             {localSize > 0 ? <span> 現在：{formatFileSize(localSize)}</span> : null}
           </div>
           {message ? <div style={{ fontSize: 11, fontWeight: 800, color: message.includes('失敗') ? theme.colors.error : theme.colors.primary }}>{message}</div> : null}

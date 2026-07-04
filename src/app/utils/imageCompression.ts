@@ -14,7 +14,7 @@ export interface AvatarCompressionOptions {
 
 const DEFAULT_MAX_SIZE = 160;
 const DEFAULT_MAX_BYTES = 30 * 1024;
-const DEFAULT_QUALITY = 0.6;
+const DEFAULT_QUALITY = 0.72;
 
 const loadImage = (file: File): Promise<HTMLImageElement> => new Promise((resolve, reject) => {
   const url = URL.createObjectURL(file);
@@ -44,7 +44,7 @@ const canvasToBlob = (canvas: HTMLCanvasElement, quality: number): Promise<Blob>
       return;
     }
     resolve(blob);
-  }, 'image/webp', quality);
+  }, 'image/jpeg', quality);
 });
 
 const drawSquareAvatar = (img: HTMLImageElement, size: number): HTMLCanvasElement => {
@@ -96,14 +96,14 @@ export const compressImageFileToAvatarDataUrl = async (
 
   const attempts = [
     { size: maxSizePx, quality: initialQuality },
-    { size: maxSizePx, quality: 0.52 },
-    { size: maxSizePx, quality: 0.44 },
-    { size: maxSizePx, quality: 0.36 },
-    { size: 128, quality: 0.5 },
-    { size: 128, quality: 0.42 },
-    { size: 128, quality: 0.34 },
-    { size: 112, quality: 0.38 },
-    { size: 96, quality: 0.34 },
+    { size: maxSizePx, quality: 0.64 },
+    { size: maxSizePx, quality: 0.56 },
+    { size: maxSizePx, quality: 0.48 },
+    { size: 128, quality: 0.62 },
+    { size: 128, quality: 0.54 },
+    { size: 128, quality: 0.46 },
+    { size: 112, quality: 0.5 },
+    { size: 96, quality: 0.46 },
   ].filter((attempt, index, self) => attempt.size > 0 && self.findIndex(item => item.size === attempt.size && item.quality === attempt.quality) === index);
 
   let best: AvatarCompressionResult | null = null;
@@ -119,7 +119,7 @@ export const compressImageFileToAvatarDataUrl = async (
       sizeBytes: blob.size || getDataUrlByteSize(dataUrl),
       width: attempt.size,
       height: attempt.size,
-      mimeType: blob.type || 'image/webp',
+      mimeType: blob.type || 'image/jpeg',
     };
 
     if (!best || result.sizeBytes < best.sizeBytes) best = result;
