@@ -26,6 +26,8 @@ import { Input, TextArea, DateField, CollapseChevron, StatusPill, inputStyle, se
 import { InfoItem, GenreChips, SongList } from './anime-detail/AnimeDisplayComponents';
 import { ViewSection } from './anime-detail/AnimeViewSection';
 import { AnimeSeasonCard } from './anime-detail/AnimeSeasonCard';
+import { UnsavedChangesDialog } from '@/components/common/UnsavedChangesDialog';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 
 interface AnimeDetailPageProps {
   anime: Anime;
@@ -33,6 +35,7 @@ interface AnimeDetailPageProps {
   onDeleteAnime: (id: string) => void;
   onBack: () => void;
   initialEditMode?: boolean;
+  initialIsNew?: boolean;
   availableGenres?: string[];
   availableStudios?: string[];
   onAddAnimeGenre?: (genre: string) => void;
@@ -43,8 +46,9 @@ const ORIGINAL_TYPES: OriginalType[] = ['漫画', '小説', 'オリジナル', '
 const ANIME_STATUSES: AnimeStatus[] = ['放送前', '視聴予定', '視聴中', '保留', '視聴済み', '視聴中止', '見送り'];
 const BROADCAST_WEEKDAYS: AnimeBroadcastWeekday[] = ['', '日', '月', '火', '水', '木', '金', '土'];
 
-export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdateAnime, onDeleteAnime, onBack, initialEditMode = false, availableGenres = [], availableStudios = [], onAddAnimeGenre, onAddAnimeStudio }) => {
+export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdateAnime, onDeleteAnime, onBack, initialEditMode = false, initialIsNew = false, availableGenres = [], availableStudios = [], onAddAnimeGenre, onAddAnimeStudio }) => {
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
+  const [isNewDraft, setIsNewDraft] = useState(initialIsNew);
   const [draft, setDraft] = useState<Anime>(() => normalizeAnimeDraft(anime));
 
   const isDraftDirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(anime), [draft, anime]);
@@ -53,7 +57,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
     setDraft(normalizeAnimeDraft(anime));
   }, [anime]);
 
-  const handleSave = () => {
+  const handleSave = (shouldBack = false) => {
     const updated: Anime = {
       ...draft,
       posterUrl: draft.posterUrl?.trim() || '',
@@ -82,7 +86,9 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
     }
 
     onUpdateAnime(updated);
+    setIsNewDraft(false);
     setIsEditMode(false);
+    if (shouldBack) onBack();
   };
 
   const discardEdit = () => {
@@ -90,15 +96,16 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
     setIsEditMode(false);
   };
 
-  const handleCancel = () => {
-    if (isDraftDirty && !window.confirm('保存していない変更があります。破棄しますか？')) return;
-    discardEdit();
-  };
-
-  const handleEditBack = () => {
-    if (isDraftDirty && !window.confirm('保存していない変更があります。破棄して戻りますか？')) return;
-    discardEdit();
-  };
+  const backGuard = useUnsavedChangesGuard({
+    isDirty: isEditMode && isDraftDirty,
+    isNewDraft: isEditMode && isNewDraft,
+    onBack,
+    onSaveAndBack: () => handleSave(true),
+    onDiscard: () => {
+      if (isNewDraft) onDeleteAnime(anime.id);
+      else discardEdit();
+    },
+  });
 
   const handleDelete = () => {
     if (window.confirm(`「${anime.title}」を削除しますか？`)) {
@@ -397,11 +404,11 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
         posterUrl={draft.posterUrl}
         posterAlt={draft.title}
         posterFallback={<div style={{ fontSize: 48, opacity: 0.2 }}>📺</div>}
-        onBack={handleEditBack}
+        onBack={backGuard.requestBack}
         actions={
           <>
-            <IconButton icon={<Icons.Check />} onClick={handleSave} primary />
-            <IconButton icon={<Icons.X />} onClick={handleCancel} style={{ background: 'rgba(255,255,255,0.82)', border: 'none', color: theme.colors.textSecondary }} />
+            <IconButton icon={<Icons.Check />} onClick={() => handleSave()} primary />
+            <IconButton icon={<Icons.X />} onClick={backGuard.requestBack} style={{ background: 'rgba(255,255,255,0.82)', border: 'none', color: theme.colors.textSecondary }} />
           </>
         }
         tags={<DetailChip label={deriveAnimeStatus(draft)} bg={getAnimeStatusColor(deriveAnimeStatus(draft))} />}
@@ -732,6 +739,12 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
   return (
     <DetailPageLayout backgroundUrl={(isEditMode ? draft.posterUrl : anime.posterUrl) || undefined}>
       {isEditMode ? renderEditMode() : renderReadMode()}
+      <UnsavedChangesDialog
+        open={backGuard.isDialogOpen}
+        onSaveAndBack={backGuard.saveAndBack}
+        onDiscardAndBack={backGuard.discardAndBack}
+        onCancel={backGuard.cancelBack}
+      />
     </DetailPageLayout>
   );
 };

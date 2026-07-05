@@ -9,6 +9,8 @@ import { theme } from '@/components/common/theme';
 import { NativeDateTimeInput, centeredNativeDateTimeInputStyle } from '@/components/common/nativeDateInput';
 import { deriveGachaStatus, formatCurrency, formatDate, formatDateTime, GACHA_STATUSES, getGachaStats, getGachaStatusTone, getPrizeSoldAmount } from '@/utils/gacha';
 import { compressImageFileToAvatarDataUrl, getDataUrlByteSize, type AvatarCropOptions } from '@/utils/imageCompression';
+import { UnsavedChangesDialog } from '@/components/common/UnsavedChangesDialog';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 
 interface GachaDetailPageProps {
   gacha: Gacha;
@@ -16,6 +18,7 @@ interface GachaDetailPageProps {
   onDeleteGacha: (id: string) => void;
   onBack: () => void;
   initialEditMode?: boolean;
+  initialIsNew?: boolean;
 }
 
 const GACHA_KINDS: GachaKind[] = ['ガチャ', '一番くじ', 'ブラインド商品', 'ランダム特典', 'その他'];
@@ -277,11 +280,14 @@ const PrizeImageEditor: React.FC<{ prize: GachaPrize; onUpdate: (updates: Partia
   );
 };
 
-export const GachaDetailPage: React.FC<GachaDetailPageProps> = ({ gacha, onUpdateGacha, onDeleteGacha, onBack, initialEditMode = false }) => {
+export const GachaDetailPage: React.FC<GachaDetailPageProps> = ({ gacha, onUpdateGacha, onDeleteGacha, onBack, initialEditMode = false, initialIsNew = false }) => {
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
+  const [isNewDraft, setIsNewDraft] = useState(initialIsNew);
   const [formData, setFormData] = useState<Gacha>(gacha);
 
   useEffect(() => setFormData(gacha), [gacha]);
+
+  const isDirty = useMemo(() => JSON.stringify(formData) !== JSON.stringify(gacha), [formData, gacha]);
 
   const stats = useMemo(() => getGachaStats(formData), [formData]);
   const effectiveStatus = deriveGachaStatus(formData);
@@ -292,12 +298,28 @@ export const GachaDetailPage: React.FC<GachaDetailPageProps> = ({ gacha, onUpdat
   const addPrize = () => setFormData(prev => ({ ...prev, prizes: [...(prev.prizes || []), { id: createId(), name: '', imageUrl: '', imageData: '', rank: '', wanted: false, wonCount: 0, keepCount: 0, soldCount: 0, salePrice: undefined, soldTotal: undefined, memo: '' }] }));
   const removePrize = (id: string) => setFormData(prev => ({ ...prev, prizes: (prev.prizes || []).filter(prize => prize.id !== id) }));
 
-  const save = () => {
+  const save = (shouldBack = false) => {
     const next: Gacha = { ...formData, status: deriveGachaStatus(formData), updatedAt: new Date().toISOString() };
     onUpdateGacha(next);
     setFormData(next);
+    setIsNewDraft(false);
     setIsEditMode(false);
+    if (shouldBack) onBack();
   };
+
+  const backGuard = useUnsavedChangesGuard({
+    isDirty: isEditMode && isDirty,
+    isNewDraft: isEditMode && isNewDraft,
+    onBack,
+    onSaveAndBack: () => save(true),
+    onDiscard: () => {
+      if (isNewDraft) onDeleteGacha(gacha.id);
+      else {
+        setFormData(gacha);
+        setIsEditMode(false);
+      }
+    },
+  });
 
   return (
     <DetailPageLayout backgroundUrl={formData.posterUrl} bottomPadding={120}>
@@ -309,7 +331,7 @@ export const GachaDetailPage: React.FC<GachaDetailPageProps> = ({ gacha, onUpdat
         posterUrl={formData.posterUrl}
         posterAlt={formData.name}
         posterFallback={<div style={{ fontSize: 48, opacity: 0.2 }}>🎁</div>}
-        onBack={onBack}
+        onBack={isEditMode ? backGuard.requestBack : onBack}
         actions={(
           <>
             {isEditMode ? <IconButton icon={<Icons.Check />} onClick={() => save()} primary /> : <IconButton icon={<Icons.Edit />} onClick={() => setIsEditMode(true)} style={{ background: 'rgba(255,255,255,0.82)', border: 'none', color: theme.colors.primary }} />}
@@ -448,6 +470,12 @@ export const GachaDetailPage: React.FC<GachaDetailPageProps> = ({ gacha, onUpdat
           </ViewSection>
         </>
       )}
+      <UnsavedChangesDialog
+        open={backGuard.isDialogOpen}
+        onSaveAndBack={backGuard.saveAndBack}
+        onDiscardAndBack={backGuard.discardAndBack}
+        onCancel={backGuard.cancelBack}
+      />
     </DetailPageLayout>
   );
 };

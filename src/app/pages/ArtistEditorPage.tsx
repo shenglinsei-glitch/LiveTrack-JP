@@ -7,6 +7,9 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Artist, SiteLink } from '@/domain/types';
 import { Icons, IconButton } from '@/components/common/IconButton';
 import { PageShell } from '@/components/common/PageShell';
+import { EditorBackButton } from '@/components/common/EditorBackButton';
+import { UnsavedChangesDialog } from '@/components/common/UnsavedChangesDialog';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 
 interface Props {
   artistId?: string;
@@ -52,7 +55,6 @@ export const ArtistEditorPage: React.FC<Props> = ({
   const [imageUrlDraft, setImageUrlDraft] = useState(formData.imageUrl);
   const [hasChanges, setHasChanges] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isBackConfirmOpen, setIsBackConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (artist) {
@@ -82,13 +84,17 @@ export const ArtistEditorPage: React.FC<Props> = ({
     }
   };
 
-  const handleBack = () => {
-    if (hasChanges) {
-      setIsBackConfirmOpen(true);
-    } else {
-      onCancel();
-    }
-  };
+  const backGuard = useUnsavedChangesGuard({
+    isDirty: hasChanges,
+    onBack: onCancel,
+    onSaveAndBack: () => {
+      if (!formData.name.trim()) {
+        window.alert('アーティスト名を入力してください。');
+        return false;
+      }
+      onSave(formData);
+    },
+  });
 
   const setLinks = (updater: (prev: SiteLink[]) => SiteLink[]) => {
     setFormData((prev) => {
@@ -115,17 +121,7 @@ export const ArtistEditorPage: React.FC<Props> = ({
     <PageShell
       header={
         <header style={headerStyle}>
-          <IconButton
-            icon={<Icons.X />}
-            onClick={handleBack}
-            size={40}
-            style={{
-              color: theme.colors.textSecondary,
-              borderColor: 'transparent',
-              background: 'transparent',
-              boxShadow: 'none',
-            }}
-          />
+          <EditorBackButton onClick={backGuard.requestBack} style={{ background: 'transparent', boxShadow: 'none' }} />
           <h2 style={{ fontSize: '17px', margin: 0, fontWeight: 'bold' }}>
             {artistId ? 'アーティスト編集' : 'アーティスト追加'}
           </h2>
@@ -274,13 +270,11 @@ export const ArtistEditorPage: React.FC<Props> = ({
           onClose={() => setIsDeleteModalOpen(false)}
           onConfirm={() => onDeleteArtist(formData.id)}
         />
-        <ConfirmDialog
-          isOpen={isBackConfirmOpen}
-          title="変更を破棄しますか？"
-          message="編集した内容は保存されません。戻りますか？"
-          confirmLabel="戻る"
-          onClose={() => setIsBackConfirmOpen(false)}
-          onConfirm={onCancel}
+        <UnsavedChangesDialog
+          open={backGuard.isDialogOpen}
+          onSaveAndBack={backGuard.saveAndBack}
+          onDiscardAndBack={backGuard.discardAndBack}
+          onCancel={backGuard.cancelBack}
         />
       </div>
     </PageShell>

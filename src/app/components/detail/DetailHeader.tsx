@@ -1,6 +1,7 @@
 import React from 'react';
 import { theme } from '@/components/common/theme';
-import { Icons, IconButton } from '@/components/common/IconButton';
+import { Icons } from '@/components/common/IconButton';
+import { EditorBackButton } from '@/components/common/EditorBackButton';
 
 export const DetailChip: React.FC<{ label: React.ReactNode; bg?: string; subtle?: boolean; textColor?: string }> = ({ label, bg = theme.colors.primary, subtle = false, textColor }) => (
   <span
@@ -80,7 +81,7 @@ export const DetailHeader: React.FC<DetailHeaderProps> = ({
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, width: '100%' }}>
-        <IconButton icon={<Icons.ChevronLeft />} onClick={() => onBack()} style={{ background: 'rgba(255,255,255,0.82)', border: 'none' }} />
+        <EditorBackButton onClick={onBack} />
         <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>{actions}</div>
       </div>
 

@@ -10,6 +10,7 @@ interface IconButtonProps {
   size?: number;
   style?: React.CSSProperties;
   disabled?: boolean;
+  title?: string;
 }
 
 export const IconButton: React.FC<IconButtonProps> = ({ 
@@ -18,12 +19,14 @@ export const IconButton: React.FC<IconButtonProps> = ({
   primary = false, 
   size = 44,
   style,
-  disabled = false
+  disabled = false,
+  title
 }) => {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
+      title={title}
       style={{
         width: `${size}px`,
         height: `${size}px`,

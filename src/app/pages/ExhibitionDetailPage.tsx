@@ -17,6 +17,8 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useRemoteImage } from '@/components/RemoteImage';
 import { getEffectiveExhibitionStatus } from '@/domain/logic';
 import { NativeDateTimeInput } from '@/components/common/nativeDateInput';
+import { UnsavedChangesDialog } from '@/components/common/UnsavedChangesDialog';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -97,7 +99,6 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
   const [formData, setFormData] = useState<Exhibition>(exhibition);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-  const [isUnsavedConfirmOpen, setIsUnsavedConfirmOpen] = useState(false);
   const [isNewDraft, setIsNewDraft] = useState(initialIsNew);
 
   useEffect(() => {
@@ -106,23 +107,6 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
 
   const isDirty = useMemo(() => JSON.stringify(formData) !== JSON.stringify(exhibition), [formData, exhibition]);
 
-  const handleBack = () => {
-    if (isEditMode && (isDirty || isNewDraft)) {
-      setIsUnsavedConfirmOpen(true);
-      return;
-    }
-    onBack();
-  };
-
-  const handleCancel = () => {
-    if (isDirty || isNewDraft) {
-      setIsUnsavedConfirmOpen(true);
-      return;
-    }
-    setFormData(exhibition);
-    setIsEditMode(false);
-  };
-
   const saveAndLeave = () => {
     const prepared = normalizeExhibitionVisitFields(formData);
     const next = { ...prepared, status: getEffectiveExhibitionStatus(prepared) };
@@ -130,19 +114,35 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
     setFormData(next);
     setIsNewDraft(false);
     setIsEditMode(false);
-    setIsUnsavedConfirmOpen(false);
     onBack();
   };
 
   const discardChanges = () => {
-    setIsUnsavedConfirmOpen(false);
     if (isNewDraft) {
       onDeleteExhibition(formData.id);
       return;
     }
     setFormData(exhibition);
     setIsEditMode(false);
-    onBack();
+  };
+
+  const backGuard = useUnsavedChangesGuard({
+    isDirty: isEditMode && isDirty,
+    isNewDraft: isEditMode && isNewDraft,
+    onBack,
+    onSaveAndBack: saveAndLeave,
+    onDiscard: discardChanges,
+  });
+
+  const handleBack = backGuard.requestBack;
+
+  const handleCancel = () => {
+    if (isDirty || isNewDraft) {
+      backGuard.requestBack();
+      return;
+    }
+    setFormData(exhibition);
+    setIsEditMode(false);
   };
 
   const { resolvedUrl: backgroundUrl } = useRemoteImage(formData.imageUrl);
@@ -685,41 +685,12 @@ export const ExhibitionDetailPage: React.FC<ExhibitionDetailPageProps> = ({
         onConfirm={() => onDeleteExhibition(formData.id)}
       />
 
-      {isUnsavedConfirmOpen && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 3000,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: theme.spacing.md,
-          background: 'rgba(0,0,0,0.4)',
-          backdropFilter: 'blur(4px)'
-        }}>
-          <div style={{ position: 'fixed', inset: 0 }} onClick={() => setIsUnsavedConfirmOpen(false)} />
-          <div style={{
-            width: '100%',
-            maxWidth: 340,
-            position: 'relative',
-            borderRadius: 24,
-            padding: 22,
-            background: 'rgba(255,255,255,0.94)',
-            border: '1px solid rgba(255,255,255,0.7)',
-            boxShadow: '0 24px 60px rgba(15,23,42,0.22)',
-            backdropFilter: 'blur(18px)',
-            WebkitBackdropFilter: 'blur(18px)'
-          }}>
-            <h3 style={{ margin: '0 0 8px 0', fontSize: 17, fontWeight: 900, color: theme.colors.textMain }}>未保存の変更があります</h3>
-            <p style={{ margin: '0 0 22px 0', fontSize: 14, color: theme.colors.textSecondary, lineHeight: 1.45 }}>保存するか、変更を破棄して戻ってください。</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <button onClick={saveAndLeave} style={{ height: 44, borderRadius: 14, border: 'none', background: theme.colors.primary, color: 'white', fontWeight: 900, cursor: 'pointer' }}>保存して戻る</button>
-              <button onClick={discardChanges} style={{ height: 44, borderRadius: 14, border: 'none', background: 'rgba(239,68,68,0.10)', color: theme.colors.error, fontWeight: 900, cursor: 'pointer' }}>破棄して戻る</button>
-              <button onClick={() => setIsUnsavedConfirmOpen(false)} style={{ height: 40, borderRadius: 14, border: 'none', background: 'rgba(0,0,0,0.05)', color: theme.colors.textSecondary, fontWeight: 800, cursor: 'pointer' }}>キャンセル</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <UnsavedChangesDialog
+        open={backGuard.isDialogOpen}
+        onSaveAndBack={backGuard.saveAndBack}
+        onDiscardAndBack={backGuard.discardAndBack}
+        onCancel={backGuard.cancelBack}
+      />
     </DetailPageLayout>
   );
 };

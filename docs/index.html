@@ -1,17 +1,40 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!DOCTYPE html>
-  <html lang="en">
-    <head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>LiveTracke (Community)</title>
-      <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
-      <script type="module" crossorigin src="/LiveTrack-JP/assets/index-DHUF3Xa2.js"></script>
-      <link rel="stylesheet" crossorigin href="/LiveTrack-JP/assets/index-gDqOMdDL.css">
-    </head>
+    <title>FaveArchive</title>
 
-    <body>
-      <div id="root"></div>
-    </body>
-  </html>
-  
+    <!-- PWA / Home Screen Icon -->
+    <link rel="manifest" href="/LiveTrack-JP/manifest.json" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/LiveTrack-JP/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/LiveTrack-JP/icon-192.png" />
+
+    <!-- iOS Home Screen -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="FaveArchive" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+
+    <!-- Theme -->
+    <meta name="theme-color" content="#53BEE8" />
+
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+
+      #root {
+        height: 100%;
+      }
+    </style>
+    <script type="module" crossorigin src="/LiveTrack-JP/assets/index-kdyz-FNc.js"></script>
+    <link rel="stylesheet" crossorigin href="/LiveTrack-JP/assets/index-gDqOMdDL.css">
+  </head>
+
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

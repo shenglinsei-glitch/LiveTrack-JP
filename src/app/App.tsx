@@ -325,10 +325,10 @@ export default function App() {
   };
 
   const navigateToExhibitionDetail = (exhibitionId: string, edit?: boolean, isNew?: boolean) => setNav({ path: 'EXHIBITION_DETAIL', exhibitionId, edit, isNew });
-  const navigateToMovieDetail = (movieId: string, edit?: boolean) => setNav({ path: 'MOVIE_DETAIL', movieId, edit, from: 'CONTENT' });
+  const navigateToMovieDetail = (movieId: string, edit?: boolean, isNew?: boolean) => setNav({ path: 'MOVIE_DETAIL', movieId, edit, isNew, from: 'CONTENT' });
   const navigateToActorDetail = (actorId: string) => setNav({ path: 'ACTOR_DETAIL', actorId, from: 'CONTENT' });
-  const navigateToAnimeDetail = (animeId: string, edit?: boolean) => setNav({ path: 'ANIME_DETAIL', animeId: animeId, edit, from: 'CONTENT' });
-  const navigateToGachaDetail = (gachaId: string, edit?: boolean) => setNav({ path: 'GACHA_DETAIL', gachaId, edit, from: 'CONTENT' });
+  const navigateToAnimeDetail = (animeId: string, edit?: boolean, isNew?: boolean) => setNav({ path: 'ANIME_DETAIL', animeId: animeId, edit, isNew, from: 'CONTENT' });
+  const navigateToGachaDetail = (gachaId: string, edit?: boolean, isNew?: boolean) => setNav({ path: 'GACHA_DETAIL', gachaId, edit, isNew, from: 'CONTENT' });
   const navigateToTagManagement = () => setNav({ path: 'TAG_MANAGEMENT' });
 
   const normalizeActorName = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase();
@@ -416,7 +416,7 @@ export default function App() {
     };
     setMovies(prev => [...prev, newMovie]);
     setContentActiveTab('movies');
-    navigateToMovieDetail(newMovie.id, true);
+    navigateToMovieDetail(newMovie.id, true, true);
   };
 
   const addNewAnime = () => {
@@ -449,7 +449,7 @@ export default function App() {
     };
     setAnimes(prev => [...prev, newAnime]);
     setContentActiveTab('animes');
-    navigateToAnimeDetail(newAnime.id, true);
+    navigateToAnimeDetail(newAnime.id, true, true);
   };
 
   const addNewGacha = () => {
@@ -473,7 +473,7 @@ export default function App() {
     };
     setGachas(prev => [...prev, newGacha]);
     setContentActiveTab('gachas');
-    navigateToGachaDetail(newGacha.id, true);
+    navigateToGachaDetail(newGacha.id, true, true);
   };
 
   const addTagToMasters = (key: keyof TagMasters, value: string) => {
@@ -696,6 +696,7 @@ export default function App() {
               else { setNav({ path: 'CONTENT' }); setContentActiveTab('movies'); }
             }}
             initialEditMode={!!nav.edit}
+            initialIsNew={!!nav.isNew}
             cinemas={tagMasters.cinemas}
             movieGenres={tagMasters.movieGenres}
             onAddCinema={(v) => addTagToMasters('cinemas', v)}
@@ -740,6 +741,7 @@ export default function App() {
               setContentActiveTab('animes');
             }}
             initialEditMode={!!nav.edit}
+            initialIsNew={!!nav.isNew}
             onAddAnimeGenre={(v) => addTagToMasters('animeGenres', v)}
             onAddAnimeStudio={(v) => addTagToMasters('animeStudios', v)}
           />
@@ -766,6 +768,7 @@ export default function App() {
               setContentActiveTab('gachas');
             }}
             initialEditMode={!!nav.edit}
+            initialIsNew={!!nav.isNew}
           />
         );
       }

@@ -11,6 +11,8 @@ import { DetailPageLayout } from '@/components/detail/DetailPageLayout';
 import { TagSelectInput } from '@/components/common/TagSelectInput';
 import { TagMultiSelectInput } from '@/components/common/TagMultiSelectInput';
 import { NativeDateTimeInput, centeredNativeDateTimeInputStyle } from '@/components/common/nativeDateInput';
+import { UnsavedChangesDialog } from '@/components/common/UnsavedChangesDialog';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 
 interface MovieDetailPageProps {
   movie: Movie;
@@ -21,6 +23,7 @@ interface MovieDetailPageProps {
   onDeleteMovie: (id: string) => void;
   onBack: () => void;
   initialEditMode?: boolean;
+  initialIsNew?: boolean;
   cinemas?: string[];
   movieGenres?: string[];
   onAddCinema?: (cinema: string) => void;
@@ -206,13 +209,16 @@ const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title
   </GlassCard>
 );
 
-export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, actors = [], onFollowActor, onOpenActorDetail, onUpdateMovie, onDeleteMovie, onBack, initialEditMode = false, cinemas = [], movieGenres = [], onAddCinema, onAddMovieGenre }) => {
+export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, actors = [], onFollowActor, onOpenActorDetail, onUpdateMovie, onDeleteMovie, onBack, initialEditMode = false, initialIsNew = false, cinemas = [], movieGenres = [], onAddCinema, onAddMovieGenre }) => {
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
+  const [isNewDraft, setIsNewDraft] = useState(initialIsNew);
   const [formData, setFormData] = useState<Movie>(movie);
 
   useEffect(() => {
     setFormData(movie);
   }, [movie]);
+
+  const isDirty = useMemo(() => JSON.stringify(formData) !== JSON.stringify(movie), [formData, movie]);
 
   const effectiveStatus = getEffectiveMovieStatus(formData);
   const durationLabel = calcDuration(formData.startTime, formData.endTime);
@@ -227,7 +233,7 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, actors 
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const save = () => {
+  const save = (shouldBack = false) => {
     const nextStatus = getEffectiveMovieStatus(formData);
     const nextMovie: Movie = {
       ...formData,
@@ -251,8 +257,24 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, actors 
 
     onUpdateMovie(nextMovie);
     setFormData(nextMovie);
+    setIsNewDraft(false);
     setIsEditMode(false);
+    if (shouldBack) onBack();
   };
+
+  const backGuard = useUnsavedChangesGuard({
+    isDirty: isEditMode && isDirty,
+    isNewDraft: isEditMode && isNewDraft,
+    onBack,
+    onSaveAndBack: () => save(true),
+    onDiscard: () => {
+      if (isNewDraft) onDeleteMovie(movie.id);
+      else {
+        setFormData(movie);
+        setIsEditMode(false);
+      }
+    },
+  });
 
   const StaticText: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <div style={staticInputStyle}>{children}</div>
@@ -309,7 +331,7 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, actors 
             posterUrl={formData.posterUrl}
             posterAlt={formData.title}
             posterFallback={<div style={{ fontSize: 48, opacity: 0.2 }}>🎬</div>}
-            onBack={onBack}
+            onBack={isEditMode ? backGuard.requestBack : onBack}
             actions={
               <>
                 {isEditMode ? (
@@ -636,6 +658,13 @@ export const MovieDetailPage: React.FC<MovieDetailPageProps> = ({ movie, actors 
               </ViewSection>
             </>
           )}
+
+          <UnsavedChangesDialog
+            open={backGuard.isDialogOpen}
+            onSaveAndBack={backGuard.saveAndBack}
+            onDiscardAndBack={backGuard.discardAndBack}
+            onCancel={backGuard.cancelBack}
+          />
     </DetailPageLayout>
   );
 };

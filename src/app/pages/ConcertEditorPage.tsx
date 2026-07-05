@@ -4,6 +4,9 @@ import { GlassCard } from '@/components/common/GlassCard';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Artist, Tour, Concert, Status, LotteryHistoryItem, ConcertSetlistItem, GoodsItem } from '@/domain/types';
 import { Icons, IconButton } from '@/components/common/IconButton';
+import { EditorBackButton } from '@/components/common/EditorBackButton';
+import { UnsavedChangesDialog } from '@/components/common/UnsavedChangesDialog';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { sortPerformancesForDisplay, checkGlobalDateConflicts } from '@/domain/logic';
 import { PageShell } from '@/components/common/PageShell';
 import { TagSelectInput } from '@/components/common/TagSelectInput';
@@ -148,13 +151,13 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
 
     if (!formData.name.trim()) {
       window.alert("ツアー名を入力してください。");
-      return;
+      return false;
     }
 
     const conflicts = checkGlobalDateConflicts(allArtists, formData.id, formData.concerts);
     if (conflicts.length > 0) {
       setConflictDates(conflicts);
-      return;
+      return false;
     }
 
     if (onAddVenue) {
@@ -194,10 +197,17 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
     }
   };
 
+
+  const backGuard = useUnsavedChangesGuard({
+    isDirty: hasChanges,
+    onBack: onCancel,
+    onSaveAndBack: () => handleSave(),
+  });
+
   return (
     <PageShell header={
       <header style={headerStyle}>
-        <IconButton icon={<Icons.X />} onClick={onCancel} size={40} style={{ color: theme.colors.textSecondary, border: 'none', background: 'transparent', boxShadow: 'none' }} />
+        <EditorBackButton onClick={backGuard.requestBack} style={{ background: 'transparent', boxShadow: 'none' }} />
         <h2 style={{ fontSize: '17px', margin: 0, fontWeight: 'bold' }}>ツアー・公演編集</h2>
         {tourId ? (
           <IconButton icon={<Icons.Trash />} onClick={() => setIsDeleteTourModalOpen(true)} size={40} style={{ color: theme.colors.error, border: 'none', background: 'transparent', boxShadow: 'none' }} />
@@ -405,6 +415,7 @@ export const ConcertEditorPage: React.FC<Props> = ({ artistId, tourId, tour, all
         </button>
 
         <ConfirmDialog isOpen={conflictDates.length > 0} title="重复警告" message={`同日に他公演があります：${conflictDates.join(', ')}`} confirmLabel="強制保存" onClose={() => setConflictDates([])} onConfirm={() => onSave(formData)} />
+        <UnsavedChangesDialog open={backGuard.isDialogOpen} onSaveAndBack={backGuard.saveAndBack} onDiscardAndBack={backGuard.discardAndBack} onCancel={backGuard.cancelBack} />
         <ConfirmDialog isOpen={isDeleteTourModalOpen} title="ツアー削除" message="すべて削除されます。復元不可。" confirmLabel="削除" isDestructive onClose={() => setIsDeleteTourModalOpen(false)} onConfirm={() => onDeleteTour(artistId, formData.id)} />
         <ConfirmDialog isOpen={!!isDeleteConcertModalOpen} title="公演削除" message="この公演を削除しますか？" confirmLabel="削除" isDestructive onClose={() => setIsDeleteConcertModalOpen(null)} onConfirm={() => isDeleteConcertModalOpen && setFormData(p => ({ ...p, concerts: p.concerts.filter(c => c.id !== isDeleteConcertModalOpen) }))} />
       </div>

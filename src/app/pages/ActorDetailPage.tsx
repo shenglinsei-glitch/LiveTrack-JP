@@ -8,6 +8,8 @@ import { SectionTitle, Value, Label } from '@/components/detail/DetailText';
 import { theme } from '@/components/common/theme';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import dayjs from 'dayjs';
+import { UnsavedChangesDialog } from '@/components/common/UnsavedChangesDialog';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 
 interface ActorDetailPageProps {
   actor: Actor;
@@ -48,13 +50,25 @@ export const ActorDetailPage: React.FC<ActorDetailPageProps> = ({ actor, movies,
   }, [actor.name, movies]);
 
   const backgroundUrl = formData.avatar || relatedMovies.find(m => m.posterUrl)?.posterUrl || '';
+  const isDirty = useMemo(() => JSON.stringify(formData) !== JSON.stringify(actor), [formData, actor]);
 
-  const save = () => {
+  const save = (shouldBack = false) => {
     const next = { ...formData, name: formData.name.trim() || actor.name, updatedAt: new Date().toISOString() };
     onUpdateActor(next);
     setFormData(next);
     setIsEditMode(false);
+    if (shouldBack) onBack();
   };
+
+  const backGuard = useUnsavedChangesGuard({
+    isDirty: isEditMode && isDirty,
+    onBack,
+    onSaveAndBack: () => save(true),
+    onDiscard: () => {
+      setFormData(actor);
+      setIsEditMode(false);
+    },
+  });
 
   return (
     <DetailPageLayout backgroundUrl={backgroundUrl} bottomPadding={120}>
@@ -66,11 +80,11 @@ export const ActorDetailPage: React.FC<ActorDetailPageProps> = ({ actor, movies,
         posterUrl={formData.avatar || backgroundUrl}
         posterAlt={formData.name}
         posterFallback={<div style={{ fontSize: 46, opacity: 0.25 }}>🎭</div>}
-        onBack={onBack}
+        onBack={isEditMode ? backGuard.requestBack : onBack}
         actions={
           <>
             {isEditMode ? (
-              <IconButton icon={<Icons.Check />} onClick={save} primary />
+              <IconButton icon={<Icons.Check />} onClick={() => save()} primary />
             ) : (
               <IconButton icon={<Icons.Edit />} onClick={() => setIsEditMode(true)} style={{ background: 'rgba(255,255,255,0.82)', border: 'none', color: theme.colors.primary }} />
             )}
@@ -138,6 +152,12 @@ export const ActorDetailPage: React.FC<ActorDetailPageProps> = ({ actor, movies,
           </div>
         )}
       </DetailSection>
+      <UnsavedChangesDialog
+        open={backGuard.isDialogOpen}
+        onSaveAndBack={backGuard.saveAndBack}
+        onDiscardAndBack={backGuard.discardAndBack}
+        onCancel={backGuard.cancelBack}
+      />
     </DetailPageLayout>
   );
 };
