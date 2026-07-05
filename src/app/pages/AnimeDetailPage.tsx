@@ -24,7 +24,7 @@ import {
 } from '@/utils/animeStatusHelpers';
 import { Input, TextArea, DateField, CollapseChevron, StatusPill, inputStyle, selectStyle, sectionCardStyle, responsiveTwoColumnStyle } from './anime-detail/AnimeSharedStyles';
 import { InfoItem, GenreChips, SongList } from './anime-detail/AnimeDisplayComponents';
-import { ViewSection } from './anime-detail/AnimeViewSection';
+import { DetailSection } from '@/components/detail/DetailSection';
 import { AnimeSeasonCard } from './anime-detail/AnimeSeasonCard';
 import { UnsavedChangesDialog } from '@/components/common/UnsavedChangesDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
@@ -327,7 +327,7 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
         />
 
         <div style={{ padding: '0 0 140px', minWidth: 0, maxWidth: '100%' }}>
-          <ViewSection title="基本情報">
+          <DetailSection title="基本情報">
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))', gap: 16, minWidth: 0, maxWidth: '100%' }}>
               <InfoItem label="放送開始日">{formatDateWithWeek(anime.startDate) || null}</InfoItem>
               <InfoItem label="放送終了日">{formatDateWithWeek(anime.endDate) || null}</InfoItem>
@@ -339,36 +339,36 @@ export const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onUpdat
               <InfoItem label="集数">{anime.totalEpisodes !== undefined && anime.totalEpisodes > 0 ? `全${anime.totalEpisodes}話` : null}</InfoItem>
               <InfoItem label="毎週更新">{getBroadcastText(anime.startDate, anime.broadcastWeekday) || null}</InfoItem>
             </div>
-          </ViewSection>
+          </DetailSection>
 
           {animeGenres.length > 0 && (
-            <ViewSection title="ジャンル" countLabel={`${animeGenres.length}件`}>
+            <DetailSection title="ジャンル" countLabel={`${animeGenres.length}件`}>
               <GenreChips genres={animeGenres} />
-            </ViewSection>
+            </DetailSection>
           )}
 
           {animeOpeningSongs.length > 0 && (
-            <ViewSection title="オープニング曲" countLabel={`${animeOpeningSongs.length}曲`}>
+            <DetailSection title="オープニング曲" countLabel={`${animeOpeningSongs.length}曲`}>
               <SongList songs={animeOpeningSongs} />
-            </ViewSection>
+            </DetailSection>
           )}
 
           {animeEndingSongs.length > 0 && (
-            <ViewSection title="エンディング曲" countLabel={`${animeEndingSongs.length}曲`}>
+            <DetailSection title="エンディング曲" countLabel={`${animeEndingSongs.length}曲`}>
               <SongList songs={animeEndingSongs} />
-            </ViewSection>
+            </DetailSection>
           )}
 
           {anime.summary && (
-            <ViewSection title="あらすじ">
+            <DetailSection title="あらすじ">
               <Value placeholder="" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.65, fontWeight: 600 }}>{anime.summary}</Value>
-            </ViewSection>
+            </DetailSection>
           )}
 
           {anime.review && (
-            <ViewSection title="感想">
+            <DetailSection title="感想">
               <Value placeholder="" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.65, fontWeight: 600 }}>{anime.review}</Value>
-            </ViewSection>
+            </DetailSection>
           )}
 
           {seasons.length > 0 && (

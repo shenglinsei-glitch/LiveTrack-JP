@@ -72,7 +72,6 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
             />
           </div>
           <div
-            onClick={(e) => e.stopPropagation()}
             style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 2, flexShrink: 0 }}
           >
             {countLabel ? (
@@ -80,7 +79,11 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
                 {countLabel}
               </span>
             ) : null}
-            {rightAction}
+            {rightAction ? (
+              <span onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                {rightAction}
+              </span>
+            ) : null}
             {collapsible ? (
               <Icons.ChevronLeft
                 style={{
