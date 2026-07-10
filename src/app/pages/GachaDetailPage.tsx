@@ -157,6 +157,7 @@ const PrizeThumb: React.FC<{ prize: GachaPrize; size?: number }> = ({ prize, siz
 };
 
 const cropSliderStyle: React.CSSProperties = { width: '100%', accentColor: theme.colors.primary };
+const cropNumberStyle: React.CSSProperties = { width: 76, border: '1px solid rgba(15,23,42,0.12)', borderRadius: 10, padding: '7px 8px', fontSize: 12, fontWeight: 800, color: theme.colors.textSecondary, background: '#fff' };
 
 const PrizeImageEditor: React.FC<{ prize: GachaPrize; onUpdate: (updates: Partial<GachaPrize>) => void }> = ({ prize, onUpdate }) => {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -232,7 +233,7 @@ const PrizeImageEditor: React.FC<{ prize: GachaPrize; onUpdate: (updates: Partia
             ) : null}
           </div>
           <div style={{ fontSize: 11, fontWeight: 700, color: theme.colors.textWeak, lineHeight: 1.45 }}>
-            選択後にサイズ・位置を調整して、160×160 JPEG / 白背景で保存します。黒背景の自動変換は行いません。30KBを超える場合は自動で追加圧縮します。原画像は保存しません。
+            選択後にサイズ・位置を調整して、160×160 JPEG / 白背景で保存します。左右/上下は数値入力で自由に指定できます。黒背景の自動変換は行いません。30KBを超える場合は自動で追加圧縮します。原画像は保存しません。
             {localSize > 0 ? <span> 現在：{formatFileSize(localSize)}</span> : null}
           </div>
           {message ? <div style={{ fontSize: 11, fontWeight: 800, color: message.includes('失敗') ? theme.colors.error : theme.colors.primary }}>{message}</div> : null}
@@ -256,12 +257,18 @@ const PrizeImageEditor: React.FC<{ prize: GachaPrize; onUpdate: (updates: Partia
               <input type="range" min="0.5" max="4" step="0.05" value={crop.zoom} onChange={(e) => updateCrop({ zoom: Number(e.target.value) })} style={cropSliderStyle} />
             </label>
             <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 900, color: theme.colors.textSecondary }}>
-              左右 {crop.offsetX}
-              <input type="range" min="-100" max="100" step="1" value={crop.offsetX} onChange={(e) => updateCrop({ offsetX: Number(e.target.value) })} style={cropSliderStyle} />
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <span>左右 {crop.offsetX}</span>
+                <input type="number" step="1" value={crop.offsetX} onChange={(e) => updateCrop({ offsetX: Number(e.target.value) || 0 })} style={cropNumberStyle} />
+              </span>
+              <input type="range" min="-300" max="300" step="1" value={Math.max(-300, Math.min(300, crop.offsetX))} onChange={(e) => updateCrop({ offsetX: Number(e.target.value) })} style={cropSliderStyle} />
             </label>
             <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 900, color: theme.colors.textSecondary }}>
-              上下 {crop.offsetY}
-              <input type="range" min="-100" max="100" step="1" value={crop.offsetY} onChange={(e) => updateCrop({ offsetY: Number(e.target.value) })} style={cropSliderStyle} />
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <span>上下 {crop.offsetY}</span>
+                <input type="number" step="1" value={crop.offsetY} onChange={(e) => updateCrop({ offsetY: Number(e.target.value) || 0 })} style={cropNumberStyle} />
+              </span>
+              <input type="range" min="-300" max="300" step="1" value={Math.max(-300, Math.min(300, crop.offsetY))} onChange={(e) => updateCrop({ offsetY: Number(e.target.value) })} style={cropSliderStyle} />
             </label>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

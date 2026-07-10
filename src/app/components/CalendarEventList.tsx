@@ -10,6 +10,8 @@ interface Props {
   selectedDateKey: string | null;
   mode: CalendarMode;
   selectedDayEvents: Array<CalendarEvent | Exhibition>;
+  canExportToSystemCalendar?: boolean;
+  onOpenCalendarExport?: () => void;
   onOpenMovie: (movieId: string) => void;
   onOpenAnime?: (animeId: string) => void;
   onOpenExhibition: (exhibitionId: string) => void;
@@ -20,6 +22,8 @@ export const CalendarEventList: React.FC<Props> = ({
   selectedDateKey,
   mode,
   selectedDayEvents,
+  canExportToSystemCalendar,
+  onOpenCalendarExport,
   onOpenMovie,
   onOpenAnime,
   onOpenExhibition,
@@ -29,11 +33,25 @@ export const CalendarEventList: React.FC<Props> = ({
 
   return (
     <div style={{ marginTop: '32px' }} className="fade-in">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-        <div style={{ width: '4px', height: '16px', background: theme.colors.primary, borderRadius: '2px' }} />
-        <h3 style={{ fontSize: '14px', fontWeight: '800', color: theme.colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
-          {selectedDateKey.replace(/-/g, '.')} の予定
-        </h3>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+          <div style={{ width: '4px', height: '16px', background: theme.colors.primary, borderRadius: '2px', flexShrink: 0 }} />
+          <h3 style={{ fontSize: '14px', fontWeight: '800', color: theme.colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {selectedDateKey.replace(/-/g, '.')} の予定
+          </h3>
+        </div>
+        {canExportToSystemCalendar && onOpenCalendarExport && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenCalendarExport();
+            }}
+            style={calendarExportButtonStyle}
+          >
+            カレンダー追加
+          </button>
+        )}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -99,4 +117,17 @@ const eventCardStyle: React.CSSProperties = {
   justifyContent: 'space-between',
   alignItems: 'center',
   cursor: 'pointer',
+};
+
+const calendarExportButtonStyle: React.CSSProperties = {
+  border: 'none',
+  borderRadius: 999,
+  padding: '9px 12px',
+  background: 'rgba(83,190,232,0.12)',
+  color: theme.colors.primary,
+  fontSize: 12,
+  fontWeight: 900,
+  whiteSpace: 'nowrap',
+  cursor: 'pointer',
+  boxShadow: '0 6px 16px rgba(83,190,232,0.10)',
 };

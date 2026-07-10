@@ -61,6 +61,7 @@ const normalizeConcert = (raw: any): Concert => {
     seatType: asString(raw?.seatType),
     seatLocation: asString(raw?.seatLocation),
     setlist,
+    goods: asArray<any>(raw?.goods).map(normalizeGoods),
   };
 };
 

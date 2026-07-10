@@ -62,8 +62,8 @@ const getAvatarDrawRect = (img: HTMLImageElement, size: number, crop: AvatarCrop
   const zoom = clamp(crop.zoom ?? 1, 0.5, 4);
   const targetWidth = Math.max(1, sourceWidth * fitScale * zoom);
   const targetHeight = Math.max(1, sourceHeight * fitScale * zoom);
-  const offsetX = clamp(crop.offsetX ?? 0, -100, 100);
-  const offsetY = clamp(crop.offsetY ?? 0, -100, 100);
+  const offsetX = typeof crop.offsetX === 'number' && Number.isFinite(crop.offsetX) ? crop.offsetX : 0;
+  const offsetY = typeof crop.offsetY === 'number' && Number.isFinite(crop.offsetY) ? crop.offsetY : 0;
   const targetX = (size - targetWidth) / 2 + (offsetX / 100) * size * 0.5;
   const targetY = (size - targetHeight) / 2 + (offsetY / 100) * size * 0.5;
 

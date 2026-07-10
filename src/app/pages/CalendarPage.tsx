@@ -13,6 +13,15 @@ import {
   getSelectedDayEvents,
   getTodayKey,
 } from '@/domain/calendarHelpers';
+import {
+  CALENDAR_EXPORT_FILE_NAME,
+  buildCalendarExportCandidates,
+  clearCalendarExportHistory,
+  downloadCalendarIcs,
+  getCalendarExportItemTimeLabel,
+  mergeCalendarExportHistory,
+  readCalendarExportHistory,
+} from '@/utils/calendarExport';
 
 interface Props {
   artists: Artist[];
@@ -54,6 +63,9 @@ export const CalendarPage: React.FC<Props> = ({
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
 
   const [isToolsOpen, setIsToolsOpen] = useState(false);
+  const [isCalendarExportOpen, setIsCalendarExportOpen] = useState(false);
+  const [selectedCalendarExportIds, setSelectedCalendarExportIds] = useState<string[]>([]);
+  const [calendarExportHistoryCount, setCalendarExportHistoryCount] = useState(() => readCalendarExportHistory().length);
 
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchCurrentX, setTouchCurrentX] = useState<number | null>(null);
@@ -107,6 +119,57 @@ export const CalendarPage: React.FC<Props> = ({
   };
 
   const selectedDayEvents = useMemo(() => getSelectedDayEvents(selectedDateKey, mode, musicEventMap, exhibitions), [selectedDateKey, mode, musicEventMap, exhibitions]);
+
+  const calendarExportCandidates = useMemo(
+    () => buildCalendarExportCandidates({
+      dateKey: selectedDateKey,
+      mode,
+      artists,
+      movies,
+      selectedExhibitions: mode === 'exhibition' ? (selectedDayEvents as Exhibition[]) : [],
+    }),
+    [artists, mode, movies, selectedDateKey, selectedDayEvents]
+  );
+
+  const selectedCalendarExportItems = useMemo(
+    () => calendarExportCandidates.filter((item) => selectedCalendarExportIds.includes(item.id)),
+    [calendarExportCandidates, selectedCalendarExportIds]
+  );
+
+  useEffect(() => {
+    if (!isCalendarExportOpen) return;
+    setSelectedCalendarExportIds(calendarExportCandidates.map((item) => item.id));
+  }, [calendarExportCandidates, isCalendarExportOpen]);
+
+  const handleOpenCalendarExport = () => {
+    setSelectedCalendarExportIds(calendarExportCandidates.map((item) => item.id));
+    setIsCalendarExportOpen(true);
+  };
+
+  const handleToggleCalendarExportItem = (id: string) => {
+    setSelectedCalendarExportIds((prev) => (
+      prev.includes(id) ? prev.filter((itemId) => itemId !== id) : [...prev, id]
+    ));
+  };
+
+  const handleToggleAllCalendarExportItems = () => {
+    setSelectedCalendarExportIds((prev) => (
+      prev.length === calendarExportCandidates.length ? [] : calendarExportCandidates.map((item) => item.id)
+    ));
+  };
+
+  const handleExportCalendarItems = () => {
+    if (selectedCalendarExportItems.length === 0) return;
+    const mergedItems = mergeCalendarExportHistory(selectedCalendarExportItems);
+    downloadCalendarIcs(mergedItems);
+    setCalendarExportHistoryCount(mergedItems.length);
+    setIsCalendarExportOpen(false);
+  };
+
+  const handleClearCalendarExportHistory = () => {
+    clearCalendarExportHistory();
+    setCalendarExportHistoryCount(0);
+  };
 
   const monthInputValue = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
 
@@ -239,14 +302,185 @@ export const CalendarPage: React.FC<Props> = ({
           selectedDateKey={selectedDateKey}
           mode={mode}
           selectedDayEvents={selectedDayEvents}
+          canExportToSystemCalendar={calendarExportCandidates.length > 0}
+          onOpenCalendarExport={handleOpenCalendarExport}
           onOpenMovie={onOpenMovie}
           onOpenAnime={onOpenAnime}
           onOpenExhibition={onOpenExhibition}
           onOpenArtistEvent={handleEventClick}
         />
+
+        {isCalendarExportOpen && (
+          <div
+            style={calendarExportOverlayStyle}
+            onClick={() => setIsCalendarExportOpen(false)}
+          >
+            <div style={calendarExportDialogStyle} onClick={(e) => e.stopPropagation()}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: theme.colors.text }}>カレンダーに追加</div>
+                  <div style={{ marginTop: 5, fontSize: 12, lineHeight: 1.5, fontWeight: 700, color: theme.colors.textSecondary }}>
+                    選択した予定を累積し、{CALENDAR_EXPORT_FILE_NAME} として書き出します。
+                  </div>
+                </div>
+                <button type="button" onClick={() => setIsCalendarExportOpen(false)} style={calendarExportCloseButtonStyle}>×</button>
+              </div>
+
+              <div style={calendarExportSummaryStyle}>
+                <span>累積済み：{calendarExportHistoryCount}件</span>
+                <button type="button" onClick={handleClearCalendarExportHistory} style={calendarExportTextButtonStyle}>累積をクリア</button>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, margin: '14px 0 10px' }}>
+                <div style={{ fontSize: 12, fontWeight: 900, color: theme.colors.textSecondary }}>追加する予定</div>
+                <button type="button" onClick={handleToggleAllCalendarExportItems} style={calendarExportTextButtonStyle}>
+                  {selectedCalendarExportIds.length === calendarExportCandidates.length ? 'すべて解除' : 'すべて選択'}
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '42vh', overflowY: 'auto', paddingRight: 2 }}>
+                {calendarExportCandidates.map((item) => {
+                  const checked = selectedCalendarExportIds.includes(item.id);
+                  return (
+                    <label key={item.id} style={calendarExportItemStyle}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => handleToggleCalendarExportItem(item.id)}
+                        style={{ width: 18, height: 18, accentColor: theme.colors.primary, flexShrink: 0 }}
+                      />
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: 14, fontWeight: 900, color: theme.colors.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</div>
+                        <div style={{ marginTop: 4, fontSize: 12, color: theme.colors.textSecondary, fontWeight: 700 }}>
+                          {getCalendarExportItemTimeLabel(item)} / {item.location || '場所未設定'}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div style={{ marginTop: 12, fontSize: 11, lineHeight: 1.5, color: theme.colors.textWeak, fontWeight: 700 }}>
+                同じIDの予定は累積内で上書きされます。Appleカレンダーへ再度読み込む場合、既に読み込み済みの予定は重複することがあります。
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr', gap: 10, marginTop: 16 }}>
+                <button type="button" onClick={() => setIsCalendarExportOpen(false)} style={calendarExportCancelButtonStyle}>キャンセル</button>
+                <button
+                  type="button"
+                  onClick={handleExportCalendarItems}
+                  disabled={selectedCalendarExportItems.length === 0}
+                  style={{ ...calendarExportPrimaryButtonStyle, opacity: selectedCalendarExportItems.length === 0 ? 0.45 : 1 }}
+                >
+                  累積して書き出し
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </PageShell>
   );
+};
+
+
+const calendarExportOverlayStyle: React.CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  zIndex: 240,
+  background: 'rgba(15,23,42,0.22)',
+  display: 'flex',
+  alignItems: 'flex-end',
+  justifyContent: 'center',
+  padding: '20px 16px calc(20px + env(safe-area-inset-bottom))',
+  backdropFilter: 'blur(10px)',
+  WebkitBackdropFilter: 'blur(10px)',
+};
+
+const calendarExportDialogStyle: React.CSSProperties = {
+  width: '100%',
+  maxWidth: 520,
+  maxHeight: '82vh',
+  overflow: 'hidden',
+  borderRadius: 28,
+  padding: '20px 18px 18px',
+  background: 'rgba(255,255,255,0.90)',
+  border: '1px solid rgba(255,255,255,0.48)',
+  boxShadow: '0 24px 60px rgba(15,23,42,0.24)',
+  backdropFilter: 'blur(22px)',
+  WebkitBackdropFilter: 'blur(22px)',
+};
+
+const calendarExportCloseButtonStyle: React.CSSProperties = {
+  width: 34,
+  height: 34,
+  borderRadius: 999,
+  border: 'none',
+  background: 'rgba(15,23,42,0.06)',
+  color: theme.colors.textSecondary,
+  fontSize: 22,
+  lineHeight: '34px',
+  fontWeight: 800,
+  cursor: 'pointer',
+};
+
+const calendarExportSummaryStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 12,
+  borderRadius: 16,
+  background: 'rgba(83,190,232,0.08)',
+  color: theme.colors.textSecondary,
+  padding: '10px 12px',
+  fontSize: 12,
+  fontWeight: 800,
+};
+
+const calendarExportTextButtonStyle: React.CSSProperties = {
+  border: 'none',
+  background: 'transparent',
+  color: theme.colors.primary,
+  fontSize: 12,
+  fontWeight: 900,
+  cursor: 'pointer',
+  padding: 0,
+  whiteSpace: 'nowrap',
+};
+
+const calendarExportItemStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 12,
+  borderRadius: 18,
+  border: '1px solid rgba(15,23,42,0.05)',
+  background: 'rgba(255,255,255,0.72)',
+  padding: '12px',
+  cursor: 'pointer',
+};
+
+const calendarExportCancelButtonStyle: React.CSSProperties = {
+  border: 'none',
+  borderRadius: 16,
+  background: 'rgba(15,23,42,0.06)',
+  color: theme.colors.textSecondary,
+  padding: '13px 12px',
+  fontSize: 13,
+  fontWeight: 900,
+  cursor: 'pointer',
+};
+
+const calendarExportPrimaryButtonStyle: React.CSSProperties = {
+  border: 'none',
+  borderRadius: 16,
+  background: theme.colors.primary,
+  color: '#fff',
+  padding: '13px 12px',
+  fontSize: 13,
+  fontWeight: 900,
+  cursor: 'pointer',
+  boxShadow: '0 10px 20px rgba(83,190,232,0.24)',
 };
 
 const modeBtnStyle: React.CSSProperties = {
