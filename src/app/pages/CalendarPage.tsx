@@ -16,11 +16,12 @@ import {
 import {
   CALENDAR_EXPORT_FILE_NAME,
   buildCalendarExportCandidates,
+  buildMergedCalendarExportItems,
   clearCalendarExportHistory,
   downloadCalendarIcs,
   getCalendarExportItemTimeLabel,
-  mergeCalendarExportHistory,
   readCalendarExportHistory,
+  saveCalendarExportHistory,
 } from '@/utils/calendarExport';
 
 interface Props {
@@ -158,12 +159,20 @@ export const CalendarPage: React.FC<Props> = ({
     ));
   };
 
-  const handleExportCalendarItems = () => {
+  const handleExportCalendarItems = async () => {
     if (selectedCalendarExportItems.length === 0) return;
-    const mergedItems = mergeCalendarExportHistory(selectedCalendarExportItems);
-    downloadCalendarIcs(mergedItems);
-    setCalendarExportHistoryCount(mergedItems.length);
-    setIsCalendarExportOpen(false);
+    const mergedItems = buildMergedCalendarExportItems(selectedCalendarExportItems);
+
+    try {
+      await downloadCalendarIcs(mergedItems);
+      saveCalendarExportHistory(mergedItems);
+      setCalendarExportHistoryCount(mergedItems.length);
+      setIsCalendarExportOpen(false);
+    } catch (error) {
+      const err = error as { name?: string };
+      if (err?.name === 'AbortError') return;
+      window.alert('カレンダーファイルの作成に失敗しました。もう一度お試しください。');
+    }
   };
 
   const handleClearCalendarExportHistory = () => {

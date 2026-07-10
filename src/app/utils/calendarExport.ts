@@ -283,11 +283,15 @@ export const clearCalendarExportHistory = () => {
   window.localStorage.removeItem(CALENDAR_EXPORT_HISTORY_STORAGE_KEY);
 };
 
-export const mergeCalendarExportHistory = (newItems: CalendarExportItem[]): CalendarExportItem[] => {
+export const buildMergedCalendarExportItems = (newItems: CalendarExportItem[]): CalendarExportItem[] => {
   const map = new Map<string, CalendarExportItem>();
   readCalendarExportHistory().forEach((item) => map.set(item.id, item));
   newItems.forEach((item) => map.set(item.id, item));
-  const merged = Array.from(map.values()).sort((a, b) => a.startAt.localeCompare(b.startAt) || a.title.localeCompare(b.title));
+  return Array.from(map.values()).sort((a, b) => a.startAt.localeCompare(b.startAt) || a.title.localeCompare(b.title));
+};
+
+export const mergeCalendarExportHistory = (newItems: CalendarExportItem[]): CalendarExportItem[] => {
+  const merged = buildMergedCalendarExportItems(newItems);
   saveCalendarExportHistory(merged);
   return merged;
 };
@@ -318,15 +322,43 @@ export const createCalendarIcsText = (items: CalendarExportItem[]): string => {
   return lines.join('\r\n');
 };
 
-export const downloadCalendarIcs = (items: CalendarExportItem[]) => {
+export const downloadCalendarIcs = async (items: CalendarExportItem[]) => {
   const icsText = createCalendarIcsText(items);
   const blob = new Blob([icsText], { type: 'text/calendar;charset=utf-8' });
+
+  // iOS/Safari の PWA では Blob URL を download させると、
+  // 共有先側がファイル本体を読み込む前に参照が切れて「読み込み中」のままになることがあります。
+  // File 共有が使える環境では、実体を持った File として共有シートに渡します。
+  if (typeof navigator !== 'undefined' && typeof File !== 'undefined' && typeof navigator.share === 'function') {
+    const file = new File([blob], CALENDAR_EXPORT_FILE_NAME, { type: 'text/calendar' });
+    const shareData: ShareData = {
+      title: 'FaveArchive Calendar',
+      text: CALENDAR_EXPORT_FILE_NAME,
+      files: [file],
+    };
+
+    if (typeof navigator.canShare !== 'function' || navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch (error) {
+        if ((error as { name?: string })?.name === 'AbortError') throw error;
+        // 共有に失敗した環境では、下の通常ダウンロードへフォールバックします。
+      }
+    }
+  }
+
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = CALENDAR_EXPORT_FILE_NAME;
+  anchor.rel = 'noopener';
+  anchor.style.display = 'none';
   document.body.appendChild(anchor);
   anchor.click();
   document.body.removeChild(anchor);
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+  // すぐ revoke すると、iOS の「ファイルに保存」や共有先アプリが
+  // Blob の読み込みに失敗することがあるため、十分遅らせます。
+  window.setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000);
 };
