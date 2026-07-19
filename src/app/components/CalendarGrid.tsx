@@ -5,12 +5,9 @@ import { theme } from '@/components/common/theme';
 import {
   CalendarMode,
   exhibitionPriorityMap,
-  getConcertDotColor,
-  getAnimeDotColor,
-  getMovieDotColor,
+  getCalendarEventDotColor,
+  getVisibleCalendarEventsForMode,
   getWeekLabels,
-  isConcertType,
-  typeColorMap,
 } from '@/domain/calendarHelpers';
 import { EVENT_PRIORITY, getEffectiveExhibitionStatus } from '@/domain/logic';
 
@@ -266,28 +263,27 @@ export const CalendarGrid: React.FC<Props> = ({
                     {d.day}
                   </div>
 
-                  {(mode === 'concert' || mode === 'movie' || mode === 'anime') && musicEvents.length > 0 && (() => {
-                    const filteredEvents = mode === 'movie'
-                      ? musicEvents.filter((ev) => ev.type === '映画')
-                      : mode === 'anime'
-                        ? musicEvents.filter((ev) => ev.type === 'アニメ')
-                        : musicEvents.filter((ev) => ev.type !== '映画' && ev.type !== 'アニメ');
+                  {(mode === 'all' || mode === 'concert' || mode === 'movie' || mode === 'anime' || mode === 'gacha') && musicEvents.length > 0 && (() => {
+                    const filteredEvents = getVisibleCalendarEventsForMode(musicEvents, mode);
                     if (!filteredEvents.length) return null;
                     const sorted = [...filteredEvents].sort((a, b) => EVENT_PRIORITY[a.type] - EVENT_PRIORITY[b.type]);
-                    const primary = sorted[0];
-                    let primaryDotColor: string | null = null;
-
-                    if (primary) {
-                      if (primary.type === '映画') primaryDotColor = getMovieDotColor(primary.status);
-                      else if (primary.type === 'アニメ') primaryDotColor = getAnimeDotColor(primary.status);
-                      else if (isConcertType(primary.type)) primaryDotColor = getConcertDotColor(primary.status);
-                      else primaryDotColor = typeColorMap[primary.type] || theme.colors.primary;
-                    }
+                    const visibleDots = sorted.slice(0, 3);
 
                     return (
                       <div style={{ marginTop: '6px', height: '6px', display: 'flex', alignItems: 'center', gap: '2px', justifyContent: 'center' }}>
-                        {primaryDotColor && <div style={{ width: '6px', height: '6px', borderRadius: '999px', background: primaryDotColor }} />}
-                        {filteredEvents.length > 1 && <div style={{ width: '4px', height: '4px', borderRadius: '999px', background: '#CBD5E1' }} />}
+                        {visibleDots.map((ev, idx) => (
+                          <div
+                            key={`${ev.type}-${ev.status}-${idx}`}
+                            style={{
+                              width: idx === 0 ? '6px' : '4px',
+                              height: idx === 0 ? '6px' : '4px',
+                              borderRadius: '999px',
+                              background: getCalendarEventDotColor(ev),
+                              opacity: idx === 0 ? 1 : 0.72,
+                            }}
+                          />
+                        ))}
+                        {filteredEvents.length > 3 && <div style={{ width: '4px', height: '4px', borderRadius: '999px', background: '#CBD5E1' }} />}
                       </div>
                     );
                   })()}

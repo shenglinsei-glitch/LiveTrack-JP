@@ -96,7 +96,7 @@ const HomeEntryCard: React.FC<{
   />
 );
 
-const ACTIVE_ANIME_STATUSES: AnimeStatus[] = ['放送前', '視聴予定', '視聴中', '保留'];
+const ACTIVE_ANIME_STATUSES: AnimeStatus[] = ['放送前', '放送中', '視聴予定', '視聴中', '保留'];
 const ACTIVE_MOVIE_STATUSES = ['未上映', '発売前', '抽選中', '上映中', '鑑賞予定'];
 const ACTIVE_EXHIBITION_STATUSES = ['NONE', 'PLANNED', 'RESERVED'];
 const ACTIVE_GACHA_STATUSES: GachaStatus[] = ['発売前', '抽選予定', '抽選済み', '一部売却済み'];
@@ -125,10 +125,14 @@ const getSeasonTitleText = (anime: Anime, season?: Season) => {
 };
 
 const getAnimeDisplayStatus = (anime: Anime, season?: Season): AnimeStatus => {
-  if (season?.status) return season.status;
-  const order: AnimeStatus[] = ['視聴中', '視聴予定', '保留', '放送前', '視聴済み', '視聴中止', '見送り'];
-  const statuses = (anime.seasons || []).map((s) => s.status).filter(Boolean) as AnimeStatus[];
-  return order.find((status) => statuses.includes(status)) || anime.status || '放送前';
+  const rawStatus = season?.status || (() => {
+    const order: AnimeStatus[] = ['視聴中', '視聴予定', '放送中', '保留', '放送前', '視聴済み', '視聴中止', '見送り'];
+    const statuses = (anime.seasons || []).map((s) => s.status).filter(Boolean) as AnimeStatus[];
+    return order.find((status) => statuses.includes(status)) || anime.status || '放送前';
+  })();
+  const startDate = toDateKey(season?.startDate || anime.startDate);
+  if (rawStatus === '放送前' && startDate && !dayjs(startDate).isAfter(dayjs().startOf('day'))) return '放送中';
+  return rawStatus;
 };
 
 const getTodayEventDotColor = (event: TodayEvent): string => {

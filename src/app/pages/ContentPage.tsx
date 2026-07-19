@@ -178,10 +178,12 @@ const formatSearchDate = (value?: string | null) => {
 };
 
 const getAnimeStatus = (anime: Anime): AnimeStatus => {
-  const priority: AnimeStatus[] = ['視聴中', '視聴予定', '保留', '放送前', '視聴済み', '視聴中止', '見送り'];
+  const priority: AnimeStatus[] = ['視聴中', '視聴予定', '放送中', '保留', '放送前', '視聴済み', '視聴中止', '見送り'];
   const statuses = (anime.seasons || []).map((season) => season.status).filter(Boolean) as AnimeStatus[];
-  if (!statuses.length) return anime.status || '放送前';
-  return priority.find((status) => statuses.includes(status)) || anime.status || '放送前';
+  const rawStatus = statuses.length ? priority.find((status) => statuses.includes(status)) || anime.status || '放送前' : anime.status || '放送前';
+  const started = anime.seasons?.some((season) => (season.status || anime.status || '放送前') === '放送前' && dayjs(season.startDate || anime.startDate).isValid() && !dayjs(season.startDate || anime.startDate).startOf('day').isAfter(dayjs().startOf('day')))
+    || (anime.seasons || []).length === 0 && dayjs(anime.startDate).isValid() && !dayjs(anime.startDate).startOf('day').isAfter(dayjs().startOf('day'));
+  return rawStatus === '放送前' && started ? '放送中' : rawStatus;
 };
 
 const getExhibitionStatusLabel = (exhibition: Exhibition) => {

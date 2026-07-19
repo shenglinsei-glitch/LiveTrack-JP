@@ -1,7 +1,8 @@
 
-import { Artist, Concert, Status, TICKET_TRACK_STATUSES, TOUR_ACTIVE_STATUSES, DueAction, CalendarEvent, CalendarEventType, Exhibition, LotteryHistoryItem, Movie, Anime, AnimeStatus } from '@/domain/types';
+import { Artist, Concert, Status, TICKET_TRACK_STATUSES, TOUR_ACTIVE_STATUSES, DueAction, CalendarEvent, CalendarEventType, Exhibition, LotteryHistoryItem, Movie, Anime, AnimeStatus, Gacha } from '@/domain/types';
 import { TEXT } from '@/components/common/constants';
 import { bulkPutImageUrls, bulkGetImageUrls, putImageUrl } from '@/domain/imageStore';
+import { getAnimeStatusColor } from '@/utils/animeStatusHelpers';
 
 /**
  * ===== Date Parsing Rules =====
@@ -134,11 +135,12 @@ const extractDateAndTime = (str: string | null | undefined): { date: string; tim
 const ANIME_STATUS_PRIORITY: Record<AnimeStatus, number> = {
   '視聴中': 1,
   '視聴予定': 2,
-  '放送前': 3,
+  '放送中': 3,
   '保留': 4,
-  '視聴済み': 5,
-  '視聴中止': 6,
-  '見送り': 7,
+  '放送前': 5,
+  '視聴済み': 6,
+  '視聴中止': 7,
+  '見送り': 8,
 };
 
 const weekdayToNumber: Record<string, number> = { '日': 0, '月': 1, '火': 2, '水': 3, '木': 4, '金': 5, '土': 6 };
@@ -146,7 +148,7 @@ const weekdayToNumber: Record<string, number> = { '日': 0, '月': 1, '火': 2, 
 const deriveAnimeStatus = (anime: Anime): AnimeStatus => {
   const statuses = (anime.seasons || []).map((season: any) => season.status).filter(Boolean) as AnimeStatus[];
   if (!statuses.length) return anime.status || '放送前';
-  const order: AnimeStatus[] = ['視聴中', '視聴予定', '保留', '放送前', '視聴済み', '視聴中止', '見送り'];
+  const order: AnimeStatus[] = ['視聴中', '視聴予定', '放送中', '保留', '放送前', '視聴済み', '視聴中止', '見送り'];
   return order.find((status) => statuses.includes(status)) || anime.status || '放送前';
 };
 
@@ -169,18 +171,7 @@ const getBroadcastWeekdayFromStart = (startDate?: string): string => {
   return labels[d.getDay()] || '';
 };
 
-export const getAnimeDotColor = (status: string): string => {
-  switch (status) {
-    case '放送前': return '#2AC69E';
-    case '視聴予定': return '#53BEE8';
-    case '視聴中': return '#53BEE8';
-    case '視聴済み': return '#A6DFF7';
-    case '保留': return '#F59E0B';
-    case '視聴中止': return '#9CA3AF';
-    case '見送り': return '#9CA3AF';
-    default: return '#9CA3AF';
-  }
-};
+export const getAnimeDotColor = (status: string): string => getAnimeStatusColor(status);
 
 export const getAnimeNextBroadcastDate = (anime: Anime, now: Date = new Date()): string => {
   const seasons = anime.seasons || [];
@@ -208,11 +199,11 @@ export const getAnimeNextBroadcastDate = (anime: Anime, now: Date = new Date()):
 
   const status = activeSeason?.status || deriveAnimeStatus(anime);
   if (status === '視聴済み' || status === '視聴中止') return endDate || anime.updatedAt || anime.createdAt || '';
-  if (status === '視聴中' || status === '視聴予定') return startDate || endDate || anime.updatedAt || '';
+  if (status === '視聴中' || status === '視聴予定' || status === '放送中') return startDate || endDate || anime.updatedAt || '';
   return startDate || anime.createdAt || '';
 };
 
-export const buildCalendarEvents = (artists: Artist[], settings: { showAttended: boolean; showSkipped: boolean }, movies: Movie[] = [], animes: Anime[] = []): CalendarEvent[] => {
+export const buildCalendarEvents = (artists: Artist[], settings: { showAttended: boolean; showSkipped: boolean }, movies: Movie[] = [], animes: Anime[] = [], gachas: Gacha[] = []): CalendarEvent[] => {
   const events: CalendarEvent[] = [];
 
   artists.forEach(artist => {
@@ -290,6 +281,8 @@ export const buildCalendarEvents = (artists: Artist[], settings: { showAttended:
 
   (movies || []).forEach(movie => {
     const resolvedStatus = autoAdvanceMovieStatus(movie);
+    if (!settings.showAttended && resolvedStatus.status === '鑑賞済み') return;
+    if (!settings.showSkipped && resolvedStatus.status === '見送り') return;
 
     let info: { date: string; time?: string } | null = null;
 
@@ -343,7 +336,17 @@ export const buildCalendarEvents = (artists: Artist[], settings: { showAttended:
       const end = normalizeCalendarDateKey(season.endDate || anime.endDate);
       const weekday = getBroadcastWeekdayFromStart(season.startDate || anime.startDate) || season.broadcastWeekday || anime.broadcastWeekday || '';
       const time = season.broadcastTime || anime.broadcastTime || '';
-      const status = season.status || deriveAnimeStatus(anime);
+      const rawStatus = season.status || deriveAnimeStatus(anime);
+      const startReached = !!start && (() => {
+        const startDate = parseConcertDate(start, 'NORMAL');
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        startDate?.setHours(0, 0, 0, 0);
+        return !!startDate && today >= startDate;
+      })();
+      const status: AnimeStatus = rawStatus === '放送前' && startReached ? '放送中' : rawStatus;
+      if (!settings.showAttended && status === '視聴済み') return;
+      if (!settings.showSkipped && (status === '見送り' || status === '視聴中止')) return;
       const baseTitle = getSeasonDisplayTitle(anime, season);
 
       const pushAnimeEvent = (dateKey: string, titleSuffix: string, timeLabel?: string) => {
@@ -389,6 +392,41 @@ export const buildCalendarEvents = (artists: Artist[], settings: { showAttended:
         }
       }
     });
+  });
+
+  (gachas || []).forEach(gacha => {
+    const isSkipped = gacha.status === '見送り';
+    if (!settings.showSkipped && isSkipped) return;
+
+    const releaseInfo = extractDateAndTime(gacha.releaseDate);
+    if (releaseInfo) {
+      events.push({
+        dateKey: releaseInfo.date,
+        timeLabel: releaseInfo.time,
+        type: 'ガチャ',
+        artistId: '',
+        tourId: '',
+        concertId: '',
+        gachaId: gacha.id,
+        title: gacha.name,
+        status: isSkipped ? '見送り' : '発売日',
+      });
+    }
+
+    const drawInfo = extractDateAndTime(gacha.drawDateTime);
+    if (drawInfo && (drawInfo.date !== releaseInfo?.date || drawInfo.time)) {
+      events.push({
+        dateKey: drawInfo.date,
+        timeLabel: drawInfo.time,
+        type: 'ガチャ',
+        artistId: '',
+        tourId: '',
+        concertId: '',
+        gachaId: gacha.id,
+        title: gacha.name,
+        status: isSkipped ? '見送り' : '抽選予定',
+      });
+    }
   });
 
   return events;

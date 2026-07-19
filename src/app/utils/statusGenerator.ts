@@ -2,7 +2,7 @@ import { Artist, StatusItem, Exhibition, Movie, Anime, AnimeStatus, Season } fro
 import { parseConcertDate, getEffectiveExhibitionStatus } from '@/domain/logic';
 import dayjs from 'dayjs';
 
-const ANIME_STATUS_PRIORITY: AnimeStatus[] = ['視聴中', '視聴予定', '保留', '放送前', '視聴済み', '視聴中止', '見送り'];
+const ANIME_STATUS_PRIORITY: AnimeStatus[] = ['視聴中', '視聴予定', '放送中', '保留', '放送前', '視聴済み', '視聴中止', '見送り'];
 const WEEKDAY_TO_NUMBER: Record<string, number> = { '日': 0, '月': 1, '火': 2, '水': 3, '木': 4, '金': 5, '土': 6 };
 const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
 
@@ -72,6 +72,7 @@ const isDateReached = (value?: string, now: Date = new Date()) => {
   const date = parseConcertDate(key, 'NORMAL');
   if (!date) return false;
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  date.setHours(0, 0, 0, 0);
   return today >= date;
 };
 
@@ -81,7 +82,7 @@ const classifyAnimeSeason = (anime: Anime, season?: Season, now: Date = new Date
   const watchDecision = (season as any)?.watchDecision || (anime as any)?.watchDecision;
   if (status === '視聴済み' || status === '視聴中止' || status === '見送り') return 'history';
   if (status === '放送前' && !isDateReached(startDate, now)) return 'upcoming';
-  if (status === '放送前') return 'pending';
+  if (status === '放送前' || status === '放送中') return 'pending';
   if (status === '視聴予定') return 'pending';
   if (status === '視聴中') {
     const nextDate = getSeasonNextBroadcastDate(anime, season, now);
@@ -203,6 +204,7 @@ export function generateStatusItems(artists: Artist[], exhibitions: Exhibition[]
       const totalEpisodes = season.totalEpisodes || season.episodes?.length || anime.totalEpisodes || 0;
       const watchedEpisodes = (season.episodes || []).filter((episode) => !!episode.watchedDate).length;
       const statusSection = classifyAnimeSeason(anime, season, now);
+      const displayStatus: AnimeStatus = status === '放送前' && statusSection === 'pending' ? '放送中' : status;
       const startDate = season.startDate || anime.startDate || '';
       const broadcastWeekday = getStartDatePlusOneWeekday(startDate) || season.broadcastWeekday || anime.broadcastWeekday || '';
 
@@ -212,9 +214,9 @@ export function generateStatusItems(artists: Artist[], exhibitions: Exhibition[]
         parentId: anime.id,
         title: getSeasonDisplayTitle(anime, season),
         date: statusSection === 'upcoming' ? startDate : nextDate || startDate || anime.updatedAt || '',
-        status,
+        status: displayStatus,
         actionType: 'anime_update',
-        displayStatus: status,
+        displayStatus,
         raw: {
           ...anime,
           status: overallStatus,
@@ -222,6 +224,7 @@ export function generateStatusItems(artists: Artist[], exhibitions: Exhibition[]
           seasonIndex: index,
           season,
           seasonStatus: status,
+          effectiveSeasonStatus: displayStatus,
           statusSection,
           nextBroadcastAt: nextDate,
           totalEpisodes,

@@ -7,6 +7,7 @@ export const asArray = <T,>(value: T[] | undefined | null): T[] => Array.isArray
 export const getAnimeStatusColor = (status?: string) => {
   switch (status) {
     case '放送前': return theme.colors.status['発売前'];
+    case '放送中': return theme.colors.status['抽選中'];
     case '視聴予定': return theme.colors.status['参戦予定'];
     case '視聴中': return theme.colors.primary;
     case '視聴済み': return theme.colors.status['参戦済み'];
@@ -32,12 +33,27 @@ export const openExternalUrl = (url?: string) => {
   window.open(value.startsWith('http') ? value : `https://${value}`, '_blank', 'noopener,noreferrer');
 };
 
-const ANIME_STATUS_PRIORITY: AnimeStatus[] = ['視聴中', '視聴予定', '保留', '放送前', '視聴済み', '視聴中止', '見送り'];
+export const ANIME_STATUS_PRIORITY: AnimeStatus[] = ['視聴中', '視聴予定', '放送中', '保留', '放送前', '視聴済み', '視聴中止', '見送り'];
 
-export const deriveAnimeStatus = (anime: Pick<Anime, 'status' | 'seasons'>): AnimeStatus => {
-  const statuses = asArray(anime.seasons).map((s) => s.status).filter(Boolean) as AnimeStatus[];
-  if (!statuses.length) return anime.status || '放送前';
-  return ANIME_STATUS_PRIORITY.find((status) => statuses.includes(status)) || anime.status || '放送前';
+const isAnimeDateReached = (date?: string) => {
+  if (!date) return false;
+  const d = dayjs(date);
+  return d.isValid() && !d.startOf('day').isAfter(dayjs().startOf('day'));
+};
+
+export const deriveAnimeStatus = (anime: Pick<Anime, 'status' | 'seasons'> & { startDate?: string }): AnimeStatus => {
+  const seasons = asArray(anime.seasons);
+  const statuses = seasons.map((s) => s.status).filter(Boolean) as AnimeStatus[];
+  const rawStatus = statuses.length
+    ? ANIME_STATUS_PRIORITY.find((status) => statuses.includes(status)) || anime.status || '放送前'
+    : anime.status || '放送前';
+
+  if (rawStatus === '放送前') {
+    const hasStartedSeason = seasons.some((season) => (season.status || anime.status || '放送前') === '放送前' && isAnimeDateReached(season.startDate || anime.startDate));
+    if (hasStartedSeason || (!seasons.length && isAnimeDateReached(anime.startDate))) return '放送中';
+  }
+
+  return rawStatus;
 };
 
 export const getNextDayWeekday = (date?: string): AnimeBroadcastWeekday => {

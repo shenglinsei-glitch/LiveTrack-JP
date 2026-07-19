@@ -384,7 +384,7 @@ export const StatusPage: React.FC<Props> = ({
   };
 
   const deriveOverallAnimeStatus = (seasons: Season[] = [], fallback: AnimeStatus = '放送前'): AnimeStatus => {
-    const order: AnimeStatus[] = ['視聴中', '視聴予定', '保留', '放送前', '視聴済み', '視聴中止', '見送り'];
+    const order: AnimeStatus[] = ['視聴中', '視聴予定', '放送中', '保留', '放送前', '視聴済み', '視聴中止', '見送り'];
     const statuses = seasons.map((season) => season.status).filter(Boolean) as AnimeStatus[];
     if (!statuses.length) return fallback;
     return order.find((status) => statuses.includes(status)) || fallback;
@@ -418,8 +418,9 @@ export const StatusPage: React.FC<Props> = ({
     }
   };
 
-  const renderAnimeActions = (raw: Anime & { seasonStatus?: AnimeStatus; seasonId?: string; seasonIndex?: number; season?: Season; statusSection?: string }) => {
+  const renderAnimeActions = (raw: Anime & { seasonStatus?: AnimeStatus; effectiveSeasonStatus?: AnimeStatus; seasonId?: string; seasonIndex?: number; season?: Season; statusSection?: string }) => {
     const seasonStatus = raw.seasonStatus || raw.season?.status || raw.status || '放送前';
+    const effectiveStatus = raw.effectiveSeasonStatus || seasonStatus;
     const button = (label: string, onClick: () => void, primary = false) => (
       <button
         style={primary ? actionPrimaryBtn : actionGhostBtn}
@@ -432,9 +433,10 @@ export const StatusPage: React.FC<Props> = ({
       </button>
     );
 
-    if (seasonStatus === '放送前' && raw.statusSection === 'pending') {
+    if (effectiveStatus === '放送中') {
       return <>
-        {button('視聴', () => updateAnimeSeason(raw, { status: '視聴予定', watchDecision: 'WILL_WATCH' } as any), true)}
+        {button('視聴開始', () => updateAnimeSeason(raw, { status: '視聴中', watchDecision: 'WILL_WATCH' } as any), true)}
+        {button('保留', () => updateAnimeSeason(raw, { status: '保留', watchDecision: 'WILL_WATCH' } as any))}
         {button('見送り', () => updateAnimeSeason(raw, { status: '見送り', watchDecision: 'SKIPPED' } as any))}
       </>;
     }
@@ -497,8 +499,8 @@ export const StatusPage: React.FC<Props> = ({
       );
     }
     if (item.type === 'anime') {
-      const raw = item.raw as Anime & { nextBroadcastAt?: string; totalEpisodes?: number; watchedEpisodes?: number; seasonStatus?: AnimeStatus; seasonId?: string; seasonIndex?: number; season?: Season; statusSection?: string };
-      const color = getAnimeDotColor(raw.seasonStatus || item.status);
+      const raw = item.raw as Anime & { nextBroadcastAt?: string; totalEpisodes?: number; watchedEpisodes?: number; seasonStatus?: AnimeStatus; effectiveSeasonStatus?: AnimeStatus; seasonId?: string; seasonIndex?: number; season?: Season; statusSection?: string };
+      const color = getAnimeDotColor(raw.effectiveSeasonStatus || item.displayStatus || raw.seasonStatus || item.status);
       const total = raw.totalEpisodes || 0;
       const watched = raw.watchedEpisodes || 0;
       const actions = renderAnimeActions(raw);

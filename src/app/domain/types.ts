@@ -40,6 +40,7 @@ export interface CalendarEvent {
   title: string;          // Artist Name + Tour Name
   status: string;
   movieId?: string;
+  exhibitionId?: string;
   animeId?: string;
   seasonId?: string;
   gachaId?: string;
@@ -281,7 +282,7 @@ export interface Actor {
 // --- Anime Types ---
 export type OriginalType = '漫画' | '小説' | 'オリジナル' | 'その他';
 
-export type AnimeStatus = '放送前' | '視聴予定' | '視聴中' | '保留' | '視聴済み' | '視聴中止' | '見送り';
+export type AnimeStatus = '放送前' | '放送中' | '視聴予定' | '視聴中' | '保留' | '視聴済み' | '視聴中止' | '見送り';
 export type AnimeBroadcastWeekday = '' | '日' | '月' | '火' | '水' | '木' | '金' | '土';
 
 export interface OpeningSong {

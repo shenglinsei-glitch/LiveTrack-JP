@@ -2,16 +2,19 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { PageShell } from '@/components/common/PageShell';
 import { theme } from '@/components/common/theme';
 import { TEXT } from '@/components/common/constants';
-import { Artist, CalendarEvent, Exhibition, Movie, Anime } from '@/domain/types';
-import { buildCalendarEvents } from '@/domain/logic';
+import { Artist, CalendarEvent, Exhibition, Movie, Anime, Gacha } from '@/domain/types';
+import { EVENT_PRIORITY, buildCalendarEvents } from '@/domain/logic';
 import { CalendarGrid } from '@/components/CalendarGrid';
 import { CalendarEventList } from '@/components/CalendarEventList';
 import {
   CalendarMode,
   buildCalendarWeeks,
+  buildExhibitionMilestoneEvents,
   buildMusicEventMap,
   getSelectedDayEvents,
+  getVisibleCalendarEventsForMode,
   getTodayKey,
+  isNonParticipatingCalendarEvent,
 } from '@/domain/calendarHelpers';
 import {
   CALENDAR_EXPORT_FILE_NAME,
@@ -29,11 +32,13 @@ interface Props {
   exhibitions: Exhibition[];
   movies: Movie[];
   animes: Anime[];
+  gachas: Gacha[];
   onOpenArtist: (artistId: string) => void;
   onOpenConcert: (artistId: string, tourId: string, concertId: string) => void;
   onOpenExhibition: (exhibitionId: string) => void;
   onOpenMovie: (movieId: string) => void;
   onOpenAnime: (animeId: string) => void;
+  onOpenGacha: (gachaId: string) => void;
   onRefreshAll: () => void;
   isMenuOpenExternally?: boolean;
   onMenuClose?: () => void;
@@ -44,11 +49,13 @@ export const CalendarPage: React.FC<Props> = ({
   exhibitions,
   movies,
   animes,
+  gachas,
   onOpenArtist,
   onOpenConcert,
   onOpenExhibition,
   onOpenMovie,
   onOpenAnime,
+  onOpenGacha,
   onRefreshAll,
   isMenuOpenExternally,
   onMenuClose,
@@ -60,7 +67,7 @@ export const CalendarPage: React.FC<Props> = ({
   const [showAttended, setShowAttended] = useState(true);
   const [showSkipped, setShowSkipped] = useState(true);
 
-  const [mode, setMode] = useState<CalendarMode>('concert');
+  const [mode, setMode] = useState<CalendarMode>('all');
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
 
   const [isToolsOpen, setIsToolsOpen] = useState(false);
@@ -75,9 +82,13 @@ export const CalendarPage: React.FC<Props> = ({
     setSelectedDateKey(null);
   }, [currentDate.getFullYear(), currentDate.getMonth(), mode]);
 
-  const allEvents = useMemo(() => buildCalendarEvents(artists, { showAttended, showSkipped }, movies, animes), [artists, showAttended, showSkipped, movies, animes]);
+  const allEvents = useMemo(() => buildCalendarEvents(artists, { showAttended, showSkipped }, movies, animes, gachas), [artists, showAttended, showSkipped, movies, animes, gachas]);
 
-  const musicEventMap = useMemo(() => buildMusicEventMap(allEvents), [allEvents]);
+  const exhibitionMilestoneEvents = useMemo(() => buildExhibitionMilestoneEvents(exhibitions, { showAttended, showSkipped }), [exhibitions, showAttended, showSkipped]);
+
+  const calendarEvents = useMemo(() => (mode === 'all' ? [...allEvents, ...exhibitionMilestoneEvents] : allEvents), [allEvents, exhibitionMilestoneEvents, mode]);
+
+  const musicEventMap = useMemo(() => buildMusicEventMap(calendarEvents), [calendarEvents]);
 
   const calendarWeeks = useMemo(() => buildCalendarWeeks(currentDate, weekStart), [currentDate, weekStart]);
 
@@ -121,15 +132,28 @@ export const CalendarPage: React.FC<Props> = ({
 
   const selectedDayEvents = useMemo(() => getSelectedDayEvents(selectedDateKey, mode, musicEventMap, exhibitions), [selectedDateKey, mode, musicEventMap, exhibitions]);
 
+  const selectedExhibitionsForExport = useMemo(() => {
+    if (mode === 'exhibition') return selectedDayEvents as Exhibition[];
+    if (mode !== 'all') return [];
+
+    const visitPlannedIds = new Set(
+      (selectedDayEvents as CalendarEvent[])
+        .filter((ev) => ev.type === '展覧' && ev.status === '鑑賞予定' && ev.exhibitionId)
+        .map((ev) => ev.exhibitionId as string)
+    );
+
+    return exhibitions.filter((exhibition) => visitPlannedIds.has(exhibition.id));
+  }, [exhibitions, mode, selectedDayEvents]);
+
   const calendarExportCandidates = useMemo(
     () => buildCalendarExportCandidates({
       dateKey: selectedDateKey,
       mode,
       artists,
       movies,
-      selectedExhibitions: mode === 'exhibition' ? (selectedDayEvents as Exhibition[]) : [],
+      selectedExhibitions: selectedExhibitionsForExport,
     }),
-    [artists, mode, movies, selectedDateKey, selectedDayEvents]
+    [artists, mode, movies, selectedDateKey, selectedExhibitionsForExport]
   );
 
   const selectedCalendarExportItems = useMemo(
@@ -182,6 +206,77 @@ export const CalendarPage: React.FC<Props> = ({
 
   const monthInputValue = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
 
+  const upcomingEndKey = useMemo(() => {
+    const [year, month, day] = todayKey.split('-').map(Number);
+    const end = new Date(year, month - 1, day + 15);
+    return `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
+  }, [todayKey]);
+
+  const monthEvents = useMemo(() => {
+    const sortCalendarEvents = (events: CalendarEvent[]) => [...events].sort((a, b) => {
+      const dateCmp = a.dateKey.localeCompare(b.dateKey);
+      if (dateCmp !== 0) return dateCmp;
+      if (a.timeLabel && !b.timeLabel) return -1;
+      if (!a.timeLabel && b.timeLabel) return 1;
+      if (a.timeLabel && b.timeLabel) {
+        const timeCmp = a.timeLabel.localeCompare(b.timeLabel);
+        if (timeCmp !== 0) return timeCmp;
+      }
+      const priorityCmp = EVENT_PRIORITY[a.type] - EVENT_PRIORITY[b.type];
+      if (priorityCmp !== 0) return priorityCmp;
+      return a.title.localeCompare(b.title, 'ja');
+    });
+
+    const upcomingEvents = sortCalendarEvents(
+      getVisibleCalendarEventsForMode(calendarEvents, mode)
+        .filter((ev) => ev.dateKey >= todayKey)
+        .filter((ev) => !isNonParticipatingCalendarEvent(ev))
+    );
+    const next15DaysEvents = upcomingEvents.filter((ev) => ev.dateKey <= upcomingEndKey);
+    if (next15DaysEvents.length > 0) return next15DaysEvents;
+
+    const nextEventDateKey = upcomingEvents[0]?.dateKey;
+    return nextEventDateKey ? upcomingEvents.filter((ev) => ev.dateKey === nextEventDateKey) : [];
+  }, [calendarEvents, mode, todayKey, upcomingEndKey]);
+
+  const monthExhibitions = useMemo(() => {
+    const toDateKey = (raw: string | null | undefined): string | null => {
+      if (!raw) return null;
+      const match = String(raw).match(/(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
+      if (!match) return null;
+      const [, y, m, d] = match;
+      return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    };
+
+    const sortExhibitions = (items: Exhibition[]) => [...items].sort((a, b) => {
+      const startCmp = (toDateKey(a.startDate) || '').localeCompare(toDateKey(b.startDate) || '');
+      if (startCmp !== 0) return startCmp;
+      const endCmp = (toDateKey(a.endDate) || '').localeCompare(toDateKey(b.endDate) || '');
+      if (endCmp !== 0) return endCmp;
+      return a.title.localeCompare(b.title, 'ja');
+    });
+
+    const activeOrNext15Days = exhibitions.filter((exhibition) => {
+      const start = toDateKey(exhibition.startDate);
+      const end = toDateKey(exhibition.endDate);
+      if (!start || !end) return false;
+      return end >= todayKey && start <= upcomingEndKey;
+    });
+    if (activeOrNext15Days.length > 0) return sortExhibitions(activeOrNext15Days);
+
+    const futureExhibitions = sortExhibitions(exhibitions.filter((exhibition) => {
+      const start = toDateKey(exhibition.startDate);
+      const end = toDateKey(exhibition.endDate);
+      if (!start || !end) return false;
+      return end >= todayKey;
+    }));
+
+    const nextExhibitionStartKey = futureExhibitions[0] ? toDateKey(futureExhibitions[0].startDate) : null;
+    return nextExhibitionStartKey
+      ? futureExhibitions.filter((exhibition) => toDateKey(exhibition.startDate) === nextExhibitionStartKey)
+      : [];
+  }, [exhibitions, todayKey, upcomingEndKey]);
+
   const handleNativeMonthChange = (value: string) => {
     const match = value.match(/^(\d{4})-(\d{2})$/);
     if (!match) return;
@@ -211,7 +306,7 @@ export const CalendarPage: React.FC<Props> = ({
                 gap: 8,
               }}
             >
-              <span>{mode === 'concert' ? '公演' : mode === 'exhibition' ? '展覧' : mode === 'movie' ? '映画' : 'アニメ'}</span>
+              <span>{mode === 'all' ? 'すべて' : mode === 'concert' ? '公演' : mode === 'exhibition' ? '展覧' : mode === 'movie' ? '映画' : mode === 'anime' ? 'アニメ' : 'ガチャ'}</span>
               <span style={{ fontSize: 10, opacity: 0.45 }}>▼</span>
             </button>
             {isModeMenuOpen && (
@@ -219,10 +314,12 @@ export const CalendarPage: React.FC<Props> = ({
                 <div style={{ position: 'fixed', inset: 0, zIndex: 119 }} onClick={() => setIsModeMenuOpen(false)} />
                 <div style={{ position: 'absolute', left: 0, top: 48, zIndex: 120, minWidth: 140, background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', border: '1px solid rgba(15,23,42,0.06)', borderRadius: 20, boxShadow: '0 18px 44px -18px rgba(15,23,42,0.18)', padding: 8 }}>
                   {[
+                    { key: 'all', label: 'すべて' },
                     { key: 'concert', label: '公演' },
                     { key: 'exhibition', label: '展覧' },
                     { key: 'movie', label: '映画' },
                     { key: 'anime', label: 'アニメ' },
+                    { key: 'gacha', label: 'ガチャ' },
                   ].map((item) => (
                     <button key={item.key} onClick={() => { setMode(item.key as CalendarMode); setIsModeMenuOpen(false); }} style={{ width: '100%', border: 'none', background: mode === item.key ? 'rgba(83,190,232,0.12)' : 'transparent', color: mode === item.key ? theme.colors.primary : theme.colors.text, borderRadius: 14, padding: '10px 12px', textAlign: 'left', fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>{item.label}</button>
                   ))}
@@ -311,11 +408,14 @@ export const CalendarPage: React.FC<Props> = ({
           selectedDateKey={selectedDateKey}
           mode={mode}
           selectedDayEvents={selectedDayEvents}
+          monthEvents={monthEvents}
+          monthExhibitions={monthExhibitions}
           canExportToSystemCalendar={calendarExportCandidates.length > 0}
           onOpenCalendarExport={handleOpenCalendarExport}
           onOpenMovie={onOpenMovie}
           onOpenAnime={onOpenAnime}
           onOpenExhibition={onOpenExhibition}
+          onOpenGacha={onOpenGacha}
           onOpenArtistEvent={handleEventClick}
         />
 

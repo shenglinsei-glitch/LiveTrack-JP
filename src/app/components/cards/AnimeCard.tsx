@@ -1,9 +1,9 @@
 import React from 'react';
 import dayjs from 'dayjs';
-import { Anime, AnimeStatus, Season } from '@/domain/types';
+import { Anime, Season } from '@/domain/types';
 import { PosterCard } from '@/components/common/PosterCard';
 import { StatusBadge } from '@/components/common/StatusBadge';
-import { theme } from '@/components/common/theme';
+import { deriveAnimeStatus, getAnimeStatusColor } from '@/utils/animeStatusHelpers';
 
 interface AnimeCardProps {
   anime: Anime;
@@ -13,27 +13,6 @@ interface AnimeCardProps {
 const fmtDate = (date?: string) => (date ? dayjs(date).format('YYYY/MM/DD') : '未設定');
 
 const WEEK = ['日', '月', '火', '水', '木', '金', '土'];
-const ANIME_STATUS_PRIORITY: AnimeStatus[] = ['視聴中', '視聴予定', '保留', '放送前', '視聴済み', '視聴中止', '見送り'];
-
-const deriveAnimeStatus = (anime: Anime): AnimeStatus => {
-  const statuses = (anime.seasons || []).map((season) => season.status).filter(Boolean) as AnimeStatus[];
-  if (!statuses.length) return anime.status || '放送前';
-  return ANIME_STATUS_PRIORITY.find((status) => statuses.includes(status)) || anime.status || '放送前';
-};
-
-const getAnimeStatusColor = (status: AnimeStatus): string => {
-  switch (status) {
-    case '放送前': return theme.colors.status['発売前'];
-    case '視聴予定': return theme.colors.status['参戦予定'];
-    case '視聴中': return theme.colors.primary;
-    case '保留': return theme.colors.status['検討中'];
-    case '視聴済み': return theme.colors.status['参戦済み'];
-    case '視聴中止': return theme.colors.textWeak;
-    case '見送り': return theme.colors.status['見送'];
-    default: return theme.colors.textWeak;
-  }
-};
-
 const getCurrentWatchingSeason = (anime: Anime): Season | undefined =>
   (anime.seasons || []).find((season) => season.status === '視聴中');
 

@@ -1,10 +1,11 @@
 import React, { useMemo, useRef, useState } from 'react';
 import dayjs from 'dayjs';
-import { Anime, AnimeStatus } from '@/domain/types';
+import { Anime } from '@/domain/types';
 import { PageShell } from '@/components/common/PageShell';
 import { GlassCard } from '@/components/common/GlassCard';
 import { theme } from '@/components/common/theme';
 import { AnimeCard } from '@/components/cards/AnimeCard';
+import { ANIME_STATUS_PRIORITY, deriveAnimeStatus } from '@/utils/animeStatusHelpers';
 
 interface AnimesPageProps {
   animes: Anime[];
@@ -19,13 +20,6 @@ interface AnimesPageProps {
 
 type AnimeSortKey = 'date_asc' | 'date_desc' | 'title' | 'rating' | 'status';
 
-const ANIME_STATUS_PRIORITY: AnimeStatus[] = ['視聴中', '視聴予定', '保留', '放送前', '視聴済み', '視聴中止', '見送り'];
-
-const deriveAnimeStatus = (anime: Anime): AnimeStatus => {
-  const statuses = (anime.seasons || []).map((season) => season.status).filter(Boolean) as AnimeStatus[];
-  if (!statuses.length) return anime.status || '放送前';
-  return ANIME_STATUS_PRIORITY.find((status) => statuses.includes(status)) || anime.status || '放送前';
-};
 
 
 export const AnimesPage: React.FC<AnimesPageProps> = ({ animes, onOpenDetail, onExport, onImport, isMenuOpenExternally, onMenuClose, hideHeader = false, menuOnly = false }) => {

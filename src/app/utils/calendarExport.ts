@@ -1,6 +1,6 @@
 import { Artist, Exhibition, Movie } from '@/domain/types';
 
-export type CalendarExportMode = 'concert' | 'exhibition' | 'movie' | 'anime';
+export type CalendarExportMode = 'all' | 'concert' | 'exhibition' | 'movie' | 'anime' | 'gacha';
 
 export interface CalendarExportItem {
   id: string;
@@ -131,7 +131,7 @@ export const buildCalendarExportCandidates = (params: {
 
   const items: CalendarExportItem[] = [];
 
-  if (mode === 'concert') {
+  if (mode === 'concert' || mode === 'all') {
     artists.forEach((artist) => {
       (artist.tours || []).forEach((tour) => {
         (tour.concerts || []).forEach((concert) => {
@@ -185,7 +185,7 @@ export const buildCalendarExportCandidates = (params: {
     });
   }
 
-  if (mode === 'movie') {
+  if (mode === 'movie' || mode === 'all') {
     movies.forEach((movie) => {
       const location = [movie.theaterName, movie.screenName].filter(Boolean).join(' ');
 
@@ -237,7 +237,7 @@ export const buildCalendarExportCandidates = (params: {
     });
   }
 
-  if (mode === 'exhibition') {
+  if (mode === 'exhibition' || mode === 'all') {
     selectedExhibitions.forEach((exhibition) => {
       const item = makeItem({
         id: `exhibition-visit-${exhibition.id}-${dateKey}`,

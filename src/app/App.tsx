@@ -797,11 +797,13 @@ export default function App() {
             exhibitions={exhibitions}
             movies={movies}
             animes={animes}
+            gachas={gachas}
             onOpenArtist={(id) => navigateToArtistDetail(id, 'CALENDAR')}
             onOpenConcert={(aid, tid, cid) => navigateToConcertHome(aid, tid, cid, 'CALENDAR')}
             onOpenExhibition={(id) => navigateToExhibitionDetail(id)}
             onOpenMovie={(id) => navigateToMovieDetail(id)}
             onOpenAnime={(id) => navigateToAnimeDetail(id)}
+            onOpenGacha={(id) => navigateToGachaDetail(id)}
             onRefreshAll={handleRefreshAll}
             isMenuOpenExternally={isCalendarMenuOpen}
             onMenuClose={() => setIsCalendarMenuOpen(false)}
